@@ -12,7 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAttendanceRouteImport } from './routes/app.attendance'
+import { Route as AppClassesRouteImport } from './routes/app.classes'
+import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppTeachersRouteImport } from './routes/app.teachers'
+import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
 import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
 
@@ -31,9 +35,29 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAttendanceRoute = AppAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClassesRoute = AppClassesRouteImport.update({
+  id: '/classes',
+  path: '/classes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubjectsRoute = AppSubjectsRouteImport.update({
+  id: '/subjects',
+  path: '/subjects',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTeachersRoute = AppTeachersRouteImport.update({
   id: '/teachers',
   path: '/teachers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTimetableRoute = AppTimetableRouteImport.update({
+  id: '/timetable',
+  path: '/timetable',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
@@ -50,14 +74,22 @@ const AppStudentsStudentIdRoute = AppStudentsStudentIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/attendance': typeof AppAttendanceRoute
+  '/app/classes': typeof AppClassesRoute
+  '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
+  '/app/timetable': typeof AppTimetableRoute
   '/app/': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/students/': typeof AppStudentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/attendance': typeof AppAttendanceRoute
+  '/app/classes': typeof AppClassesRoute
+  '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
+  '/app/timetable': typeof AppTimetableRoute
   '/app': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/students': typeof AppStudentsIndexRoute
@@ -66,7 +98,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/attendance': typeof AppAttendanceRoute
+  '/app/classes': typeof AppClassesRoute
+  '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
+  '/app/timetable': typeof AppTimetableRoute
   '/app/': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/students/': typeof AppStudentsIndexRoute
@@ -76,14 +112,22 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/app/attendance'
+    | '/app/classes'
+    | '/app/subjects'
     | '/app/teachers'
+    | '/app/timetable'
     | '/app/'
     | '/app/students/$studentId'
     | '/app/students/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app/attendance'
+    | '/app/classes'
+    | '/app/subjects'
     | '/app/teachers'
+    | '/app/timetable'
     | '/app'
     | '/app/students/$studentId'
     | '/app/students'
@@ -91,7 +135,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/app/attendance'
+    | '/app/classes'
+    | '/app/subjects'
     | '/app/teachers'
+    | '/app/timetable'
     | '/app/'
     | '/app/students/$studentId'
     | '/app/students/'
@@ -125,11 +173,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/attendance': {
+      id: '/app/attendance'
+      path: '/attendance'
+      fullPath: '/app/attendance'
+      preLoaderRoute: typeof AppAttendanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/classes': {
+      id: '/app/classes'
+      path: '/classes'
+      fullPath: '/app/classes'
+      preLoaderRoute: typeof AppClassesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/subjects': {
+      id: '/app/subjects'
+      path: '/subjects'
+      fullPath: '/app/subjects'
+      preLoaderRoute: typeof AppSubjectsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/teachers': {
       id: '/app/teachers'
       path: '/teachers'
       fullPath: '/app/teachers'
       preLoaderRoute: typeof AppTeachersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/timetable': {
+      id: '/app/timetable'
+      path: '/timetable'
+      fullPath: '/app/timetable'
+      preLoaderRoute: typeof AppTimetableRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/students/': {
@@ -150,14 +226,22 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAttendanceRoute: typeof AppAttendanceRoute
+  AppClassesRoute: typeof AppClassesRoute
+  AppSubjectsRoute: typeof AppSubjectsRoute
   AppTeachersRoute: typeof AppTeachersRoute
+  AppTimetableRoute: typeof AppTimetableRoute
   AppIndexRoute: typeof AppIndexRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
   AppStudentsIndexRoute: typeof AppStudentsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAttendanceRoute: AppAttendanceRoute,
+  AppClassesRoute: AppClassesRoute,
+  AppSubjectsRoute: AppSubjectsRoute,
   AppTeachersRoute: AppTeachersRoute,
+  AppTimetableRoute: AppTimetableRoute,
   AppIndexRoute: AppIndexRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
   AppStudentsIndexRoute: AppStudentsIndexRoute,
