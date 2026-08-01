@@ -1,5 +1,7 @@
 export type Role = "admin" | "teacher" | "student" | "parent";
 
+const at = <T,>(a: readonly T[], i: number): T => a[((i % a.length) + a.length) % a.length]!;
+
 export const roleLabels: Record<Role, string> = {
   admin: "مدير المدرسة",
   teacher: "معلم",
@@ -74,10 +76,10 @@ function rand(seed: number) {
 
 export const students: Student[] = Array.from({ length: 72 }, (_, i) => {
   const male = rand(i + 1) > 0.5;
-  const first = male ? firstNamesM[i % firstNamesM.length] : firstNamesF[i % firstNamesF.length];
-  const family = families[(i * 5) % families.length];
-  const grade = grades[i % grades.length];
-  const section = sections[i % sections.length];
+  const first = male ? at(firstNamesM, i) : at(firstNamesF, i);
+  const family = at(families, i * 5);
+  const grade = at(grades, i);
+  const section = at(sections, i);
   const total = 1200 + Math.round(rand(i + 9) * 4) * 250;
   const r = rand(i + 21);
   const paid = r > 0.62 ? total : r > 0.3 ? Math.round(total * 0.5) : Math.round(total * 0.15);
@@ -87,10 +89,10 @@ export const students: Student[] = Array.from({ length: 72 }, (_, i) => {
     gender: male ? "ذكر" : "أنثى",
     grade,
     section,
-    guardian: `${firstNamesM[(i * 3) % firstNamesM.length]} ${family}`,
+    guardian: `${at(firstNamesM, i * 3)} ${family}`,
     guardianPhone: `059${(1000000 + Math.round(rand(i + 3) * 8999999)).toString().slice(0, 7)}`,
     birthDate: `${2007 + (i % 11)}-0${(i % 9) + 1}-1${i % 9}`,
-    address: ["رام الله", "نابلس", "الخليل", "غزة", "بيت لحم", "جنين"][i % 6],
+    address: at(["رام الله", "نابلس", "الخليل", "غزة", "بيت لحم", "جنين"], i),
     attendanceRate: 72 + Math.round(rand(i + 5) * 27),
     average: 58 + Math.round(rand(i + 7) * 41),
     feeTotal: total,
@@ -107,32 +109,32 @@ const subjectColors = ["primary", "accent", "warm", "info", "success", "destruct
 export const subjects: Subject[] = subjectNames.map((name, i) => ({
   id: `SUB-${100 + i}`,
   name,
-  code: `${["MTH", "ARB", "ENG", "SCI", "PHY", "CHM", "BIO", "ISL", "SOC", "CMP", "SPT", "ART"][i]}-${100 + i}`,
+  code: `${at(["MTH", "ARB", "ENG", "SCI", "PHY", "CHM", "BIO", "ISL", "SOC", "CMP", "SPT", "ART"], i)}-${100 + i}`,
   grades: grades.slice(i % 4, (i % 4) + 4),
   teacher: "",
   weeklyHours: 2 + (i % 4),
-  color: subjectColors[i % subjectColors.length],
+  color: at(subjectColors, i),
 }));
 
 export const teachers: Teacher[] = Array.from({ length: 24 }, (_, i) => {
   const male = i % 2 === 0;
-  const first = male ? firstNamesM[(i * 2) % firstNamesM.length] : firstNamesF[(i * 2) % firstNamesF.length];
-  const family = families[(i * 7) % families.length];
+  const first = male ? at(firstNamesM, i * 2) : at(firstNamesF, i * 2);
+  const family = at(families, i * 7);
   return {
     id: `TCH-${200 + i}`,
     name: `${male ? "أ." : "أ."} ${first} ${family}`,
-    subject: subjectNames[i % subjectNames.length],
-    classes: [`${grades[i % grades.length]} - ${sections[i % 3]}`, `${grades[(i + 3) % grades.length]} - ${sections[(i + 1) % 3]}`],
+    subject: at(subjectNames, i),
+    classes: [`${at(grades, i)} - ${at(sections, i)}`, `${at(grades, i + 3)} - ${at(sections, i + 1)}`],
     phone: `056${(1000000 + Math.round(rand(i + 31) * 8999999)).toString().slice(0, 7)}`,
     email: `teacher${i + 1}@match-edu.ps`,
     experience: 2 + (i % 18),
-    qualification: ["بكالوريوس تربية", "ماجستير مناهج", "بكالوريوس علوم", "ماجستير إدارة تربوية"][i % 4],
+    qualification: at(["بكالوريوس تربية", "ماجستير مناهج", "بكالوريوس علوم", "ماجستير إدارة تربوية"], i),
     status: i % 7 === 0 ? "دوام جزئي" : "دوام كامل",
   };
 });
 
 subjects.forEach((s, i) => {
-  s.teacher = teachers[i % teachers.length].name;
+  s.teacher = at(teachers, i).name;
 });
 
 export const classes: SchoolClass[] = grades.flatMap((grade, gi) =>
@@ -142,7 +144,7 @@ export const classes: SchoolClass[] = grades.flatMap((grade, gi) =>
     section,
     students: 18 + Math.round(rand(gi * 3 + si) * 14),
     capacity: 35,
-    homeroom: teachers[(gi * 3 + si) % teachers.length].name,
+    homeroom: at(teachers, gi * 3 + si).name,
     room: `${101 + gi * 3 + si}`,
     subjects: subjectNames.slice(0, 7),
   })),
@@ -199,7 +201,7 @@ export const timetable: Record<string, Slot[]> = weekDays.reduce(
   (acc, day, di) => {
     acc[day] = periods.map((_, pi) => {
       const idx = (di * 3 + pi * 2) % subjects.length;
-      const s = subjects[idx];
+      const s = at(subjects, idx);
       return { subject: s.name, teacher: s.teacher, color: s.color };
     });
     return acc;
@@ -222,13 +224,13 @@ export interface Exam {
 export const exams: Exam[] = subjectNames.slice(0, 9).map((s, i) => ({
   id: `EXM-${300 + i}`,
   subject: s,
-  grade: grades[(i + 6) % grades.length],
+  grade: at(grades, i + 6),
   date: `2026-08-${10 + i}`,
   time: `0${8 + (i % 4)}:30`,
   duration: `${60 + (i % 3) * 30} دقيقة`,
   room: `${201 + i}`,
   max: 100,
-  type: (["نصفي", "نهائي", "قصير"] as const)[i % 3],
+  type: at(["نصفي", "نهائي", "قصير"] as const, i),
 }));
 
 export interface Assignment {
@@ -276,8 +278,8 @@ export const feeCollection = [
   { month: "شباط", collected: 176000, expected: 210000 },
 ];
 
-export const currentStudent = students[3];
-export const childrenOfParent = [students[3], students[14]];
+export const currentStudent = students[3]!;
+export const childrenOfParent = [students[3]!, students[14]!];
 
 export const kpi = {
   students: students.length * 9,
