@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppTeachersRouteImport } from './routes/app.teachers'
+import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
+import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,28 +31,70 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTeachersRoute = AppTeachersRouteImport.update({
+  id: '/teachers',
+  path: '/teachers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
+  id: '/students/',
+  path: '/students/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStudentsStudentIdRoute = AppStudentsStudentIdRouteImport.update({
+  id: '/students/$studentId',
+  path: '/students/$studentId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/teachers': typeof AppTeachersRoute
   '/app/': typeof AppIndexRoute
+  '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/students/': typeof AppStudentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/teachers': typeof AppTeachersRoute
   '/app': typeof AppIndexRoute
+  '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/students': typeof AppStudentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/teachers': typeof AppTeachersRoute
   '/app/': typeof AppIndexRoute
+  '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/students/': typeof AppStudentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/app/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/app/teachers'
+    | '/app/'
+    | '/app/students/$studentId'
+    | '/app/students/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app'
-  id: '__root__' | '/' | '/app' | '/app/'
+  to:
+    | '/'
+    | '/app/teachers'
+    | '/app'
+    | '/app/students/$studentId'
+    | '/app/students'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/app/teachers'
+    | '/app/'
+    | '/app/students/$studentId'
+    | '/app/students/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -80,15 +125,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/teachers': {
+      id: '/app/teachers'
+      path: '/teachers'
+      fullPath: '/app/teachers'
+      preLoaderRoute: typeof AppTeachersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/students/': {
+      id: '/app/students/'
+      path: '/students'
+      fullPath: '/app/students/'
+      preLoaderRoute: typeof AppStudentsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/students/$studentId': {
+      id: '/app/students/$studentId'
+      path: '/students/$studentId'
+      fullPath: '/app/students/$studentId'
+      preLoaderRoute: typeof AppStudentsStudentIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppTeachersRoute: typeof AppTeachersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
+  AppStudentsIndexRoute: typeof AppStudentsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppTeachersRoute: AppTeachersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
+  AppStudentsIndexRoute: AppStudentsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

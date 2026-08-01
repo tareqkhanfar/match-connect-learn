@@ -6,12 +6,11 @@ import { money, performanceData, statusMeta, students } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/app/students/$studentId")({
   loader: ({ params }) => {
-    const student = students.find((s) => s.id === params.studentId);
-    if (!student) throw notFound();
-    return { student };
+    if (!students.some((s) => s.id === params.studentId)) throw notFound();
+    return null;
   },
-  head: ({ loaderData }) => {
-    const name = loaderData?.student.name ?? "ملف الطالب";
+  head: ({ params }) => {
+    const name = students.find((s) => s.id === params.studentId)?.name ?? "ملف الطالب";
     return {
       meta: [
         { title: `${name} — ملف الطالب | Match Education` },
@@ -25,7 +24,8 @@ export const Route = createFileRoute("/app/students/$studentId")({
 });
 
 function StudentProfile() {
-  const { student: s } = Route.useLoaderData();
+  const { studentId } = Route.useParams();
+  const s = students.find((st) => st.id === studentId)!;
   const remaining = s.feeTotal - s.feePaid;
 
   return (

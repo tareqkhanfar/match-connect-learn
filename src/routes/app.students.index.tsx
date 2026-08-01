@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { grades, money, sections, statusMeta, students } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/app/students")({
+export const Route = createFileRoute("/app/students/")({
   head: () => ({
     meta: [
       { title: "إدارة الطلاب — Match Education" },
