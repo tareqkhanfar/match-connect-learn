@@ -1,0 +1,85 @@
+import { Bell, Menu, Moon, Search, Sun } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { AppSidebar } from "./app-sidebar";
+import { useApp } from "@/lib/app-context";
+import { roleLabels, type Role } from "@/lib/mock-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+
+const roles: Role[] = ["admin", "teacher", "student", "parent"];
+
+export function AppShell({ children }: { children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { role, setRole, theme, toggleTheme } = useApp();
+
+  return (
+    <div className="flex min-h-screen w-full bg-background">
+      <AppSidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((c) => !c)}
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-40 border-b border-border bg-card/85 backdrop-blur-md">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 md:px-6">
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary lg:hidden"
+              aria-label="فتح القائمة"
+            >
+              <Menu className="size-5" />
+            </button>
+            <div className="relative hidden min-w-0 md:block">
+              <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input placeholder="ابحث عن طالب، معلم، أو صف..." className="h-10 rounded-xl bg-secondary/60 pr-9" />
+            </div>
+            <div className="col-start-3 flex items-center gap-2">
+              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                <SelectTrigger className="h-10 w-[132px] rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {roleLabels[r]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                onClick={toggleTheme}
+                className="grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary"
+                aria-label="تبديل المظهر"
+              >
+                {theme === "dark" ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+              </button>
+              <button
+                className="relative grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary"
+                aria-label="الإشعارات"
+              >
+                <Bell className="size-[18px]" />
+                <span className="absolute left-2.5 top-2.5 size-2 rounded-full bg-destructive" />
+              </button>
+              <div className="hidden items-center gap-2.5 rounded-xl border border-border py-1 pl-3 pr-1.5 sm:flex">
+                <div className="grid size-8 place-items-center rounded-lg bg-brand-gradient text-xs font-bold text-primary-foreground">
+                  MA
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold leading-tight">محمود العبد الله</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{roleLabels[role]}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6 md:py-8">
+          <div className="mx-auto w-full max-w-[1400px] animate-in fade-in duration-500">{children}</div>
+        </main>
+      </div>
+    </div>
+  );
+}
