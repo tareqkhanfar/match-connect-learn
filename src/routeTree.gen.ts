@@ -12,8 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAssignmentsRouteImport } from './routes/app.assignments'
 import { Route as AppAttendanceRouteImport } from './routes/app.attendance'
 import { Route as AppClassesRouteImport } from './routes/app.classes'
+import { Route as AppCommunicationRouteImport } from './routes/app.communication'
+import { Route as AppExamsRouteImport } from './routes/app.exams'
+import { Route as AppFeesRouteImport } from './routes/app.fees'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppTeachersRouteImport } from './routes/app.teachers'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
@@ -35,6 +39,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssignmentsRoute = AppAssignmentsRouteImport.update({
+  id: '/assignments',
+  path: '/assignments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAttendanceRoute = AppAttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
@@ -43,6 +52,21 @@ const AppAttendanceRoute = AppAttendanceRouteImport.update({
 const AppClassesRoute = AppClassesRouteImport.update({
   id: '/classes',
   path: '/classes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCommunicationRoute = AppCommunicationRouteImport.update({
+  id: '/communication',
+  path: '/communication',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppExamsRoute = AppExamsRouteImport.update({
+  id: '/exams',
+  path: '/exams',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFeesRoute = AppFeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSubjectsRoute = AppSubjectsRouteImport.update({
@@ -74,8 +98,12 @@ const AppStudentsStudentIdRoute = AppStudentsStudentIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/classes': typeof AppClassesRoute
+  '/app/communication': typeof AppCommunicationRoute
+  '/app/exams': typeof AppExamsRoute
+  '/app/fees': typeof AppFeesRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
@@ -85,8 +113,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/classes': typeof AppClassesRoute
+  '/app/communication': typeof AppCommunicationRoute
+  '/app/exams': typeof AppExamsRoute
+  '/app/fees': typeof AppFeesRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
@@ -98,8 +130,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/classes': typeof AppClassesRoute
+  '/app/communication': typeof AppCommunicationRoute
+  '/app/exams': typeof AppExamsRoute
+  '/app/fees': typeof AppFeesRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
@@ -112,8 +148,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/app/assignments'
     | '/app/attendance'
     | '/app/classes'
+    | '/app/communication'
+    | '/app/exams'
+    | '/app/fees'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
@@ -123,8 +163,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app/assignments'
     | '/app/attendance'
     | '/app/classes'
+    | '/app/communication'
+    | '/app/exams'
+    | '/app/fees'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
@@ -135,8 +179,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/app/assignments'
     | '/app/attendance'
     | '/app/classes'
+    | '/app/communication'
+    | '/app/exams'
+    | '/app/fees'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
@@ -173,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/assignments': {
+      id: '/app/assignments'
+      path: '/assignments'
+      fullPath: '/app/assignments'
+      preLoaderRoute: typeof AppAssignmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/attendance': {
       id: '/app/attendance'
       path: '/attendance'
@@ -185,6 +240,27 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/app/classes'
       preLoaderRoute: typeof AppClassesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/communication': {
+      id: '/app/communication'
+      path: '/communication'
+      fullPath: '/app/communication'
+      preLoaderRoute: typeof AppCommunicationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/exams': {
+      id: '/app/exams'
+      path: '/exams'
+      fullPath: '/app/exams'
+      preLoaderRoute: typeof AppExamsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fees': {
+      id: '/app/fees'
+      path: '/fees'
+      fullPath: '/app/fees'
+      preLoaderRoute: typeof AppFeesRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/subjects': {
@@ -226,8 +302,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAssignmentsRoute: typeof AppAssignmentsRoute
   AppAttendanceRoute: typeof AppAttendanceRoute
   AppClassesRoute: typeof AppClassesRoute
+  AppCommunicationRoute: typeof AppCommunicationRoute
+  AppExamsRoute: typeof AppExamsRoute
+  AppFeesRoute: typeof AppFeesRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppTeachersRoute: typeof AppTeachersRoute
   AppTimetableRoute: typeof AppTimetableRoute
@@ -237,8 +317,12 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAssignmentsRoute: AppAssignmentsRoute,
   AppAttendanceRoute: AppAttendanceRoute,
   AppClassesRoute: AppClassesRoute,
+  AppCommunicationRoute: AppCommunicationRoute,
+  AppExamsRoute: AppExamsRoute,
+  AppFeesRoute: AppFeesRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppTeachersRoute: AppTeachersRoute,
   AppTimetableRoute: AppTimetableRoute,
