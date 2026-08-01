@@ -18,6 +18,8 @@ import { Route as AppClassesRouteImport } from './routes/app.classes'
 import { Route as AppCommunicationRouteImport } from './routes/app.communication'
 import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
+import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppTeachersRouteImport } from './routes/app.teachers'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
@@ -69,6 +71,16 @@ const AppFeesRoute = AppFeesRouteImport.update({
   path: '/fees',
   getParentRoute: () => AppRoute,
 } as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSubjectsRoute = AppSubjectsRouteImport.update({
   id: '/subjects',
   path: '/subjects',
@@ -104,6 +116,8 @@ export interface FileRoutesByFullPath {
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
@@ -119,6 +133,8 @@ export interface FileRoutesByTo {
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
@@ -136,6 +152,8 @@ export interface FileRoutesById {
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
@@ -154,6 +172,8 @@ export interface FileRouteTypes {
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/reports'
+    | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
@@ -169,6 +189,8 @@ export interface FileRouteTypes {
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/reports'
+    | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
@@ -185,6 +207,8 @@ export interface FileRouteTypes {
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/reports'
+    | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
@@ -263,6 +287,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFeesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/reports': {
+      id: '/app/reports'
+      path: '/reports'
+      fullPath: '/app/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/subjects': {
       id: '/app/subjects'
       path: '/subjects'
@@ -308,6 +346,8 @@ interface AppRouteChildren {
   AppCommunicationRoute: typeof AppCommunicationRoute
   AppExamsRoute: typeof AppExamsRoute
   AppFeesRoute: typeof AppFeesRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppTeachersRoute: typeof AppTeachersRoute
   AppTimetableRoute: typeof AppTimetableRoute
@@ -323,6 +363,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCommunicationRoute: AppCommunicationRoute,
   AppExamsRoute: AppExamsRoute,
   AppFeesRoute: AppFeesRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppTeachersRoute: AppTeachersRoute,
   AppTimetableRoute: AppTimetableRoute,
@@ -340,3 +382,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
