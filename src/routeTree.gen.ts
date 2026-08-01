@@ -10,33 +10,216 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAssignmentsRouteImport } from './routes/app.assignments'
+import { Route as AppAttendanceRouteImport } from './routes/app.attendance'
+import { Route as AppClassesRouteImport } from './routes/app.classes'
+import { Route as AppCommunicationRouteImport } from './routes/app.communication'
+import { Route as AppExamsRouteImport } from './routes/app.exams'
+import { Route as AppFeesRouteImport } from './routes/app.fees'
+import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
+import { Route as AppTeachersRouteImport } from './routes/app.teachers'
+import { Route as AppTimetableRouteImport } from './routes/app.timetable'
+import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
+import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAssignmentsRoute = AppAssignmentsRouteImport.update({
+  id: '/assignments',
+  path: '/assignments',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttendanceRoute = AppAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppClassesRoute = AppClassesRouteImport.update({
+  id: '/classes',
+  path: '/classes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCommunicationRoute = AppCommunicationRouteImport.update({
+  id: '/communication',
+  path: '/communication',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppExamsRoute = AppExamsRouteImport.update({
+  id: '/exams',
+  path: '/exams',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFeesRoute = AppFeesRouteImport.update({
+  id: '/fees',
+  path: '/fees',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubjectsRoute = AppSubjectsRouteImport.update({
+  id: '/subjects',
+  path: '/subjects',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeachersRoute = AppTeachersRouteImport.update({
+  id: '/teachers',
+  path: '/teachers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTimetableRoute = AppTimetableRouteImport.update({
+  id: '/timetable',
+  path: '/timetable',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
+  id: '/students/',
+  path: '/students/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStudentsStudentIdRoute = AppStudentsStudentIdRouteImport.update({
+  id: '/students/$studentId',
+  path: '/students/$studentId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/assignments': typeof AppAssignmentsRoute
+  '/app/attendance': typeof AppAttendanceRoute
+  '/app/classes': typeof AppClassesRoute
+  '/app/communication': typeof AppCommunicationRoute
+  '/app/exams': typeof AppExamsRoute
+  '/app/fees': typeof AppFeesRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/subjects': typeof AppSubjectsRoute
+  '/app/teachers': typeof AppTeachersRoute
+  '/app/timetable': typeof AppTimetableRoute
+  '/app/': typeof AppIndexRoute
+  '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/students/': typeof AppStudentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app/assignments': typeof AppAssignmentsRoute
+  '/app/attendance': typeof AppAttendanceRoute
+  '/app/classes': typeof AppClassesRoute
+  '/app/communication': typeof AppCommunicationRoute
+  '/app/exams': typeof AppExamsRoute
+  '/app/fees': typeof AppFeesRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/subjects': typeof AppSubjectsRoute
+  '/app/teachers': typeof AppTeachersRoute
+  '/app/timetable': typeof AppTimetableRoute
+  '/app': typeof AppIndexRoute
+  '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/students': typeof AppStudentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/assignments': typeof AppAssignmentsRoute
+  '/app/attendance': typeof AppAttendanceRoute
+  '/app/classes': typeof AppClassesRoute
+  '/app/communication': typeof AppCommunicationRoute
+  '/app/exams': typeof AppExamsRoute
+  '/app/fees': typeof AppFeesRoute
+  '/app/reports': typeof AppReportsRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/subjects': typeof AppSubjectsRoute
+  '/app/teachers': typeof AppTeachersRoute
+  '/app/timetable': typeof AppTimetableRoute
+  '/app/': typeof AppIndexRoute
+  '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/students/': typeof AppStudentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/app/assignments'
+    | '/app/attendance'
+    | '/app/classes'
+    | '/app/communication'
+    | '/app/exams'
+    | '/app/fees'
+    | '/app/reports'
+    | '/app/settings'
+    | '/app/subjects'
+    | '/app/teachers'
+    | '/app/timetable'
+    | '/app/'
+    | '/app/students/$studentId'
+    | '/app/students/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/app/assignments'
+    | '/app/attendance'
+    | '/app/classes'
+    | '/app/communication'
+    | '/app/exams'
+    | '/app/fees'
+    | '/app/reports'
+    | '/app/settings'
+    | '/app/subjects'
+    | '/app/teachers'
+    | '/app/timetable'
+    | '/app'
+    | '/app/students/$studentId'
+    | '/app/students'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/app/assignments'
+    | '/app/attendance'
+    | '/app/classes'
+    | '/app/communication'
+    | '/app/exams'
+    | '/app/fees'
+    | '/app/reports'
+    | '/app/settings'
+    | '/app/subjects'
+    | '/app/teachers'
+    | '/app/timetable'
+    | '/app/'
+    | '/app/students/$studentId'
+    | '/app/students/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +231,154 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/assignments': {
+      id: '/app/assignments'
+      path: '/assignments'
+      fullPath: '/app/assignments'
+      preLoaderRoute: typeof AppAssignmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/attendance': {
+      id: '/app/attendance'
+      path: '/attendance'
+      fullPath: '/app/attendance'
+      preLoaderRoute: typeof AppAttendanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/classes': {
+      id: '/app/classes'
+      path: '/classes'
+      fullPath: '/app/classes'
+      preLoaderRoute: typeof AppClassesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/communication': {
+      id: '/app/communication'
+      path: '/communication'
+      fullPath: '/app/communication'
+      preLoaderRoute: typeof AppCommunicationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/exams': {
+      id: '/app/exams'
+      path: '/exams'
+      fullPath: '/app/exams'
+      preLoaderRoute: typeof AppExamsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fees': {
+      id: '/app/fees'
+      path: '/fees'
+      fullPath: '/app/fees'
+      preLoaderRoute: typeof AppFeesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/reports': {
+      id: '/app/reports'
+      path: '/reports'
+      fullPath: '/app/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/subjects': {
+      id: '/app/subjects'
+      path: '/subjects'
+      fullPath: '/app/subjects'
+      preLoaderRoute: typeof AppSubjectsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/teachers': {
+      id: '/app/teachers'
+      path: '/teachers'
+      fullPath: '/app/teachers'
+      preLoaderRoute: typeof AppTeachersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/timetable': {
+      id: '/app/timetable'
+      path: '/timetable'
+      fullPath: '/app/timetable'
+      preLoaderRoute: typeof AppTimetableRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/students/': {
+      id: '/app/students/'
+      path: '/students'
+      fullPath: '/app/students/'
+      preLoaderRoute: typeof AppStudentsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/students/$studentId': {
+      id: '/app/students/$studentId'
+      path: '/students/$studentId'
+      fullPath: '/app/students/$studentId'
+      preLoaderRoute: typeof AppStudentsStudentIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppAssignmentsRoute: typeof AppAssignmentsRoute
+  AppAttendanceRoute: typeof AppAttendanceRoute
+  AppClassesRoute: typeof AppClassesRoute
+  AppCommunicationRoute: typeof AppCommunicationRoute
+  AppExamsRoute: typeof AppExamsRoute
+  AppFeesRoute: typeof AppFeesRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppSubjectsRoute: typeof AppSubjectsRoute
+  AppTeachersRoute: typeof AppTeachersRoute
+  AppTimetableRoute: typeof AppTimetableRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
+  AppStudentsIndexRoute: typeof AppStudentsIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAssignmentsRoute: AppAssignmentsRoute,
+  AppAttendanceRoute: AppAttendanceRoute,
+  AppClassesRoute: AppClassesRoute,
+  AppCommunicationRoute: AppCommunicationRoute,
+  AppExamsRoute: AppExamsRoute,
+  AppFeesRoute: AppFeesRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppSubjectsRoute: AppSubjectsRoute,
+  AppTeachersRoute: AppTeachersRoute,
+  AppTimetableRoute: AppTimetableRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
+  AppStudentsIndexRoute: AppStudentsIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
