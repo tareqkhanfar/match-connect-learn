@@ -434,3 +434,37 @@ export function useContacts() {
     queryFn: () => apiGet("communication.contacts"),
   });
 }
+
+// --- Reports ---------------------------------------------------------------
+
+export interface ReportsOverview {
+  academic: {
+    by_subject: Array<{ subject: string; average: number; results: number }>;
+    by_grade: Array<{ grade: string; average: number; students: number }>;
+    top_students: Array<{ student: string; student_name: string; average: number }>;
+  };
+  attendance: {
+    monthly: Array<{ month: string; rate: number; present: number; absent: number }>;
+    by_group: Array<{ student_group: string; rate: number; total: number }>;
+    overall: number;
+  };
+  financial: {
+    monthly: Array<{ month: string; expected: number; collected: number }>;
+    by_program: Array<{
+      program: string;
+      total: number;
+      collected: number;
+      outstanding: number;
+      invoices: number;
+    }>;
+    totals: { total: number; collected: number; outstanding: number; collection_rate: number };
+  } | null;
+  academic_year: string | null;
+}
+
+export function useReports() {
+  return useQuery<ReportsOverview>({
+    queryKey: ["reports"],
+    queryFn: () => apiGet<ReportsOverview>("reports.overview"),
+  });
+}

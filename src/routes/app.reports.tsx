@@ -1,17 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BarChart3, Download, FileText, Wallet } from "lucide-react";
-import { toast } from "sonner";
+import { Award, BarChart3, ClipboardCheck, Wallet } from "lucide-react";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
   Line,
   LineChart,
-  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
-import { attendanceTrend, feeCollection, performanceData } from "@/lib/mock-data";
+import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
+import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/states";
+import { useReports } from "@/lib/api/hooks";
+import { money } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/reports")({
   head: () => ({
@@ -19,7 +23,7 @@ export const Route = createFileRoute("/app/reports")({
       { title: "التقارير — Match Education" },
       {
         name: "description",
-        content: "تقارير أكاديمية وحضور ومالية قابلة للتصدير إلى PDF وExcel.",
+        content: "تقارير أكاديمية وحضور ومالية مبنية على بيانات المدرسة الفعلية.",
       },
       { property: "og:title", content: "التقارير — Match Education" },
       { property: "og:description", content: "حلّل الأداء الأكاديمي والحضور والتحصيل المالي." },
@@ -28,164 +32,267 @@ export const Route = createFileRoute("/app/reports")({
   component: ReportsPage,
 });
 
-const reportCards = [
-  {
-    title: "تقرير الأداء الأكاديمي",
-    desc: "معدلات الطلاب حسب المادة والصف",
-    icon: BarChart3,
-    tone: "primary" as const,
+const TOOLTIP = {
+  contentStyle: {
+    background: "var(--card)",
+    border: "1px solid var(--border)",
+    borderRadius: "0.75rem",
+    fontSize: "12px",
+    direction: "rtl" as const,
   },
-  {
-    title: "تقرير الحضور والغياب",
-    desc: "نسب الحضور الشهرية وحالات الغياب المتكرر",
-    icon: FileText,
-    tone: "info" as const,
-  },
-  {
-    title: "تقرير التحصيل المالي",
-    desc: "المُحصّل والمتبقي وحالات التأخير",
-    icon: Wallet,
-    tone: "success" as const,
-  },
-];
+};
 
 function ReportsPage() {
+  const { data, isLoading, error, refetch } = useReports();
+
+  if (isLoading) return <DashboardSkeleton />;
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
+  if (!data) return <EmptyBlock title="لا توجد بيانات" />;
+
+  const { academic, attendance, financial } = data;
+  const overallAverage = academic.by_subject.length
+    ? Math.round(
+        academic.by_subject.reduce((a, s) => a + s.average, 0) / academic.by_subject.length,
+      )
+    : 0;
+
   return (
     <>
-      <PageHeader title="التقارير" subtitle="تقارير أكاديمية وحضور ومالية قابلة للتصدير" />
+      <PageHeader
+        title="التقارير"
+        subtitle={`تحليل الأداء الأكاديمي والحضور والتحصيل${data.academic_year ? ` — ${data.academic_year}` : ""}`}
+      />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {reportCards.map((r) => (
-          <div key={r.title} className="card-surface p-5">
-            <div className="grid size-11 place-items-center rounded-2xl bg-primary-soft text-primary">
-              <r.icon className="size-5" />
-            </div>
-            <p className="mt-3 font-bold">{r.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{r.desc}</p>
-            <div className="mt-4 flex gap-2">
-              <button
-                onClick={() => toast.success("تم تجهيز ملف PDF")}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-gradient text-xs font-bold text-primary-foreground"
-              >
-                <Download className="size-3.5" /> PDF
-              </button>
-              <button
-                onClick={() => toast.success("تم تجهيز ملف Excel")}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-xl border border-border text-xs font-semibold hover:bg-secondary"
-              >
-                <Download className="size-3.5" /> Excel
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="المعدل العام" value={`${overallAverage}%`} icon={Award} tone="primary" />
+        <KpiCard
+          label="نسبة الحضور"
+          value={`${attendance.overall}%`}
+          icon={ClipboardCheck}
+          tone="accent"
+        />
+        <KpiCard
+          label="عدد المواد المقيّمة"
+          value={academic.by_subject.length}
+          icon={BarChart3}
+          tone="info"
+        />
+        {financial && (
+          <KpiCard
+            label="نسبة التحصيل"
+            value={`${financial.totals.collection_rate}%`}
+            icon={Wallet}
+            tone="warm"
+          />
+        )}
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-2">
-        <SectionCard title="مقارنة الحضور الشهري" description="النسبة المئوية">
-          <div className="h-[270px] w-full" dir="ltr">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={attendanceTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={30}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "0.75rem",
-                    fontSize: "12px",
-                    direction: "rtl",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="present"
-                  stroke="var(--chart-1)"
-                  strokeWidth={3}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="absent"
-                  stroke="var(--chart-5)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        <SectionCard title="الأداء حسب المادة" description="متوسط النسبة المئوية لكل مادة">
+          {academic.by_subject.length === 0 ? (
+            <EmptyBlock title="لا توجد نتائج مسجّلة" />
+          ) : (
+            <div className="h-[280px] w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={academic.by_subject} layout="vertical" margin={{ right: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    domain={[0, 100]}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="subject"
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={92}
+                    orientation="right"
+                  />
+                  <Tooltip {...TOOLTIP} formatter={(v: number) => [`${v}%`, "المعدل"]} />
+                  <Bar
+                    dataKey="average"
+                    fill="var(--chart-3)"
+                    radius={[0, 8, 8, 0]}
+                    maxBarSize={22}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </SectionCard>
 
-        <SectionCard title="ملخص التحصيل المالي" description="آخر ٦ أشهر">
-          <ul className="space-y-3">
-            {feeCollection.map((f) => {
-              const pct = Math.round((f.collected / f.expected) * 100);
-              return (
+        <SectionCard title="نسبة الحضور الشهرية" description="النسبة المئوية لكل شهر">
+          {attendance.monthly.length === 0 ? (
+            <EmptyBlock title="لا توجد بيانات حضور" />
+          ) : (
+            <div className="h-[280px] w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={attendance.monthly}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={34}
+                  />
+                  <Tooltip {...TOOLTIP} formatter={(v: number) => [`${v}%`, "الحضور"]} />
+                  <Line
+                    type="monotone"
+                    dataKey="rate"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <SectionCard title="الأوائل" description="أعلى ١٠ طلاب حسب المعدل">
+          {academic.top_students.length === 0 ? (
+            <EmptyBlock title="لا توجد نتائج كافية" />
+          ) : (
+            <ul className="space-y-3">
+              {academic.top_students.map((s, i) => (
                 <li
-                  key={f.month}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3"
+                  key={s.student}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"
+                >
+                  <span className="num grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-xs font-bold text-primary">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{s.student_name}</p>
+                    <div className="mt-1.5">
+                      <ProgressBar value={s.average} tone="success" />
+                    </div>
+                  </div>
+                  <span className="num text-sm font-bold">{s.average}%</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard title="الحضور حسب الشعبة" description="نسبة الحضور لكل شعبة">
+          {attendance.by_group.length === 0 ? (
+            <EmptyBlock title="لا توجد بيانات" />
+          ) : (
+            <ul className="space-y-3">
+              {attendance.by_group.map((g) => (
+                <li
+                  key={g.student_group}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{f.month}</p>
-                    <p className="num text-xs text-muted-foreground">
-                      {f.collected.toLocaleString("en-US")} / {f.expected.toLocaleString("en-US")} ₪
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-medium">{g.student_group}</p>
+                      <span className="num shrink-0 text-xs text-muted-foreground">{g.rate}%</span>
+                    </div>
+                    <div className="mt-1.5">
+                      <ProgressBar
+                        value={g.rate}
+                        tone={g.rate >= 85 ? "success" : g.rate >= 70 ? "warning" : "danger"}
+                      />
+                    </div>
                   </div>
-                  <Pill tone={pct >= 90 ? "success" : pct >= 75 ? "warning" : "danger"}>
-                    {pct}%
-                  </Pill>
+                  <Pill tone="muted">{g.total} سجل</Pill>
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          )}
         </SectionCard>
       </div>
 
-      <div className="mt-5">
-        <SectionCard title="متوسط الدرجات حسب المادة" description="جميع الصفوف">
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead className="text-xs text-muted-foreground">
-                <tr>
-                  <th className="pb-3 font-semibold">المادة</th>
-                  <th className="pb-3 font-semibold">المتوسط</th>
-                  <th className="pb-3 font-semibold">أعلى درجة</th>
-                  <th className="pb-3 font-semibold">أدنى درجة</th>
-                  <th className="pb-3 font-semibold">التقدير</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {performanceData.map((p) => (
-                  <tr key={p.subject}>
-                    <td className="py-3 font-medium">{p.subject}</td>
-                    <td className="num py-3 font-bold">{p.average}</td>
-                    <td className="num py-3 text-success">{Math.min(100, p.average + 9)}</td>
-                    <td className="num py-3 text-destructive">{p.average - 22}</td>
-                    <td className="py-3">
-                      <Pill
-                        tone={p.average >= 85 ? "success" : p.average >= 75 ? "primary" : "warning"}
-                      >
-                        {p.average >= 85 ? "ممتاز" : p.average >= 75 ? "جيد جداً" : "جيد"}
-                      </Pill>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-      </div>
+      {financial && (
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          <SectionCard title="التحصيل المالي الشهري" description="المُحصّل مقابل المتوقع (₪)">
+            {financial.monthly.length === 0 ? (
+              <EmptyBlock title="لا توجد بيانات مالية" />
+            ) : (
+              <div className="h-[280px] w-full" dir="ltr">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={financial.monthly}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={56}
+                    />
+                    <Tooltip {...TOOLTIP} />
+                    <Legend
+                      wrapperStyle={{ fontSize: 12, direction: "rtl" }}
+                      formatter={(v) => (v === "collected" ? "المُحصّل" : "المتوقع")}
+                    />
+                    <Bar
+                      dataKey="expected"
+                      fill="var(--muted)"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={26}
+                    />
+                    <Bar
+                      dataKey="collected"
+                      fill="var(--chart-2)"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={26}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard title="التحصيل حسب الصف" description="الإجمالي والمتبقي لكل صف">
+            {financial.by_program.length === 0 ? (
+              <EmptyBlock title="لا توجد فواتير" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-sm">
+                  <thead className="text-xs text-muted-foreground">
+                    <tr>
+                      <th className="pb-3 font-semibold">الصف</th>
+                      <th className="pb-3 font-semibold">الإجمالي</th>
+                      <th className="pb-3 font-semibold">المُحصّل</th>
+                      <th className="pb-3 font-semibold">المتبقي</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {financial.by_program.map((p) => (
+                      <tr key={p.program}>
+                        <td className="py-2.5 font-medium">{p.program}</td>
+                        <td className="num py-2.5">{money(p.total)}</td>
+                        <td className="num py-2.5 text-success">{money(p.collected)}</td>
+                        <td className="num py-2.5 text-destructive">{money(p.outstanding)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+        </div>
+      )}
     </>
   );
 }

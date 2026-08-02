@@ -1,38 +1,44 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarDays, MapPin, Phone, Printer, User, Wallet } from "lucide-react";
 import { Avatar, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { money, performanceData, statusMeta, students } from "@/lib/mock-data";
+import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/states";
+import { useStudent } from "@/lib/api/hooks";
+import { money, statusMeta } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/students/$studentId")({
-  loader: ({ params }) => {
-    if (!students.some((s) => s.id === params.studentId)) throw notFound();
-    return null;
-  },
-  head: ({ params }) => {
-    const name = students.find((s) => s.id === params.studentId)?.name ?? "ملف الطالب";
-    return {
-      meta: [
-        { title: `${name} — ملف الطالب | Match Education` },
-        {
-          name: "description",
-          content: `ملف الطالب ${name}: البيانات الشخصية، السجل الأكاديمي، الحضور والرسوم.`,
-        },
-        { property: "og:title", content: `${name} — ملف الطالب` },
-        {
-          property: "og:description",
-          content: "بيانات شخصية، سجل أكاديمي، حضور ورسوم في صفحة واحدة.",
-        },
-      ],
-    };
-  },
-  component: StudentProfile,
+  head: () => ({
+    meta: [
+      { title: "ملف الطالب | Match Education" },
+      {
+        name: "description",
+        content: "ملف الطالب: البيانات الشخصية، السجل الأكاديمي، الحضور والرسوم.",
+      },
+      { property: "og:title", content: "ملف الطالب" },
+      {
+        property: "og:description",
+        content: "بيانات شخصية، سجل أكاديمي، حضور ورسوم في صفحة واحدة.",
+      },
+    ],
+  }),
+  component: StudentProfilePage,
 });
 
-function StudentProfile() {
+const ATTENDANCE_LABELS: Record<string, string> = {
+  Present: "حاضر",
+  Absent: "غائب",
+  Leave: "إجازة",
+};
+
+function StudentProfilePage() {
   const { studentId } = Route.useParams();
-  const s = students.find((st) => st.id === studentId)!;
-  const remaining = s.feeTotal - s.feePaid;
+  const { data, isLoading, error, refetch } = useStudent(studentId);
+
+  if (isLoading) return <DashboardSkeleton />;
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
+  if (!data) return <EmptyBlock title="لم يتم العثور على الطالب" />;
+
+  const { profile, guardians, academics, attendance, fees, groups } = data;
 
   return (
     <>
@@ -45,8 +51,14 @@ function StudentProfile() {
       </Link>
 
       <PageHeader
-        title={s.name}
-        subtitle={`${s.grade} - شعبة ${s.section} • رقم الطالب ${s.id}`}
+        title={profile.name}
+        subtitle={[
+          profile.grade,
+          profile.section ? `شعبة ${profile.section}` : null,
+          `رقم الطالب ${profile.id}`,
+        ]
+          .filter(Boolean)
+          .join(" • ")}
         actions={
           <button
             onClick={() => window.print()}
@@ -58,241 +70,251 @@ function StudentProfile() {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div className="space-y-5">
           <div className="card-surface p-5 text-center">
-            <Avatar name={s.name} className="mx-auto size-20 rounded-3xl text-xl" />
-            <p className="mt-3 text-lg font-bold">{s.name}</p>
-            <p className="text-sm text-muted-foreground">
-              {s.grade} - شعبة {s.section}
-            </p>
-            <div className="mt-3 flex justify-center">
+            <Avatar name={profile.name} className="mx-auto size-20 rounded-3xl text-xl" />
+            <p className="mt-3 text-lg font-bold">{profile.name}</p>
+            <p className="num text-xs text-muted-foreground">{profile.id}</p>
+            <div className="mt-3 flex justify-center gap-2">
+              <Pill tone={profile.active ? "success" : "muted"}>
+                {profile.active ? "نشِط" : "غير نشِط"}
+              </Pill>
+              <Pill tone="primary">{profile.gender}</Pill>
+            </div>
+
+            <ul className="mt-5 space-y-2.5 text-right text-sm">
+              {profile.birthDate && (
+                <li className="flex items-center gap-2.5 text-muted-foreground">
+                  <CalendarDays className="size-4 shrink-0" />
+                  <span className="num">{profile.birthDate}</span>
+                </li>
+              )}
+              {profile.phone && (
+                <li className="flex items-center gap-2.5 text-muted-foreground">
+                  <Phone className="size-4 shrink-0" />
+                  <span className="num">{profile.phone}</span>
+                </li>
+              )}
+              {profile.address && (
+                <li className="flex items-center gap-2.5 text-muted-foreground">
+                  <MapPin className="size-4 shrink-0" />
+                  <span className="truncate">{profile.address}</span>
+                </li>
+              )}
+              {profile.email && (
+                <li className="flex items-center gap-2.5 truncate text-muted-foreground" dir="ltr">
+                  <User className="size-4 shrink-0" />
+                  <span className="truncate">{profile.email}</span>
+                </li>
+              )}
+            </ul>
+          </div>
+
+          <SectionCard title="أولياء الأمور">
+            {guardians.length === 0 ? (
+              <p className="text-sm text-muted-foreground">لا يوجد ولي أمر مرتبط</p>
+            ) : (
+              <ul className="space-y-3">
+                {guardians.map((g) => (
+                  <li key={g.id} className="rounded-xl border border-border p-3">
+                    <p className="truncate text-sm font-semibold">{g.name}</p>
+                    <p className="text-xs text-muted-foreground">{g.relation ?? "—"}</p>
+                    {g.phone && <p className="num mt-1 text-xs text-muted-foreground">{g.phone}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+
+          {groups.length > 0 && (
+            <SectionCard title="الشُعب">
+              <div className="flex flex-wrap gap-1.5">
+                {groups.map((g) => (
+                  <Pill key={g.name} tone="primary">
+                    {g.student_group_name}
+                  </Pill>
+                ))}
+              </div>
+            </SectionCard>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-5 grid gap-4 sm:grid-cols-3">
+            <div className="card-surface p-4">
+              <p className="text-xs text-muted-foreground">نسبة الحضور</p>
+              <p className="num mt-1 text-2xl font-bold">{attendance.rate}%</p>
+              <div className="mt-2">
+                <ProgressBar
+                  value={attendance.rate}
+                  tone={
+                    attendance.rate >= 85 ? "success" : attendance.rate >= 70 ? "warning" : "danger"
+                  }
+                />
+              </div>
+            </div>
+            <div className="card-surface p-4">
+              <p className="text-xs text-muted-foreground">عدد النتائج</p>
+              <p className="num mt-1 text-2xl font-bold">{academics.length}</p>
+            </div>
+            <div className="card-surface p-4">
+              <p className="text-xs text-muted-foreground">الرسوم المتبقية</p>
+              <p className="num mt-1 text-2xl font-bold">{money(fees.outstanding)}</p>
               <Pill
                 tone={
-                  s.status === "paid" ? "success" : s.status === "partial" ? "warning" : "danger"
+                  fees.status === "paid"
+                    ? "success"
+                    : fees.status === "partial"
+                      ? "warning"
+                      : "danger"
                 }
               >
-                الرسوم: {statusMeta[s.status].label}
+                {statusMeta[fees.status].label}
               </Pill>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4">
-              <div>
-                <p className="text-xs text-muted-foreground">المعدل</p>
-                <p className="num text-xl font-bold">{s.average}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">الحضور</p>
-                <p className="num text-xl font-bold">{s.attendanceRate}%</p>
-              </div>
             </div>
           </div>
 
-          <SectionCard title="بيانات شخصية">
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-center gap-3">
-                <User className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-muted-foreground">النوع:</span> {s.gender}
-              </li>
-              <li className="flex items-center gap-3">
-                <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-muted-foreground">الميلاد:</span>{" "}
-                <span className="num">{s.birthDate}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <MapPin className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-muted-foreground">السكن:</span> {s.address}
-              </li>
-              <li className="flex items-center gap-3">
-                <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-muted-foreground">تاريخ التسجيل:</span>{" "}
-                <span className="num">{s.enrolled}</span>
-              </li>
-            </ul>
-          </SectionCard>
+          <Tabs defaultValue="academics" dir="rtl">
+            <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
+              <TabsTrigger value="academics" className="rounded-lg">
+                السجل الأكاديمي
+              </TabsTrigger>
+              <TabsTrigger value="attendance" className="rounded-lg">
+                الحضور
+              </TabsTrigger>
+              <TabsTrigger value="fees" className="rounded-lg">
+                الرسوم
+              </TabsTrigger>
+            </TabsList>
 
-          <SectionCard title="ولي الأمر">
-            <p className="font-semibold">{s.guardian}</p>
-            <p className="num mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-              <Phone className="size-4" /> {s.guardianPhone}
-            </p>
-          </SectionCard>
-        </div>
-
-        <Tabs defaultValue="academic" dir="rtl">
-          <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
-            <TabsTrigger value="academic" className="rounded-lg">
-              السجل الأكاديمي
-            </TabsTrigger>
-            <TabsTrigger value="attendance" className="rounded-lg">
-              الحضور
-            </TabsTrigger>
-            <TabsTrigger value="fees" className="rounded-lg">
-              الرسوم
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="academic">
-            <SectionCard title="درجات المواد" description="الفصل الثاني ٢٠٢٥/٢٠٢٦">
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-sm">
-                  <thead className="text-xs text-muted-foreground">
-                    <tr>
-                      <th className="pb-3 font-semibold">المادة</th>
-                      <th className="pb-3 font-semibold">الواجبات</th>
-                      <th className="pb-3 font-semibold">النصفي</th>
-                      <th className="pb-3 font-semibold">النهائي</th>
-                      <th className="pb-3 font-semibold">المجموع</th>
-                      <th className="pb-3 font-semibold">التقدير</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {performanceData.map((p, i) => {
-                      const total = Math.min(100, p.average + (i % 3) - 1);
-                      const gradeLetter =
-                        total >= 90
-                          ? "ممتاز"
-                          : total >= 80
-                            ? "جيد جداً"
-                            : total >= 70
-                              ? "جيد"
-                              : "مقبول";
-                      return (
-                        <tr key={p.subject}>
-                          <td className="py-3 font-medium">{p.subject}</td>
-                          <td className="num py-3 text-muted-foreground">
-                            {Math.round(total * 0.2)}/20
-                          </td>
-                          <td className="num py-3 text-muted-foreground">
-                            {Math.round(total * 0.3)}/30
-                          </td>
-                          <td className="num py-3 text-muted-foreground">
-                            {Math.round(total * 0.5)}/50
-                          </td>
-                          <td className="num py-3 font-bold">{total}</td>
-                          <td className="py-3">
-                            <Pill
+            <TabsContent value="academics">
+              <SectionCard title="النتائج" description={`${academics.length} نتيجة مسجّلة`}>
+                {academics.length === 0 ? (
+                  <EmptyBlock title="لا توجد نتائج مسجّلة" />
+                ) : (
+                  <ul className="space-y-3">
+                    {academics.map((g) => (
+                      <li
+                        key={g.id}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="truncate text-sm font-medium">{g.subject}</p>
+                            <span className="num shrink-0 text-xs text-muted-foreground">
+                              {g.score}/{g.max}
+                            </span>
+                          </div>
+                          <div className="mt-1.5">
+                            <ProgressBar
+                              value={g.percentage}
                               tone={
-                                total >= 90
+                                g.percentage >= 75
                                   ? "success"
-                                  : total >= 80
-                                    ? "primary"
-                                    : total >= 70
-                                      ? "info"
-                                      : "warning"
+                                  : g.percentage >= 50
+                                    ? "warning"
+                                    : "danger"
                               }
-                            >
-                              {gradeLetter}
-                            </Pill>
-                          </td>
+                            />
+                          </div>
+                        </div>
+                        {g.grade && <Pill tone="muted">{g.grade}</Pill>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="attendance">
+              <SectionCard
+                title="سجل الحضور"
+                description={`حاضر ${attendance.present} • غائب ${attendance.absent} • إجازة ${attendance.leave}`}
+              >
+                {attendance.recent.length === 0 ? (
+                  <EmptyBlock title="لا يوجد سجل حضور" />
+                ) : (
+                  <ul className="space-y-2">
+                    {attendance.recent.map((a) => (
+                      <li
+                        key={a.id}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="num text-sm font-medium">{a.date}</p>
+                          <p className="truncate text-xs text-muted-foreground">{a.group}</p>
+                        </div>
+                        <Pill
+                          tone={
+                            a.status === "Present"
+                              ? "success"
+                              : a.status === "Leave"
+                                ? "warning"
+                                : "danger"
+                          }
+                        >
+                          {ATTENDANCE_LABELS[a.status] ?? a.status}
+                        </Pill>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </SectionCard>
+            </TabsContent>
+
+            <TabsContent value="fees">
+              <SectionCard
+                title="الفواتير"
+                description={`الإجمالي ${money(fees.total)} • المدفوع ${money(fees.paid)}`}
+                actions={<Wallet className="size-4 text-muted-foreground" />}
+              >
+                {fees.invoices.length === 0 ? (
+                  <EmptyBlock title="لا توجد فواتير" />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-right text-sm">
+                      <thead className="text-xs text-muted-foreground">
+                        <tr>
+                          <th className="pb-3 font-semibold">رقم الفاتورة</th>
+                          <th className="pb-3 font-semibold">التاريخ</th>
+                          <th className="pb-3 font-semibold">الاستحقاق</th>
+                          <th className="pb-3 font-semibold">الإجمالي</th>
+                          <th className="pb-3 font-semibold">المدفوع</th>
+                          <th className="pb-3 font-semibold">الحالة</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          </TabsContent>
-
-          <TabsContent value="attendance">
-            <SectionCard title="سجل الحضور" description="آخر ٣٠ يوماً دراسياً">
-              <div className="grid grid-cols-10 gap-2">
-                {Array.from({ length: 30 }, (_, i) => {
-                  const absent = i % 11 === 3;
-                  const late = i % 9 === 5;
-                  return (
-                    <div
-                      key={i}
-                      className={`num grid aspect-square place-items-center rounded-lg text-xs font-semibold ${
-                        absent
-                          ? "bg-destructive-soft text-destructive"
-                          : late
-                            ? "bg-warning-soft text-warm-foreground"
-                            : "bg-success-soft text-success"
-                      }`}
-                    >
-                      {i + 1}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-5 grid grid-cols-3 gap-3 border-t border-border pt-4 text-center">
-                <div>
-                  <p className="text-xs text-muted-foreground">أيام حضور</p>
-                  <p className="num text-lg font-bold text-success">25</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">تأخر</p>
-                  <p className="num text-lg font-bold text-warm-foreground">3</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">غياب</p>
-                  <p className="num text-lg font-bold text-destructive">2</p>
-                </div>
-              </div>
-            </SectionCard>
-          </TabsContent>
-
-          <TabsContent value="fees">
-            <SectionCard
-              title="الرسوم المالية"
-              description="العام الدراسي الحالي"
-              actions={<Wallet className="size-4 text-muted-foreground" />}
-            >
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-secondary/60 p-4">
-                  <p className="text-xs text-muted-foreground">إجمالي الرسوم</p>
-                  <p className="num mt-1 text-lg font-bold">{money(s.feeTotal)}</p>
-                </div>
-                <div className="rounded-xl bg-success-soft p-4">
-                  <p className="text-xs text-muted-foreground">المدفوع</p>
-                  <p className="num mt-1 text-lg font-bold text-success">{money(s.feePaid)}</p>
-                </div>
-                <div className="rounded-xl bg-destructive-soft p-4">
-                  <p className="text-xs text-muted-foreground">المتبقي</p>
-                  <p className="num mt-1 text-lg font-bold text-destructive">{money(remaining)}</p>
-                </div>
-              </div>
-              <div className="mt-5">
-                <div className="mb-2 flex justify-between text-xs text-muted-foreground">
-                  <span>نسبة السداد</span>
-                  <span className="num">{Math.round((s.feePaid / s.feeTotal) * 100)}%</span>
-                </div>
-                <ProgressBar
-                  value={(s.feePaid / s.feeTotal) * 100}
-                  tone={remaining === 0 ? "success" : "warning"}
-                />
-              </div>
-              <table className="mt-6 w-full text-right text-sm">
-                <thead className="text-xs text-muted-foreground">
-                  <tr>
-                    <th className="pb-3 font-semibold">القسط</th>
-                    <th className="pb-3 font-semibold">المبلغ</th>
-                    <th className="pb-3 font-semibold">تاريخ الاستحقاق</th>
-                    <th className="pb-3 font-semibold">الحالة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {[1, 2, 3].map((n) => {
-                    const amount = Math.round(s.feeTotal / 3);
-                    const paid = s.feePaid >= amount * n;
-                    return (
-                      <tr key={n}>
-                        <td className="py-3">
-                          القسط {n === 1 ? "الأول" : n === 2 ? "الثاني" : "الثالث"}
-                        </td>
-                        <td className="num py-3">{money(amount)}</td>
-                        <td className="num py-3 text-muted-foreground">2026-0{n + 6}-01</td>
-                        <td className="py-3">
-                          <Pill tone={paid ? "success" : "danger"}>{paid ? "مدفوع" : "متأخر"}</Pill>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </SectionCard>
-          </TabsContent>
-        </Tabs>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {fees.invoices.map((f) => (
+                          <tr key={f.id}>
+                            <td className="num py-3">{f.id}</td>
+                            <td className="num py-3 text-muted-foreground">{f.date}</td>
+                            <td className="num py-3 text-muted-foreground">{f.due_date}</td>
+                            <td className="num py-3">{money(f.total)}</td>
+                            <td className="num py-3 text-success">{money(f.paid)}</td>
+                            <td className="py-3">
+                              <Pill
+                                tone={
+                                  f.status === "paid"
+                                    ? "success"
+                                    : f.status === "partial"
+                                      ? "warning"
+                                      : "danger"
+                                }
+                              >
+                                {statusMeta[f.status].label}
+                              </Pill>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </SectionCard>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </>
   );

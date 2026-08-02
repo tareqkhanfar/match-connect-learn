@@ -1,10 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Bell, Megaphone, Send } from "lucide-react";
+import { Megaphone, MessagesSquare, Plus, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { Textarea } from "@/components/ui/textarea";
-import { announcements, messages } from "@/lib/mock-data";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { useApp } from "@/lib/app-context";
+import {
+  useAnnouncements,
+  useContacts,
+  useInbox,
+  useSaveAnnouncement,
+  useSendMessage,
+  useThread,
+} from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/communication")({
   head: () => ({
@@ -22,115 +47,401 @@ export const Route = createFileRoute("/app/communication")({
 });
 
 function CommunicationPage() {
-  const [text, setText] = useState("");
+  const { role } = useApp();
+  const canPost = role === "admin" || role === "teacher";
+
+  const announcementsQuery = useAnnouncements();
+  const inboxQuery = useInbox();
+
+  const [openThread, setOpenThread] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [postingAnnouncement, setPostingAnnouncement] = useState(false);
+
+  const announcements = announcementsQuery.data ?? [];
+  const messages = inboxQuery.data ?? [];
 
   return (
     <>
-      <PageHeader title="التواصل والإعلانات" subtitle="لوحة الإعلانات والرسائل والإشعارات" />
+      <PageHeader
+        title="التواصل والإعلانات"
+        subtitle="لوحة الإعلانات والرسائل"
+        actions={
+          <>
+            <button
+              onClick={() => setComposing(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold hover:bg-secondary"
+            >
+              <Send className="size-4" />
+              رسالة جديدة
+            </button>
+            {canPost && (
+              <button
+                onClick={() => setPostingAnnouncement(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
+              >
+                <Plus className="size-4" />
+                إعلان جديد
+              </button>
+            )}
+          </>
+        }
+      />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <div className="space-y-5">
-          <SectionCard
-            title="إعلان جديد"
-            description="سيظهر لجميع أولياء الأمور والطلاب"
-            actions={<Megaphone className="size-4 text-primary" />}
-          >
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="اكتب نص الإعلان هنا..."
-              className="min-h-24 rounded-xl"
+        <SectionCard
+          title="لوحة الإعلانات"
+          description={`${announcements.length} إعلاناً`}
+          actions={<Megaphone className="size-4 text-muted-foreground" />}
+        >
+          {announcementsQuery.error ? (
+            <ErrorState
+              error={announcementsQuery.error}
+              onRetry={() => announcementsQuery.refetch()}
             />
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-1.5">
-                {["جميع الطلاب", "أولياء الأمور", "المعلمون"].map((a) => (
-                  <Pill key={a} tone="primary">
-                    {a}
-                  </Pill>
-                ))}
-              </div>
-              <button
-                onClick={() => {
-                  setText("");
-                  toast.success("تم نشر الإعلان");
-                }}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground"
-              >
-                <Send className="size-4" />
-                نشر الإعلان
-              </button>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="لوحة الإعلانات" description="الإعلانات المنشورة">
-            <ul className="space-y-3">
+          ) : announcementsQuery.isLoading ? (
+            <TableSkeleton rows={5} />
+          ) : announcements.length === 0 ? (
+            <EmptyBlock title="لا توجد إعلانات" icon={<Megaphone className="size-6" />} />
+          ) : (
+            <ul className="divide-y divide-border">
               {announcements.map((a) => (
-                <li key={a.id} className="rounded-xl border border-border p-4">
+                <li key={a.id} className="py-3.5 first:pt-0 last:pb-0">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                    <p className="truncate text-sm font-bold">{a.title}</p>
+                    <p className="truncate text-sm font-semibold">{a.title}</p>
                     <Pill
                       tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}
                     >
                       {a.type}
                     </Pill>
                   </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{a.body}</p>
-                  <p className="num mt-2 text-[11px] text-muted-foreground">
+                  {a.body && (
+                    <div
+                      className="mt-1 line-clamp-2 text-xs text-muted-foreground"
+                      // Announcement bodies are authored by staff in a rich-text field.
+                      dangerouslySetInnerHTML={{ __html: a.body }}
+                    />
+                  )}
+                  <p className="num mt-1.5 text-[11px] text-muted-foreground">
                     {a.date} • {a.audience}
                   </p>
                 </li>
               ))}
             </ul>
-          </SectionCard>
-        </div>
+          )}
+        </SectionCard>
 
-        <div className="space-y-5">
-          <SectionCard title="الرسائل" description="بين المعلمين وأولياء الأمور">
-            <ul className="space-y-2.5">
+        <SectionCard
+          title="الرسائل"
+          description={`${messages.length} محادثة`}
+          actions={<MessagesSquare className="size-4 text-muted-foreground" />}
+        >
+          {inboxQuery.error ? (
+            <ErrorState error={inboxQuery.error} onRetry={() => inboxQuery.refetch()} />
+          ) : inboxQuery.isLoading ? (
+            <TableSkeleton rows={4} />
+          ) : messages.length === 0 ? (
+            <EmptyBlock
+              title="لا توجد رسائل"
+              description="ابدأ محادثة جديدة من زر «رسالة جديدة»."
+              icon={<MessagesSquare className="size-6" />}
+            />
+          ) : (
+            <ul className="space-y-2">
               {messages.map((m) => (
-                <li
-                  key={m.id}
-                  className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border p-3 ${m.unread ? "border-primary/30 bg-primary-soft/40" : "border-border"}`}
-                >
-                  <Avatar name={m.from} />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{m.from}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{m.role}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{m.preview}</p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-[11px] text-muted-foreground">{m.time}</p>
-                    {m.unread && (
-                      <span className="mt-1 inline-block size-2 rounded-full bg-primary" />
-                    )}
-                  </div>
+                <li key={m.id}>
+                  <button
+                    onClick={() => setOpenThread(m.thread)}
+                    className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3 text-right transition-colors hover:bg-secondary/50"
+                  >
+                    <Avatar name={m.from} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{m.from}</p>
+                      <p className="truncate text-xs text-muted-foreground">{m.preview}</p>
+                      {m.role && <p className="text-[11px] text-muted-foreground">{m.role}</p>}
+                    </div>
+                    {m.unread && <span className="size-2 rounded-full bg-destructive" />}
+                  </button>
                 </li>
               ))}
             </ul>
-          </SectionCard>
-
-          <SectionCard
-            title="الإشعارات"
-            description="آخر الأنشطة في النظام"
-            actions={<Bell className="size-4 text-muted-foreground" />}
-          >
-            <ul className="space-y-3 text-sm">
-              {[
-                "تم تسجيل حضور الصف التاسع - شعبة أ",
-                "أضاف أ. سلمى الخطيب درجات امتحان الرياضيات",
-                "٣ أولياء أمور سددوا القسط الثاني",
-                "تحديث جدول الحصص للصف العاشر",
-                "طالبان تجاوزا حد الغياب المسموح",
-              ].map((n, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <span className="mt-1.5 size-2 shrink-0 rounded-full bg-accent" />
-                  <span className="text-muted-foreground">{n}</span>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-        </div>
+          )}
+        </SectionCard>
       </div>
+
+      {openThread && <ThreadDialog thread={openThread} onClose={() => setOpenThread(null)} />}
+      {composing && <ComposeDialog onClose={() => setComposing(false)} />}
+      {postingAnnouncement && <AnnouncementDialog onClose={() => setPostingAnnouncement(false)} />}
     </>
+  );
+}
+
+function ThreadDialog({ thread, onClose }: { thread: string; onClose: () => void }) {
+  const { data, isLoading, error, refetch } = useThread(thread);
+  const send = useSendMessage();
+  const [reply, setReply] = useState("");
+
+  const other = data?.messages.find((m) => !m.outgoing);
+
+  async function sendReply() {
+    if (!reply.trim() || !data) return;
+    const recipient = other?.sender ?? data.messages[0]?.recipient;
+    if (!recipient) return;
+    try {
+      await send.mutateAsync({ recipient, body: reply, thread });
+      setReply("");
+      toast.success("تم إرسال الرسالة");
+    } catch (err) {
+      const message =
+        (err as { messageAr?: string }).messageAr || (err as Error).message || "تعذّر الإرسال";
+      toast.error(message);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">المحادثة</DialogTitle>
+        </DialogHeader>
+
+        {error ? (
+          <ErrorState error={error} onRetry={() => refetch()} />
+        ) : isLoading ? (
+          <TableSkeleton rows={4} />
+        ) : (
+          <div className="max-h-[45vh] space-y-2 overflow-y-auto">
+            {data!.messages.map((m) => (
+              <div
+                key={m.id}
+                className={`rounded-xl p-3 text-sm ${
+                  m.outgoing ? "bg-primary-soft text-primary" : "border border-border bg-card"
+                }`}
+              >
+                <p className="text-[11px] font-semibold opacity-80">{m.sender_name}</p>
+                <div dangerouslySetInnerHTML={{ __html: m.body }} />
+                <p className="num mt-1 text-[10px] opacity-60">{m.sent_on}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Textarea
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="اكتب ردك…"
+            className="rounded-xl"
+          />
+        </div>
+
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={sendReply}
+            disabled={send.isPending || !reply.trim()}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {send.isPending ? "جارٍ الإرسال…" : "إرسال"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إغلاق
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ComposeDialog({ onClose }: { onClose: () => void }) {
+  const contactsQuery = useContacts();
+  const send = useSendMessage();
+  const [recipient, setRecipient] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+
+  async function submit() {
+    if (!recipient || !body.trim()) {
+      toast.error("اختر المستلم واكتب نص الرسالة");
+      return;
+    }
+    try {
+      await send.mutateAsync({ recipient, body, subject });
+      toast.success("تم إرسال الرسالة");
+      onClose();
+    } catch (err) {
+      const message =
+        (err as { messageAr?: string }).messageAr || (err as Error).message || "تعذّر الإرسال";
+      toast.error(message);
+    }
+  }
+
+  const contacts = contactsQuery.data ?? [];
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">رسالة جديدة</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>المستلم</Label>
+            {contacts.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {contactsQuery.isLoading ? "جارٍ التحميل…" : "لا توجد جهات اتصال متاحة"}
+              </p>
+            ) : (
+              <Select value={recipient} onValueChange={setRecipient}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue placeholder="اختر المستلم" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((c) => (
+                    <SelectItem key={c.user} value={c.user}>
+                      {c.name} — {c.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>الموضوع</Label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>الرسالة</Label>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className="rounded-xl"
+              rows={5}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={submit}
+            disabled={send.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {send.isPending ? "جارٍ الإرسال…" : "إرسال"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AnnouncementDialog({ onClose }: { onClose: () => void }) {
+  const save = useSaveAnnouncement();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [type, setType] = useState("Announcement");
+  const [audience, setAudience] = useState("All");
+
+  async function submit() {
+    if (!title.trim()) {
+      toast.error("العنوان مطلوب");
+      return;
+    }
+    try {
+      await save.mutateAsync({ title, body, type, audience });
+      toast.success("تم نشر الإعلان");
+      onClose();
+    } catch (err) {
+      const message =
+        (err as { messageAr?: string }).messageAr || (err as Error).message || "تعذّر نشر الإعلان";
+      toast.error(message);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">إعلان جديد</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>العنوان</Label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>النوع</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Announcement">إعلان</SelectItem>
+                  <SelectItem value="Event">حدث</SelectItem>
+                  <SelectItem value="Alert">تنبيه</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>الجمهور</Label>
+              <Select value={audience} onValueChange={setAudience}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">الجميع</SelectItem>
+                  <SelectItem value="Students">الطلاب</SelectItem>
+                  <SelectItem value="Teachers">المعلمون</SelectItem>
+                  <SelectItem value="Parents">أولياء الأمور</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>النص</Label>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className="rounded-xl"
+              rows={5}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={submit}
+            disabled={save.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {save.isPending ? "جارٍ النشر…" : "نشر"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
