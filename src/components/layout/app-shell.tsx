@@ -38,7 +38,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
             <div className="relative hidden min-w-0 md:block">
               <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="ابحث عن طالب، معلم، أو صف..." className="h-10 rounded-xl bg-secondary/60 pr-9" />
+              <Input
+                placeholder="ابحث عن طالب، معلم، أو صف..."
+                className="h-10 rounded-xl bg-secondary/60 pr-9"
+              />
             </div>
             <div className="col-start-3 flex items-center gap-2">
               <button
@@ -46,7 +49,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary"
                 aria-label="تبديل المظهر"
               >
-                {theme === "dark" ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
+                {theme === "dark" ? (
+                  <Sun className="size-[18px]" />
+                ) : (
+                  <Moon className="size-[18px]" />
+                )}
               </button>
               <button
                 className="relative grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary"
@@ -57,11 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
               <div className="hidden items-center gap-2.5 rounded-xl border border-border py-1 pl-3 pr-1.5 sm:flex">
                 {session?.image ? (
-                  <img
-                    src={session.image}
-                    alt=""
-                    className="size-8 rounded-lg object-cover"
-                  />
+                  <img src={session.image} alt="" className="size-8 rounded-lg object-cover" />
                 ) : (
                   <div className="grid size-8 place-items-center rounded-lg bg-brand-gradient text-xs font-bold text-primary-foreground">
                     {initials(displayName)}
@@ -77,7 +80,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-6 md:py-8">
-          <div className="mx-auto w-full max-w-[1400px] animate-in fade-in duration-500">{children}</div>
+          <div className="mx-auto w-full max-w-[1400px] animate-in fade-in duration-500">
+            {children}
+          </div>
         </main>
       </div>
     </div>

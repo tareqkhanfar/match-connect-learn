@@ -1,5 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { GraduationCap, BookOpen, HeartHandshake, ShieldCheck, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import {
+  GraduationCap,
+  BookOpen,
+  HeartHandshake,
+  ShieldCheck,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useApp } from "@/lib/app-context";
 import { Input } from "@/components/ui/input";
@@ -9,9 +17,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "تسجيل الدخول — Match Education" },
-      { name: "description", content: "سجّل الدخول إلى نظام Match Education لإدارة المدرسة: الطلاب، الحضور، الدرجات والرسوم." },
+      {
+        name: "description",
+        content:
+          "سجّل الدخول إلى نظام Match Education لإدارة المدرسة: الطلاب، الحضور، الدرجات والرسوم.",
+      },
       { property: "og:title", content: "تسجيل الدخول — Match Education" },
-      { property: "og:description", content: "بوابة الدخول لمديري المدارس والمعلمين والطلاب وأولياء الأمور." },
+      {
+        property: "og:description",
+        content: "بوابة الدخول لمديري المدارس والمعلمين والطلاب وأولياء الأمور.",
+      },
     ],
   }),
   component: LoginPage,
@@ -66,8 +81,8 @@ function LoginPage() {
             <span className="block text-primary"> في مكان واحد ذكي</span>
           </h1>
           <p className="mt-4 text-base leading-relaxed text-sidebar-foreground/70">
-            من تسجيل الحضور اليومي إلى بطاقات الدرجات والرسوم المالية والتواصل مع أولياء الأمور — كل ذلك بواجهة عربية
-            أنيقة وسريعة.
+            من تسجيل الحضور اليومي إلى بطاقات الدرجات والرسوم المالية والتواصل مع أولياء الأمور — كل
+            ذلك بواجهة عربية أنيقة وسريعة.
           </p>
           <div className="mt-10 grid grid-cols-3 gap-4">
             {[
@@ -75,7 +90,10 @@ function LoginPage() {
               { n: "٢٤", l: "معلماً ومعلمة" },
               { n: "٩٤٪", l: "حضور اليوم" },
             ].map((s) => (
-              <div key={s.l} className="rounded-2xl border border-sidebar-border bg-sidebar-accent/40 px-4 py-3 backdrop-blur">
+              <div
+                key={s.l}
+                className="rounded-2xl border border-sidebar-border bg-sidebar-accent/40 px-4 py-3 backdrop-blur"
+              >
                 <p className="text-2xl font-bold text-sidebar-foreground">{s.n}</p>
                 <p className="mt-1 text-xs text-sidebar-foreground/60">{s.l}</p>
               </div>
@@ -83,7 +101,9 @@ function LoginPage() {
           </div>
         </div>
 
-        <p className="text-xs text-sidebar-foreground/40">© ٢٠٢٦ Match Education — جميع الحقوق محفوظة</p>
+        <p className="text-xs text-sidebar-foreground/40">
+          © ٢٠٢٦ Match Education — جميع الحقوق محفوظة
+        </p>
       </div>
 
       <div className="flex items-center justify-center bg-background px-5 py-12">
@@ -158,7 +178,10 @@ function LoginPage() {
 
           <div className="mt-7 grid grid-cols-2 gap-3">
             {roleHints.map((c) => (
-              <div key={c.label} className="rounded-2xl border border-border bg-card p-3.5 text-right">
+              <div
+                key={c.label}
+                className="rounded-2xl border border-border bg-card p-3.5 text-right"
+              >
                 <c.icon className="size-5 text-muted-foreground" />
                 <p className="mt-2 text-sm font-bold">{c.label}</p>
                 <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{c.hint}</p>

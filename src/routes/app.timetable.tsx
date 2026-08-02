@@ -1,15 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Printer } from "lucide-react";
-import { useState } from "react";
-import { PageHeader, Pill } from "@/components/shared/ui-kit";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { classes, periods, subjects, timetable, weekDays } from "@/lib/mock-data";
+import { CalendarDays, Printer } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { useApp } from "@/lib/app-context";
+import { useClasses, useTimetable } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/timetable")({
   head: () => ({
     meta: [
       { title: "الجدول الدراسي — Match Education" },
-      { name: "description", content: "جدول أسبوعي مرئي لكل صف ومعلم بأيام وحصص وألوان مميزة لكل مادة." },
+      {
+        name: "description",
+        content: "جدول أسبوعي مرئي لكل صف ومعلم بأيام وحصص وألوان مميزة لكل مادة.",
+      },
       { property: "og:title", content: "الجدول الدراسي — Match Education" },
       { property: "og:description", content: "شبكة أيام × حصص بألوان لكل مادة دراسية." },
     ],
@@ -17,37 +28,87 @@ export const Route = createFileRoute("/app/timetable")({
   component: TimetablePage,
 });
 
-const slotColor: Record<string, string> = {
-  primary: "bg-primary-soft text-primary border-primary/25",
-  accent: "bg-success-soft text-accent border-accent/25",
-  warm: "bg-warm-soft text-warm-foreground border-warning/30",
-  info: "bg-info-soft text-info border-info/25",
-  success: "bg-success-soft text-success border-success/25",
-  destructive: "bg-destructive-soft text-destructive border-destructive/25",
-};
+// School week runs Sunday → Thursday.
+const WEEK_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+
+const SLOT_COLORS = [
+  "bg-primary-soft text-primary border-primary/25",
+  "bg-success-soft text-accent border-accent/25",
+  "bg-warm-soft text-warm-foreground border-warning/30",
+  "bg-info-soft text-info border-info/25",
+  "bg-success-soft text-success border-success/25",
+  "bg-destructive-soft text-destructive border-destructive/25",
+];
+
+/** Stable colour per subject so the grid reads consistently. */
+function colorFor(subject: string) {
+  let hash = 0;
+  for (let i = 0; i < subject.length; i++) hash = (hash * 31 + subject.charCodeAt(i)) | 0;
+  return SLOT_COLORS[Math.abs(hash) % SLOT_COLORS.length]!;
+}
+
+function shortTime(t: string) {
+  return (t || "").slice(0, 5);
+}
 
 function TimetablePage() {
-  const [classId, setClassId] = useState(classes[0]!.id);
-  const selected = classes.find((c) => c.id === classId)!;
+  const { role } = useApp();
+  // Students and parents get their own timetable; staff pick a class.
+  const picksClass = role === "admin" || role === "teacher";
+
+  const classesQuery = useClasses();
+  const [groupId, setGroupId] = useState<string>("");
+
+  useEffect(() => {
+    if (picksClass && !groupId && classesQuery.data?.length) {
+      setGroupId(classesQuery.data[0]!.name);
+    }
+  }, [picksClass, classesQuery.data, groupId]);
+
+  const timetableQuery = useTimetable(picksClass && groupId ? { student_group: groupId } : {});
+
+  const days = timetableQuery.data?.days ?? {};
+
+  // Build the period rows from the distinct start times present in the week.
+  const periods = useMemo(() => {
+    const times = new Set<string>();
+    for (const slots of Object.values(days)) {
+      for (const s of slots) times.add(shortTime(s.from_time));
+    }
+    return Array.from(times).sort();
+  }, [days]);
+
+  const hasData = periods.length > 0;
+  const selectedClass = classesQuery.data?.find((c) => c.name === groupId);
 
   return (
     <>
       <PageHeader
         title="الجدول الدراسي"
-        subtitle={`${selected.grade} - شعبة ${selected.section} • الأسبوع الحالي`}
+        subtitle={
+          picksClass
+            ? `${selectedClass?.student_group_name ?? ""} • ${timetableQuery.data?.week_start ?? ""}`
+            : `الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
+        }
         actions={
           <>
-            <Select value={classId} onValueChange={setClassId}>
-              <SelectTrigger className="h-10 w-[180px] rounded-xl"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {classes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.grade} - {c.section}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {picksClass && (
+              <Select value={groupId} onValueChange={setGroupId}>
+                <SelectTrigger className="h-10 w-[200px] rounded-xl">
+                  <SelectValue placeholder="اختر الشعبة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(classesQuery.data ?? []).map((c) => (
+                    <SelectItem key={c.name} value={c.name}>
+                      {c.student_group_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <button
               onClick={() => window.print()}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-colors hover:bg-secondary"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold hover:bg-secondary"
             >
               <Printer className="size-4" />
               <span className="hidden sm:inline">طباعة</span>
@@ -56,50 +117,88 @@ function TimetablePage() {
         }
       />
 
-      <div className="card-surface overflow-x-auto p-4">
-        <table className="w-full min-w-[860px] border-separate border-spacing-1.5 text-center text-sm">
-          <thead>
-            <tr>
-              <th className="w-24 rounded-xl bg-secondary px-2 py-3 text-xs font-bold text-muted-foreground">الحصة / اليوم</th>
-              {weekDays.map((d) => (
-                <th key={d} className="rounded-xl bg-secondary px-2 py-3 text-xs font-bold">{d}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {periods.map((p, pi) => (
-              <tr key={p}>
-                <td className="rounded-xl bg-secondary/60 px-2 py-3 text-xs font-semibold text-muted-foreground">{p}</td>
-                {weekDays.map((d) => {
-                  const slot = timetable[d]?.[(pi + weekDays.indexOf(d)) % periods.length];
-                  if (!slot) return <td key={d} />;
-                  if (pi === 3) {
-                    return (
-                      <td key={d} className="rounded-xl border border-dashed border-border bg-muted/40 px-2 py-4 text-xs font-semibold text-muted-foreground">
-                        فسحة
-                      </td>
-                    );
-                  }
-                  return (
-                    <td key={d} className={`rounded-xl border px-2 py-3 transition-transform hover:scale-[1.02] ${slotColor[slot.color]}`}>
-                      <p className="text-xs font-bold">{slot.subject}</p>
-                      <p className="mt-1 truncate text-[11px] opacity-75">{slot.teacher}</p>
+      <SectionCard title="الجدول الأسبوعي" description="الأحد إلى الخميس">
+        {timetableQuery.error ? (
+          <ErrorState error={timetableQuery.error} onRetry={() => timetableQuery.refetch()} />
+        ) : timetableQuery.isLoading ? (
+          <TableSkeleton rows={6} />
+        ) : !hasData ? (
+          <EmptyBlock
+            title="لا توجد حصص مجدولة هذا الأسبوع"
+            icon={<CalendarDays className="size-6" />}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-right text-sm">
+              <thead>
+                <tr>
+                  <th className="border-b border-border p-2 text-xs font-semibold text-muted-foreground">
+                    الحصة
+                  </th>
+                  {WEEK_DAYS.map((d) => (
+                    <th
+                      key={d}
+                      className="border-b border-border p-2 text-xs font-semibold text-muted-foreground"
+                    >
+                      {d}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {periods.map((time, pi) => (
+                  <tr key={time}>
+                    <td className="num whitespace-nowrap border-b border-border p-2 text-xs text-muted-foreground">
+                      <span className="font-semibold">الحصة {pi + 1}</span>
+                      <span className="block">{time}</span>
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    {WEEK_DAYS.map((day) => {
+                      const slot = (days[day] ?? []).find((s) => shortTime(s.from_time) === time);
+                      return (
+                        <td key={day} className="border-b border-border p-1.5 align-top">
+                          {slot ? (
+                            <div className={`rounded-xl border p-2 ${colorFor(slot.subject)}`}>
+                              <p className="truncate text-xs font-bold">{slot.subject}</p>
+                              {slot.teacher && (
+                                <p className="truncate text-[11px] opacity-80">{slot.teacher}</p>
+                              )}
+                              {slot.room && (
+                                <p className="num truncate text-[10px] opacity-70">{slot.room}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="grid h-full min-h-[52px] place-items-center rounded-xl border border-dashed border-border text-[11px] text-muted-foreground">
+                              —
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {subjects.map((s) => (
-          <Pill key={s.id} tone={s.color === "warm" ? "warning" : s.color === "destructive" ? "danger" : s.color === "accent" ? "success" : s.color === "info" ? "info" : "primary"}>
-            {s.name}
-          </Pill>
-        ))}
-      </div>
+      {hasData && (
+        <div className="mt-5">
+          <SectionCard title="المواد في هذا الأسبوع" description="الألوان المستخدمة في الجدول">
+            <div className="flex flex-wrap gap-2">
+              {Array.from(
+                new Set(
+                  Object.values(days)
+                    .flat()
+                    .map((s) => s.subject),
+                ),
+              ).map((s) => (
+                <Pill key={s}>{s}</Pill>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      )}
     </>
   );
 }

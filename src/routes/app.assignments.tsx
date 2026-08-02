@@ -8,7 +8,10 @@ export const Route = createFileRoute("/app/assignments")({
   head: () => ({
     meta: [
       { title: "الواجبات — Match Education" },
-      { name: "description", content: "إنشاء الواجبات، متابعة تسليم الطلاب، وتصحيح المعلم في مكان واحد." },
+      {
+        name: "description",
+        content: "إنشاء الواجبات، متابعة تسليم الطلاب، وتصحيح المعلم في مكان واحد.",
+      },
       { property: "og:title", content: "الواجبات — Match Education" },
       { property: "og:description", content: "أنشئ الواجبات وتابع التسليم والتصحيح." },
     ],
@@ -36,21 +39,35 @@ function AssignmentsPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="grid gap-4 sm:grid-cols-2">
           {assignments.map((a) => (
-            <div key={a.id} className="card-surface p-5 transition-all hover:-translate-y-0.5 hover:shadow-card">
+            <div
+              key={a.id}
+              className="card-surface p-5 transition-all hover:-translate-y-0.5 hover:shadow-card"
+            >
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
                 <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
                   <NotebookPen className="size-5" />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{a.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">{a.subject} • {a.grade}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {a.subject} • {a.grade}
+                  </p>
                 </div>
-                <Pill tone={a.status === "مفتوح" ? "info" : a.status === "مغلق" ? "muted" : "warning"}>{a.status}</Pill>
+                <Pill
+                  tone={a.status === "مفتوح" ? "info" : a.status === "مغلق" ? "muted" : "warning"}
+                >
+                  {a.status}
+                </Pill>
               </div>
               <p className="num mt-3 text-xs text-muted-foreground">آخر موعد للتسليم: {a.due}</p>
               <div className="mt-3 flex items-center gap-3">
-                <ProgressBar value={(a.submitted / a.total) * 100} tone={a.submitted === a.total ? "success" : "primary"} />
-                <span className="num shrink-0 text-xs font-semibold">{a.submitted}/{a.total}</span>
+                <ProgressBar
+                  value={(a.submitted / a.total) * 100}
+                  tone={a.submitted === a.total ? "success" : "primary"}
+                />
+                <span className="num shrink-0 text-xs font-semibold">
+                  {a.submitted}/{a.total}
+                </span>
               </div>
               <button
                 onClick={() => toast.success("تم فتح شاشة التصحيح")}
@@ -65,11 +82,16 @@ function AssignmentsPage() {
         <SectionCard title="أحدث التسليمات" description="بحاجة إلى تصحيح">
           <ul className="space-y-2.5">
             {students.slice(0, 8).map((s, i) => (
-              <li key={s.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3">
+              <li
+                key={s.id}
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3"
+              >
                 <Avatar name={s.name} />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{s.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{assignments[i % assignments.length]!.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {assignments[i % assignments.length]!.title}
+                  </p>
                 </div>
                 {i % 3 === 0 ? (
                   <Pill tone="success">

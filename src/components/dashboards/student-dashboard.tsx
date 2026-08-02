@@ -45,9 +45,24 @@ export function StudentDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="معدلي العام" value={`${kpi?.average ?? 0}%`} icon={Award} tone="primary" />
-        <KpiCard label="نسبة حضوري" value={`${kpi?.attendance_rate ?? 0}%`} icon={ClipboardCheck} tone="accent" />
-        <KpiCard label="واجبات مستحقة" value={kpi?.pending_assignments ?? 0} icon={NotebookPen} tone="warm" />
-        <KpiCard label="رسوم متبقية" value={money(kpi?.outstanding_fees ?? 0)} icon={Wallet} tone="info" />
+        <KpiCard
+          label="نسبة حضوري"
+          value={`${kpi?.attendance_rate ?? 0}%`}
+          icon={ClipboardCheck}
+          tone="accent"
+        />
+        <KpiCard
+          label="واجبات مستحقة"
+          value={kpi?.pending_assignments ?? 0}
+          icon={NotebookPen}
+          tone="warm"
+        />
+        <KpiCard
+          label="رسوم متبقية"
+          value={money(kpi?.outstanding_fees ?? 0)}
+          icon={Wallet}
+          tone="info"
+        />
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">
@@ -61,7 +76,10 @@ export function StudentDashboard() {
           ) : (
             <ul className="space-y-2.5">
               {schedule.map((slot, i) => (
-                <li key={slot.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                <li
+                  key={slot.id}
+                  className="flex items-center gap-3 rounded-xl border border-border p-3"
+                >
                   <span className="num grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-xs font-bold">
                     {i + 1}
                   </span>
@@ -69,7 +87,9 @@ export function StudentDashboard() {
                     <p className="truncate text-sm font-semibold">{slot.subject}</p>
                     <p className="truncate text-xs text-muted-foreground">{slot.teacher}</p>
                   </div>
-                  <span className="num shrink-0 text-xs text-muted-foreground">{shortTime(slot.from_time)}</span>
+                  <span className="num shrink-0 text-xs text-muted-foreground">
+                    {shortTime(slot.from_time)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -81,7 +101,10 @@ export function StudentDashboard() {
           description="آخر الواجبات المطلوبة"
           className="xl:col-span-2"
           actions={
-            <Link to="/app/assignments" className="text-xs font-semibold text-primary hover:underline">
+            <Link
+              to="/app/assignments"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
               كل الواجبات
             </Link>
           }
@@ -91,7 +114,10 @@ export function StudentDashboard() {
           ) : (
             <ul className="space-y-3">
               {assignments.map((a) => (
-                <li key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3.5">
+                <li
+                  key={a.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3.5"
+                >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{a.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
@@ -116,7 +142,9 @@ export function StudentDashboard() {
             <>
               <div className="h-[260px] w-full" dir="ltr">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={grades.map((g) => ({ subject: g.subject, average: g.percentage }))}>
+                  <BarChart
+                    data={grades.map((g) => ({ subject: g.subject, average: g.percentage }))}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis
                       dataKey="subject"
@@ -141,7 +169,12 @@ export function StudentDashboard() {
                       }}
                       formatter={(v: number) => [`${v}%`, "النسبة"]}
                     />
-                    <Bar dataKey="average" fill="var(--chart-1)" radius={[8, 8, 0, 0]} maxBarSize={40} />
+                    <Bar
+                      dataKey="average"
+                      fill="var(--chart-1)"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={40}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -159,7 +192,13 @@ export function StudentDashboard() {
                       <div className="mt-2">
                         <ProgressBar
                           value={g.percentage}
-                          tone={g.percentage >= 75 ? "success" : g.percentage >= 50 ? "primary" : "danger"}
+                          tone={
+                            g.percentage >= 75
+                              ? "success"
+                              : g.percentage >= 50
+                                ? "primary"
+                                : "danger"
+                          }
                         />
                       </div>
                     </div>

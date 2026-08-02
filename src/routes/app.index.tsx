@@ -9,9 +9,15 @@ export const Route = createFileRoute("/app/")({
   head: () => ({
     meta: [
       { title: "لوحة التحكم — Match Education" },
-      { name: "description", content: "لوحة تحكم مدرسية بمؤشرات الحضور والأداء الأكاديمي والإعلانات." },
+      {
+        name: "description",
+        content: "لوحة تحكم مدرسية بمؤشرات الحضور والأداء الأكاديمي والإعلانات.",
+      },
       { property: "og:title", content: "لوحة التحكم — Match Education" },
-      { property: "og:description", content: "مؤشرات الأداء، الحضور، وتوزيع الطلاب في نظرة واحدة." },
+      {
+        property: "og:description",
+        content: "مؤشرات الأداء، الحضور، وتوزيع الطلاب في نظرة واحدة.",
+      },
     ],
   }),
   component: DashboardPage,

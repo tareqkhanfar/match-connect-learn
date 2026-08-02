@@ -1,6 +1,13 @@
 import { BookOpen, CalendarClock, ClipboardCheck, NotebookPen, Users } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { Avatar, KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
+import {
+  Avatar,
+  KpiCard,
+  PageHeader,
+  Pill,
+  ProgressBar,
+  SectionCard,
+} from "@/components/shared/ui-kit";
 import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
 import { useDashboard } from "@/lib/api/hooks";
@@ -35,7 +42,12 @@ export function TeacherDashboard() {
         <KpiCard label="صفوفي" value={kpi.classes} icon={BookOpen} tone="primary" />
         <KpiCard label="طلابي" value={kpi.students} icon={Users} tone="accent" />
         <KpiCard label="حصص اليوم" value={schedule.length} icon={CalendarClock} tone="info" />
-        <KpiCard label="واجبات للتصحيح" value={kpi.pending_grading} icon={NotebookPen} tone="warm" />
+        <KpiCard
+          label="واجبات للتصحيح"
+          value={kpi.pending_grading}
+          icon={NotebookPen}
+          tone="warm"
+        />
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">
@@ -44,7 +56,10 @@ export function TeacherDashboard() {
           description="جدول اليوم الدراسي"
           className="xl:col-span-1"
           actions={
-            <Link to="/app/timetable" className="text-xs font-semibold text-primary hover:underline">
+            <Link
+              to="/app/timetable"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
               الجدول الكامل
             </Link>
           }
@@ -54,7 +69,10 @@ export function TeacherDashboard() {
           ) : (
             <ul className="space-y-2.5">
               {schedule.map((slot, i) => (
-                <li key={slot.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+                <li
+                  key={slot.id}
+                  className="flex items-center gap-3 rounded-xl border border-border p-3"
+                >
                   <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-xs font-bold text-primary">
                     {i + 1}
                   </div>
@@ -62,7 +80,9 @@ export function TeacherDashboard() {
                     <p className="truncate text-sm font-semibold">{slot.subject}</p>
                     <p className="truncate text-xs text-muted-foreground">{slot.student_group}</p>
                   </div>
-                  <span className="num shrink-0 text-xs text-muted-foreground">{shortTime(slot.from_time)}</span>
+                  <span className="num shrink-0 text-xs text-muted-foreground">
+                    {shortTime(slot.from_time)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -71,16 +91,24 @@ export function TeacherDashboard() {
 
         <SectionCard title="صفوفي" description="عدد الطلاب في كل شعبة" className="xl:col-span-2">
           {groups.length === 0 ? (
-            <EmptyBlock title="لم يتم إسناد أي شعبة لك بعد" icon={<BookOpen className="size-6" />} />
+            <EmptyBlock
+              title="لم يتم إسناد أي شعبة لك بعد"
+              icon={<BookOpen className="size-6" />}
+            />
           ) : (
             <ul className="space-y-3.5">
               {groups.map((c, i) => (
-                <li key={c.name} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4">
+                <li
+                  key={c.name}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4"
+                >
                   <Avatar name={c.student_group_name} />
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-3">
                       <p className="truncate text-sm font-semibold">{c.student_group_name}</p>
-                      <span className="num shrink-0 text-xs text-muted-foreground">{c.students} طالباً</span>
+                      <span className="num shrink-0 text-xs text-muted-foreground">
+                        {c.students} طالباً
+                      </span>
                     </div>
                     <div className="mt-2">
                       <ProgressBar
@@ -107,7 +135,10 @@ export function TeacherDashboard() {
           title="الواجبات النشطة"
           description="حالة التسليم"
           actions={
-            <Link to="/app/assignments" className="text-xs font-semibold text-primary hover:underline">
+            <Link
+              to="/app/assignments"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
               كل الواجبات
             </Link>
           }
@@ -128,7 +159,11 @@ export function TeacherDashboard() {
                           {a.subject} • {a.grade}
                         </p>
                       </div>
-                      <Pill tone={a.status === "مفتوح" ? "info" : a.status === "مغلق" ? "muted" : "warning"}>
+                      <Pill
+                        tone={
+                          a.status === "مفتوح" ? "info" : a.status === "مغلق" ? "muted" : "warning"
+                        }
+                      >
                         {a.status}
                       </Pill>
                     </div>

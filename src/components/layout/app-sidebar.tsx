@@ -51,7 +51,8 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
               )}
               <ul className="space-y-1">
                 {groupItems.map((item) => {
-                  const active = item.to === "/app" ? pathname === "/app" : pathname.startsWith(item.to);
+                  const active =
+                    item.to === "/app" ? pathname === "/app" : pathname.startsWith(item.to);
                   return (
                     <li key={item.to}>
                       <Link
@@ -106,7 +107,9 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
             collapsed && "justify-center px-2",
           )}
         >
-          <ChevronsLeft className={cn("size-[18px] shrink-0 transition-transform", collapsed && "rotate-180")} />
+          <ChevronsLeft
+            className={cn("size-[18px] shrink-0 transition-transform", collapsed && "rotate-180")}
+          />
           {!collapsed && <span>طيّ الشريط</span>}
         </button>
       </div>
@@ -126,8 +129,13 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onCloseMobile} />
-          <div className="absolute inset-y-0 right-0 w-[280px] animate-in slide-in-from-right duration-300">{content}</div>
+          <div
+            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
+            onClick={onCloseMobile}
+          />
+          <div className="absolute inset-y-0 right-0 w-[280px] animate-in slide-in-from-right duration-300">
+            {content}
+          </div>
         </div>
       )}
     </>

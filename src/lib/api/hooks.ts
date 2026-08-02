@@ -1,11 +1,6 @@
 /** React Query hooks wrapping the Match K12 API. */
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseQueryOptions,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { apiGet, apiPost } from "./client";
 import type {
   AdminDashboard,
@@ -30,6 +25,12 @@ import type {
   TeacherRow,
   Timetable,
 } from "./types";
+
+/**
+ * Query params are built inline from optional UI state, so every field has to
+ * accept `undefined` explicitly (the project uses exactOptionalPropertyTypes).
+ */
+type Opt<T> = { [K in keyof T]?: T[K] | undefined };
 
 /** Central key registry so invalidation stays consistent. */
 export const qk = {
@@ -75,8 +76,7 @@ export function useSession(options?: Partial<UseQueryOptions<Session>>) {
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { email: string; password: string }) =>
-      apiPost<Session>("auth.login", vars),
+    mutationFn: (vars: { email: string; password: string }) => apiPost<Session>("auth.login", vars),
     onSuccess: (session) => {
       qc.setQueryData(qk.session, session);
       qc.invalidateQueries();
@@ -96,11 +96,7 @@ export function useLogout() {
 
 // --- Dashboard -------------------------------------------------------------
 
-export type AnyDashboard =
-  | AdminDashboard
-  | TeacherDashboard
-  | StudentDashboard
-  | ParentDashboard;
+export type AnyDashboard = AdminDashboard | TeacherDashboard | StudentDashboard | ParentDashboard;
 
 export function useDashboard() {
   return useQuery<AnyDashboard>({
@@ -138,7 +134,11 @@ export function useStudent(id: string | undefined) {
 }
 
 export function useStudentFilters() {
-  return useQuery<{ grades: string[]; sections: string[]; statuses: Array<{ value: string; label: string }> }>({
+  return useQuery<{
+    grades: string[];
+    sections: string[];
+    statuses: Array<{ value: string; label: string }>;
+  }>({
     queryKey: qk.studentFilters,
     queryFn: () => apiGet("students.filter_options"),
     staleTime: 10 * 60 * 1000,
@@ -159,7 +159,7 @@ export function useSaveStudent() {
 
 // --- Academics -------------------------------------------------------------
 
-export function useClasses(params: { program?: string; academic_year?: string } = {}) {
+export function useClasses(params: Opt<{ program: string; academic_year: string }> = {}) {
   return useQuery<ClassRow[]>({
     queryKey: qk.classes(params),
     queryFn: () => apiGet<ClassRow[]>("academics.list_classes", params),
@@ -189,7 +189,12 @@ export function useTeachers(search?: string) {
 }
 
 export function useTimetable(
-  params: { student_group?: string; instructor?: string; student?: string; week_start?: string } = {},
+  params: Opt<{
+    student_group: string;
+    instructor: string;
+    student: string;
+    week_start: string;
+  }> = {},
 ) {
   return useQuery<Timetable>({
     queryKey: qk.timetable(params),
@@ -197,7 +202,7 @@ export function useTimetable(
   });
 }
 
-export function useExams(params: { academic_term?: string; program?: string } = {}) {
+export function useExams(params: Opt<{ academic_term: string; program: string }> = {}) {
   return useQuery<ExamRow[]>({
     queryKey: qk.exams(params),
     queryFn: () => apiGet<ExamRow[]>("academics.list_exams", params),
@@ -205,7 +210,7 @@ export function useExams(params: { academic_term?: string; program?: string } = 
 }
 
 export function useGrades(
-  params: { student?: string; student_group?: string; course?: string } = {},
+  params: Opt<{ student: string; student_group: string; course: string }> = {},
 ) {
   return useQuery<GradeRow[]>({
     queryKey: qk.grades(params),
@@ -225,10 +230,11 @@ export function useMyGroups() {
 export function useAttendanceSheet(group: string | undefined, date: string) {
   return useQuery<AttendanceSheet>({
     queryKey: qk.attendanceSheet(group ?? "", date),
-    queryFn: () => apiGet<AttendanceSheet>("attendance.get_group_sheet", {
-      student_group: group,
-      date,
-    }),
+    queryFn: () =>
+      apiGet<AttendanceSheet>("attendance.get_group_sheet", {
+        student_group: group,
+        date,
+      }),
     enabled: Boolean(group),
   });
 }
@@ -250,7 +256,7 @@ export function useMarkAttendance() {
 }
 
 export function useAttendanceReport(
-  params: { student?: string; student_group?: string; from_date?: string; to_date?: string } = {},
+  params: Opt<{ student: string; student_group: string; from_date: string; to_date: string }> = {},
 ) {
   return useQuery<AttendanceReport>({
     queryKey: qk.attendanceReport(params),
@@ -261,7 +267,7 @@ export function useAttendanceReport(
 // --- Assignments -----------------------------------------------------------
 
 export function useAssignments(
-  params: { student_group?: string; course?: string; status?: string } = {},
+  params: Opt<{ student_group: string; course: string; status: string }> = {},
 ) {
   return useQuery<AssignmentRow[]>({
     queryKey: qk.assignments(params),
@@ -280,7 +286,14 @@ export function useSaveAssignment() {
 
 export function useSubmissions(assignment: string | undefined) {
   return useQuery<{
-    assignment: { id: string; title: string; subject: string; due: string; max: number; student_group: string };
+    assignment: {
+      id: string;
+      title: string;
+      subject: string;
+      due: string;
+      max: number;
+      student_group: string;
+    };
     rows: Array<{
       student: string;
       student_name: string;
@@ -335,7 +348,13 @@ export function useGradeSubmission() {
 // --- Fees ------------------------------------------------------------------
 
 export function useFees(
-  params: { student?: string; program?: string; status?: string; page?: number; page_size?: number } = {},
+  params: Opt<{
+    student: string;
+    program: string;
+    status: string;
+    page: number;
+    page_size: number;
+  }> = {},
 ) {
   return useQuery<FeeList>({
     queryKey: qk.fees(params),
@@ -344,13 +363,15 @@ export function useFees(
   });
 }
 
-export function useFeeCollection(months = 6) {
+/** Admin-only: other personas get a 403, so pass enabled:false for them. */
+export function useFeeCollection(months = 6, enabled = true) {
   return useQuery<{
     months: Array<{ month: string; expected: number; collected: number }>;
     by_status: Array<{ status: string; label: string; count: number }>;
   }>({
     queryKey: [...qk.collection, months],
     queryFn: () => apiGet("fees.collection_report", { months }),
+    enabled,
   });
 }
 

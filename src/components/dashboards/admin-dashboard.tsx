@@ -18,7 +18,13 @@ import { useDashboard } from "@/lib/api/hooks";
 import type { AdminDashboard as AdminDashboardData } from "@/lib/api/types";
 import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
 
-const pieColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+const pieColors = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
 
 const tooltipStyle = {
   contentStyle: {
@@ -62,11 +68,20 @@ export function AdminDashboard() {
         <KpiCard label="عدد الطلاب" value={kpi.students} icon={Users} tone="primary" />
         <KpiCard label="عدد المعلمين" value={kpi.teachers} icon={GraduationCap} tone="accent" />
         <KpiCard label="عدد الصفوف والشُعب" value={kpi.classes} icon={School} tone="info" />
-        <KpiCard label="نسبة الحضور اليوم" value={`${kpi.attendance_today}%`} icon={ClipboardCheck} tone="warm" />
+        <KpiCard
+          label="نسبة الحضور اليوم"
+          value={`${kpi.attendance_today}%`}
+          icon={ClipboardCheck}
+          tone="warm"
+        />
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">
-        <SectionCard title="الحضور عبر الزمن" description="نسبة الحضور الشهرية خلال العام" className="xl:col-span-2">
+        <SectionCard
+          title="الحضور عبر الزمن"
+          description="نسبة الحضور الشهرية خلال العام"
+          className="xl:col-span-2"
+        >
           <div className="h-[290px] w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={attendanceTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -77,10 +92,27 @@ export function AdminDashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis domain={[70, 100]} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={34} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[70, 100]}
+                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={34}
+                />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v}%`, "الحضور"]} />
-                <Area type="monotone" dataKey="present" stroke="var(--chart-1)" strokeWidth={2.5} fill="url(#attGrad)" />
+                <Area
+                  type="monotone"
+                  dataKey="present"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2.5}
+                  fill="url(#attGrad)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -90,7 +122,15 @@ export function AdminDashboard() {
           <div className="h-[290px] w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={genderSplit} dataKey="value" nameKey="name" innerRadius={62} outerRadius={95} paddingAngle={4} stroke="none">
+                <Pie
+                  data={genderSplit}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={62}
+                  outerRadius={95}
+                  paddingAngle={4}
+                  stroke="none"
+                >
                   {genderSplit.map((_, i) => (
                     <Cell key={i} fill={pieColors[i]} />
                   ))}
@@ -117,10 +157,25 @@ export function AdminDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={gradeDistribution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="grade" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} width={30} />
+                <XAxis
+                  dataKey="grade"
+                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={30}
+                />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "طالب"]} />
-                <Bar dataKey="students" fill="var(--chart-2)" radius={[8, 8, 0, 0]} maxBarSize={38} />
+                <Bar
+                  dataKey="students"
+                  fill="var(--chart-2)"
+                  radius={[8, 8, 0, 0]}
+                  maxBarSize={38}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -129,9 +184,19 @@ export function AdminDashboard() {
         <SectionCard title="الأداء الأكاديمي العام" description="متوسط الدرجات حسب المادة">
           <div className="h-[280px] w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <BarChart
+                data={performanceData}
+                layout="vertical"
+                margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis
                   type="category"
                   dataKey="subject"
@@ -142,7 +207,12 @@ export function AdminDashboard() {
                   orientation="right"
                 />
                 <Tooltip {...tooltipStyle} formatter={(v: number) => [`${v}%`, "المعدل"]} />
-                <Bar dataKey="average" fill="var(--chart-3)" radius={[0, 8, 8, 0]} maxBarSize={22} />
+                <Bar
+                  dataKey="average"
+                  fill="var(--chart-3)"
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={22}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -150,19 +220,30 @@ export function AdminDashboard() {
       </div>
 
       <div className="mt-5">
-        <SectionCard title="الأحداث والإعلانات القادمة" description="آخر التحديثات من إدارة المدرسة" actions={<Bell className="size-4 text-muted-foreground" />}>
+        <SectionCard
+          title="الأحداث والإعلانات القادمة"
+          description="آخر التحديثات من إدارة المدرسة"
+          actions={<Bell className="size-4 text-muted-foreground" />}
+        >
           <ul className="divide-y divide-border">
             {announcements.map((a) => (
-              <li key={a.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 py-3.5 first:pt-0 last:pb-0">
+              <li
+                key={a.id}
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-4 py-3.5 first:pt-0 last:pb-0"
+              >
                 <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-secondary text-muted-foreground">
                   <CalendarDays className="size-5" />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{a.title}</p>
                   <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{a.body}</p>
-                  <p className="num mt-1 text-[11px] text-muted-foreground">{a.date} • {a.audience}</p>
+                  <p className="num mt-1 text-[11px] text-muted-foreground">
+                    {a.date} • {a.audience}
+                  </p>
                 </div>
-                <Pill tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}>{a.type}</Pill>
+                <Pill tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}>
+                  {a.type}
+                </Pill>
               </li>
             ))}
           </ul>

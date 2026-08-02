@@ -10,7 +10,10 @@ export const Route = createFileRoute("/app/communication")({
   head: () => ({
     meta: [
       { title: "التواصل والإعلانات — Match Education" },
-      { name: "description", content: "لوحة إعلانات المدرسة، رسائل بين المعلمين وأولياء الأمور، وإشعارات فورية." },
+      {
+        name: "description",
+        content: "لوحة إعلانات المدرسة، رسائل بين المعلمين وأولياء الأمور، وإشعارات فورية.",
+      },
       { property: "og:title", content: "التواصل والإعلانات — Match Education" },
       { property: "og:description", content: "أعلن، راسِل، وتابع الإشعارات في مكان واحد." },
     ],
@@ -27,7 +30,11 @@ function CommunicationPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="space-y-5">
-          <SectionCard title="إعلان جديد" description="سيظهر لجميع أولياء الأمور والطلاب" actions={<Megaphone className="size-4 text-primary" />}>
+          <SectionCard
+            title="إعلان جديد"
+            description="سيظهر لجميع أولياء الأمور والطلاب"
+            actions={<Megaphone className="size-4 text-primary" />}
+          >
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -37,7 +44,9 @@ function CommunicationPage() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-1.5">
                 {["جميع الطلاب", "أولياء الأمور", "المعلمون"].map((a) => (
-                  <Pill key={a} tone="primary">{a}</Pill>
+                  <Pill key={a} tone="primary">
+                    {a}
+                  </Pill>
                 ))}
               </div>
               <button
@@ -59,10 +68,16 @@ function CommunicationPage() {
                 <li key={a.id} className="rounded-xl border border-border p-4">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <p className="truncate text-sm font-bold">{a.title}</p>
-                    <Pill tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}>{a.type}</Pill>
+                    <Pill
+                      tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}
+                    >
+                      {a.type}
+                    </Pill>
                   </div>
                   <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{a.body}</p>
-                  <p className="num mt-2 text-[11px] text-muted-foreground">{a.date} • {a.audience}</p>
+                  <p className="num mt-2 text-[11px] text-muted-foreground">
+                    {a.date} • {a.audience}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -73,7 +88,10 @@ function CommunicationPage() {
           <SectionCard title="الرسائل" description="بين المعلمين وأولياء الأمور">
             <ul className="space-y-2.5">
               {messages.map((m) => (
-                <li key={m.id} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border p-3 ${m.unread ? "border-primary/30 bg-primary-soft/40" : "border-border"}`}>
+                <li
+                  key={m.id}
+                  className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border p-3 ${m.unread ? "border-primary/30 bg-primary-soft/40" : "border-border"}`}
+                >
                   <Avatar name={m.from} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{m.from}</p>
@@ -82,14 +100,20 @@ function CommunicationPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-[11px] text-muted-foreground">{m.time}</p>
-                    {m.unread && <span className="mt-1 inline-block size-2 rounded-full bg-primary" />}
+                    {m.unread && (
+                      <span className="mt-1 inline-block size-2 rounded-full bg-primary" />
+                    )}
                   </div>
                 </li>
               ))}
             </ul>
           </SectionCard>
 
-          <SectionCard title="الإشعارات" description="آخر الأنشطة في النظام" actions={<Bell className="size-4 text-muted-foreground" />}>
+          <SectionCard
+            title="الإشعارات"
+            description="آخر الأنشطة في النظام"
+            actions={<Bell className="size-4 text-muted-foreground" />}
+          >
             <ul className="space-y-3 text-sm">
               {[
                 "تم تسجيل حضور الصف التاسع - شعبة أ",

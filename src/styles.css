@@ -193,9 +193,21 @@
 
 @utility bg-mesh {
   background-image:
-    radial-gradient(at 90% 10%, color-mix(in oklab, var(--color-primary) 22%, transparent) 0px, transparent 55%),
-    radial-gradient(at 10% 85%, color-mix(in oklab, var(--color-accent) 20%, transparent) 0px, transparent 55%),
-    radial-gradient(at 45% 40%, color-mix(in oklab, var(--color-warm) 14%, transparent) 0px, transparent 55%);
+    radial-gradient(
+      at 90% 10%,
+      color-mix(in oklab, var(--color-primary) 22%, transparent) 0px,
+      transparent 55%
+    ),
+    radial-gradient(
+      at 10% 85%,
+      color-mix(in oklab, var(--color-accent) 20%, transparent) 0px,
+      transparent 55%
+    ),
+    radial-gradient(
+      at 45% 40%,
+      color-mix(in oklab, var(--color-warm) 14%, transparent) 0px,
+      transparent 55%
+    );
 }
 
 @utility card-surface {

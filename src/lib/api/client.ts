@@ -81,10 +81,7 @@ async function parseResponse<T>(res: Response, method: string): Promise<T> {
 }
 
 /** GET request — used for reads. Params are serialised into the query string. */
-export async function apiGet<T>(
-  method: string,
-  params: Record<string, unknown> = {},
-): Promise<T> {
+export async function apiGet<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === "") continue;
@@ -100,10 +97,7 @@ export async function apiGet<T>(
 }
 
 /** POST request — used for writes. */
-export async function apiPost<T>(
-  method: string,
-  body: Record<string, unknown> = {},
-): Promise<T> {
+export async function apiPost<T>(method: string, body: Record<string, unknown> = {}): Promise<T> {
   const res = await fetch(endpointUrl(method), {
     method: "POST",
     credentials: "include",

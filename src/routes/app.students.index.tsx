@@ -5,8 +5,21 @@ import { toast } from "sonner";
 import { Avatar, EmptyState, PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { money, statusMeta } from "@/lib/roles";
 import { useSaveStudent, useStudentFilters, useStudents } from "@/lib/api/hooks";
 import { ErrorState, TableSkeleton } from "@/components/shared/states";
@@ -15,7 +28,10 @@ export const Route = createFileRoute("/app/students/")({
   head: () => ({
     meta: [
       { title: "إدارة الطلاب — Match Education" },
-      { name: "description", content: "قائمة الطلاب مع البحث والفلترة وملفات الطلاب الأكاديمية والمالية." },
+      {
+        name: "description",
+        content: "قائمة الطلاب مع البحث والفلترة وملفات الطلاب الأكاديمية والمالية.",
+      },
       { property: "og:title", content: "إدارة الطلاب — Match Education" },
       { property: "og:description", content: "ابحث وفلتر وأدر ملفات الطلاب بسهولة." },
     ],
@@ -92,22 +108,54 @@ function StudentsPage() {
               className="h-10 rounded-xl pr-9"
             />
           </div>
-          <Select value={grade} onValueChange={(v) => { setGrade(v); setPage(1); }}>
-            <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="الصف" /></SelectTrigger>
+          <Select
+            value={grade}
+            onValueChange={(v) => {
+              setGrade(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="الصف" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الصفوف</SelectItem>
-              {grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+              {grades.map((g) => (
+                <SelectItem key={g} value={g}>
+                  {g}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Select value={section} onValueChange={(v) => { setSection(v); setPage(1); }}>
-            <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="الشعبة" /></SelectTrigger>
+          <Select
+            value={section}
+            onValueChange={(v) => {
+              setSection(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="الشعبة" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الشُعب</SelectItem>
-              {sections.map((s) => <SelectItem key={s} value={s}>شعبة {s}</SelectItem>)}
+              {sections.map((s) => (
+                <SelectItem key={s} value={s}>
+                  شعبة {s}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-            <SelectTrigger className="h-10 rounded-xl"><SelectValue placeholder="حالة الرسوم" /></SelectTrigger>
+          <Select
+            value={status}
+            onValueChange={(v) => {
+              setStatus(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="حالة الرسوم" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الحالات</SelectItem>
               <SelectItem value="paid">مدفوع</SelectItem>
@@ -128,7 +176,11 @@ function StudentsPage() {
             <TableSkeleton rows={perPage} />
           </div>
         ) : current.length === 0 ? (
-          <EmptyState icon={Users} title="لا توجد نتائج" description="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر أو مسح كلمة البحث." />
+          <EmptyState
+            icon={Users}
+            title="لا توجد نتائج"
+            description="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر أو مسح كلمة البحث."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-right text-sm">
@@ -147,7 +199,11 @@ function StudentsPage() {
                 {current.map((s) => (
                   <tr key={s.id} className="transition-colors hover:bg-secondary/40">
                     <td className="px-4 py-3">
-                      <Link to="/app/students/$studentId" params={{ studentId: s.id }} className="flex items-center gap-3">
+                      <Link
+                        to="/app/students/$studentId"
+                        params={{ studentId: s.id }}
+                        className="flex items-center gap-3"
+                      >
                         <Avatar name={s.name} />
                         <div className="min-w-0">
                           <p className="truncate font-semibold hover:text-primary">{s.name}</p>
@@ -160,18 +216,43 @@ function StudentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <p className="truncate">{s.guardian ?? "—"}</p>
-                      {s.guardianPhone && <p className="num text-xs text-muted-foreground">{s.guardianPhone}</p>}
+                      {s.guardianPhone && (
+                        <p className="num text-xs text-muted-foreground">{s.guardianPhone}</p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="w-24">
-                        <ProgressBar value={s.attendanceRate} tone={s.attendanceRate >= 90 ? "success" : s.attendanceRate >= 80 ? "warning" : "danger"} />
-                        <span className="num mt-1 block text-xs text-muted-foreground">{s.attendanceRate}%</span>
+                        <ProgressBar
+                          value={s.attendanceRate}
+                          tone={
+                            s.attendanceRate >= 90
+                              ? "success"
+                              : s.attendanceRate >= 80
+                                ? "warning"
+                                : "danger"
+                          }
+                        />
+                        <span className="num mt-1 block text-xs text-muted-foreground">
+                          {s.attendanceRate}%
+                        </span>
                       </div>
                     </td>
                     <td className="num px-4 py-3 font-semibold">{s.average}</td>
-                    <td className="num whitespace-nowrap px-4 py-3 text-muted-foreground">{money(s.feePaid)} / {money(s.feeTotal)}</td>
+                    <td className="num whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      {money(s.feePaid)} / {money(s.feeTotal)}
+                    </td>
                     <td className="px-4 py-3">
-                      <Pill tone={s.status === "paid" ? "success" : s.status === "partial" ? "warning" : "danger"}>{statusMeta[s.status].label}</Pill>
+                      <Pill
+                        tone={
+                          s.status === "paid"
+                            ? "success"
+                            : s.status === "partial"
+                              ? "warning"
+                              : "danger"
+                        }
+                      >
+                        {statusMeta[s.status].label}
+                      </Pill>
                     </td>
                   </tr>
                 ))}
@@ -248,7 +329,9 @@ function AddStudentDialog() {
       });
     } catch (error) {
       const message =
-        (error as { messageAr?: string }).messageAr || (error as Error).message || "تعذّر حفظ الطالب";
+        (error as { messageAr?: string }).messageAr ||
+        (error as Error).message ||
+        "تعذّر حفظ الطالب";
       toast.error(message);
     }
   }
@@ -354,7 +437,10 @@ function AddStudentDialog() {
           >
             {saveStudent.isPending ? "جارٍ الحفظ…" : "حفظ الطالب"}
           </button>
-          <button onClick={() => setOpen(false)} className="h-10 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={() => setOpen(false)}
+            className="h-10 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>

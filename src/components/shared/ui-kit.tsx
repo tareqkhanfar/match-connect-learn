@@ -50,7 +50,12 @@ export function KpiCard({
           <p className="num mt-2 text-3xl font-bold tracking-tight">{value}</p>
           {trend && <p className="mt-2 text-xs font-medium text-accent">{trend}</p>}
         </div>
-        <div className={cn("grid size-12 shrink-0 place-items-center rounded-2xl transition-transform group-hover:scale-105", tones[tone])}>
+        <div
+          className={cn(
+            "grid size-12 shrink-0 place-items-center rounded-2xl transition-transform group-hover:scale-105",
+            tones[tone],
+          )}
+        >
           <Icon className="size-6" />
         </div>
       </div>
@@ -76,7 +81,9 @@ export function SectionCard({
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-5 py-4">
         <div className="min-w-0">
           <h2 className="truncate text-base font-bold">{title}</h2>
-          {description && <p className="mt-0.5 truncate text-xs text-muted-foreground">{description}</p>}
+          {description && (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{description}</p>
+          )}
         </div>
         {actions}
       </div>
@@ -85,7 +92,15 @@ export function SectionCard({
   );
 }
 
-export function EmptyState({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
       <div className="grid size-14 place-items-center rounded-2xl bg-secondary text-muted-foreground">
@@ -97,7 +112,13 @@ export function EmptyState({ icon: Icon, title, description }: { icon: LucideIco
   );
 }
 
-export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "success" | "warning" | "danger" | "info" | "primary" }) {
+export function Pill({
+  children,
+  tone = "muted",
+}: {
+  children: ReactNode;
+  tone?: "muted" | "success" | "warning" | "danger" | "info" | "primary";
+}) {
   const map = {
     muted: "bg-secondary text-secondary-foreground border-border",
     success: "bg-success-soft text-success border-success/30",
@@ -107,25 +128,54 @@ export function Pill({ children, tone = "muted" }: { children: ReactNode; tone?:
     primary: "bg-primary-soft text-primary border-primary/25",
   };
   return (
-    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", map[tone])}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap",
+        map[tone],
+      )}
+    >
       {children}
     </span>
   );
 }
 
-export function ProgressBar({ value, tone = "primary" }: { value: number; tone?: "primary" | "success" | "warning" | "danger" }) {
-  const map = { primary: "bg-primary", success: "bg-success", warning: "bg-warning", danger: "bg-destructive" };
+export function ProgressBar({
+  value,
+  tone = "primary",
+}: {
+  value: number;
+  tone?: "primary" | "success" | "warning" | "danger";
+}) {
+  const map = {
+    primary: "bg-primary",
+    success: "bg-success",
+    warning: "bg-warning",
+    danger: "bg-destructive",
+  };
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-      <div className={cn("h-full rounded-full transition-all duration-700", map[tone])} style={{ width: `${Math.min(100, value)}%` }} />
+      <div
+        className={cn("h-full rounded-full transition-all duration-700", map[tone])}
+        style={{ width: `${Math.min(100, value)}%` }}
+      />
     </div>
   );
 }
 
 export function Avatar({ name, className }: { name: string; className?: string }) {
-  const initials = name.replace("أ. ", "").split(" ").slice(0, 2).map((p) => p[0]).join("");
+  const initials = name
+    .replace("أ. ", "")
+    .split(" ")
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("");
   return (
-    <div className={cn("grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-xs font-bold text-primary", className)}>
+    <div
+      className={cn(
+        "grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-xs font-bold text-primary",
+        className,
+      )}
+    >
       {initials}
     </div>
   );
