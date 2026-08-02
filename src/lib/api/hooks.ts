@@ -468,3 +468,49 @@ export function useReports() {
     queryFn: () => apiGet<ReportsOverview>("reports.overview"),
   });
 }
+
+// --- Settings --------------------------------------------------------------
+
+export interface SchoolSettings {
+  school: {
+    company: string | null;
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    country: string | null;
+    currency: string | null;
+  };
+  academic: {
+    current_year: string | null;
+    current_term: string | null;
+    years: Array<{ name: string; year_start_date: string; year_end_date: string }>;
+    terms: Array<{
+      name: string;
+      academic_year: string;
+      term_start_date: string;
+      term_end_date: string;
+    }>;
+  };
+  roles: Array<{ persona: string; role: string; label: string; users: number }>;
+  counts: Record<string, number>;
+}
+
+export function useSettings() {
+  return useQuery<SchoolSettings>({
+    queryKey: ["settings"],
+    queryFn: () => apiGet<SchoolSettings>("settings.get_settings"),
+  });
+}
+
+export function useSaveSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ updated: string[] }>("settings.save_settings", { payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      qc.invalidateQueries({ queryKey: qk.session });
+      qc.invalidateQueries({ queryKey: qk.dashboard });
+    },
+  });
+}

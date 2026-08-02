@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Save } from "lucide-react";
+import { Save, School, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { roleLabels } from "@/lib/roles";
+import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
+import { useSaveSettings, useSettings } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -20,142 +21,222 @@ export const Route = createFileRoute("/app/settings")({
       { title: "الإعدادات — Match Education" },
       {
         name: "description",
-        content: "إعدادات السنة الدراسية والفصول وبيانات المدرسة والأدوار والصلاحيات.",
+        content: "إعدادات المدرسة، السنة الدراسية والفصول، والأدوار والصلاحيات.",
       },
       { property: "og:title", content: "الإعدادات — Match Education" },
-      { property: "og:description", content: "اضبط السنة الدراسية والصلاحيات وبيانات المدرسة." },
+      { property: "og:description", content: "اضبط بيانات المدرسة والعام الدراسي والصلاحيات." },
     ],
   }),
   component: SettingsPage,
 });
 
-const permissions = [
-  { label: "إدارة الطلاب والمعلمين", roles: ["admin"] },
-  { label: "تسجيل الحضور", roles: ["admin", "teacher"] },
-  { label: "إدخال الدرجات", roles: ["admin", "teacher"] },
-  { label: "إدارة الرسوم المالية", roles: ["admin"] },
-  { label: "عرض التقارير", roles: ["admin", "teacher"] },
-  { label: "متابعة الأبناء", roles: ["parent"] },
-];
+const COUNT_LABELS: Record<string, string> = {
+  students: "الطلاب",
+  instructors: "المعلمون",
+  guardians: "أولياء الأمور",
+  programs: "الصفوف",
+  courses: "المواد",
+  student_groups: "الشُعب",
+};
 
 function SettingsPage() {
+  const { data, isLoading, error, refetch } = useSettings();
+  const saveSettings = useSaveSettings();
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    current_year: "",
+    current_term: "",
+  });
+
+  // Seed the form once the server values arrive.
+  useEffect(() => {
+    if (!data) return;
+    setForm({
+      name: data.school.name ?? "",
+      email: data.school.email ?? "",
+      phone: data.school.phone ?? "",
+      current_year: data.academic.current_year ?? "",
+      current_term: data.academic.current_term ?? "",
+    });
+  }, [data]);
+
+  if (isLoading) return <DashboardSkeleton />;
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
+  if (!data) return null;
+
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function save() {
+    try {
+      await saveSettings.mutateAsync({ ...form, company: data!.school.company });
+      toast.success("تم حفظ الإعدادات");
+    } catch (err) {
+      const message =
+        (err as { messageAr?: string }).messageAr ||
+        (err as Error).message ||
+        "تعذّر حفظ الإعدادات";
+      toast.error(message);
+    }
+  }
+
+  // Only offer terms that belong to the selected year.
+  const termsForYear = data.academic.terms.filter(
+    (t) => !form.current_year || t.academic_year === form.current_year,
+  );
+
   return (
     <>
       <PageHeader
         title="الإعدادات"
-        subtitle="بيانات المدرسة، السنة الدراسية، والأدوار والصلاحيات"
+        subtitle="بيانات المدرسة والعام الدراسي والصلاحيات"
         actions={
           <button
-            onClick={() => toast.success("تم حفظ الإعدادات")}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
+            onClick={save}
+            disabled={saveSettings.isPending}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft disabled:opacity-60"
           >
             <Save className="size-4" />
-            حفظ التغييرات
+            {saveSettings.isPending ? "جارٍ الحفظ…" : "حفظ الإعدادات"}
           </button>
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <SectionCard title="بيانات المدرسة">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
+      <div className="grid gap-5 xl:grid-cols-2">
+        <SectionCard
+          title="بيانات المدرسة"
+          description="المعلومات الأساسية"
+          actions={<School className="size-4 text-muted-foreground" />}
+        >
+          <div className="grid gap-4">
+            <div className="space-y-1.5">
               <Label>اسم المدرسة</Label>
-              <Input defaultValue="مدرسة Match Education النموذجية" className="rounded-xl" />
+              <Input
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                className="rounded-xl"
+              />
             </div>
-            <div className="space-y-1.5">
-              <Label>المدينة</Label>
-              <Input defaultValue="رام الله" className="rounded-xl" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>البريد الإلكتروني</Label>
+                <Input
+                  value={form.email}
+                  onChange={(e) => set("email", e.target.value)}
+                  className="rounded-xl"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>رقم الهاتف</Label>
+                <Input
+                  value={form.phone}
+                  onChange={(e) => set("phone", e.target.value)}
+                  className="num rounded-xl"
+                  dir="ltr"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>الهاتف</Label>
-              <Input defaultValue="022951234" className="num rounded-xl" />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>البريد الرسمي</Label>
-              <Input defaultValue="info@match-edu.ps" className="rounded-xl" dir="ltr" />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>الدولة</Label>
+                <Input value={data.school.country ?? "—"} disabled className="rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>العملة</Label>
+                <Input
+                  value={data.school.currency ?? "—"}
+                  disabled
+                  className="rounded-xl"
+                  dir="ltr"
+                />
+              </div>
             </div>
           </div>
         </SectionCard>
 
-        <SectionCard title="السنة الدراسية والفصول">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <SectionCard title="العام الدراسي" description="السنة والفصل النشِط حالياً">
+          <div className="grid gap-4">
             <div className="space-y-1.5">
               <Label>السنة الدراسية</Label>
-              <Select defaultValue="2025-2026">
+              <Select
+                value={form.current_year}
+                onValueChange={(v) => {
+                  set("current_year", v);
+                  // Clear the term when the year changes so they stay consistent.
+                  set("current_term", "");
+                }}
+              >
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue />
+                  <SelectValue placeholder="اختر السنة" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2025-2026">٢٠٢٥ / ٢٠٢٦</SelectItem>
-                  <SelectItem value="2024-2025">٢٠٢٤ / ٢٠٢٥</SelectItem>
+                  {data.academic.years.map((y) => (
+                    <SelectItem key={y.name} value={y.name}>
+                      {y.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>الفصل الحالي</Label>
-              <Select defaultValue="t2">
+              <Label>الفصل الدراسي</Label>
+              <Select value={form.current_term} onValueChange={(v) => set("current_term", v)}>
                 <SelectTrigger className="rounded-xl">
-                  <SelectValue />
+                  <SelectValue placeholder="اختر الفصل" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="t1">الفصل الأول</SelectItem>
-                  <SelectItem value="t2">الفصل الثاني</SelectItem>
+                  {termsForYear.map((t) => (
+                    <SelectItem key={t.name} value={t.name}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>بداية العام</Label>
-              <Input defaultValue="2025-09-01" className="num rounded-xl" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>نهاية العام</Label>
-              <Input defaultValue="2026-06-15" className="num rounded-xl" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>العملة</Label>
-              <Input defaultValue="شيكل ₪" className="rounded-xl" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>حد الغياب المسموح</Label>
-              <Input defaultValue="12" className="num rounded-xl" />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              تُستخدم هذه القيم كافتراضي في التقارير ولوحات التحكم.
+            </p>
           </div>
         </SectionCard>
+      </div>
 
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <SectionCard
           title="الأدوار والصلاحيات"
-          description="صلاحيات كل دور في النظام"
-          className="lg:col-span-2"
+          description="عدد المستخدمين في كل دور"
+          actions={<ShieldCheck className="size-4 text-muted-foreground" />}
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead className="text-xs text-muted-foreground">
-                <tr>
-                  <th className="pb-3 font-semibold">الصلاحية</th>
-                  <th className="pb-3 font-semibold">الأدوار المسموحة</th>
-                  <th className="pb-3 font-semibold">مُفعّلة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {permissions.map((p) => (
-                  <tr key={p.label}>
-                    <td className="py-3 font-medium">{p.label}</td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {p.roles.map((r) => (
-                          <Pill key={r} tone="primary">
-                            {roleLabels[r as keyof typeof roleLabels]}
-                          </Pill>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      <Switch defaultChecked />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <ul className="space-y-2.5">
+            {data.roles.map((r) => (
+              <li
+                key={r.role}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border p-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{r.label}</p>
+                  <p className="truncate text-xs text-muted-foreground" dir="ltr">
+                    {r.role}
+                  </p>
+                </div>
+                <Pill tone={r.users > 0 ? "primary" : "muted"}>{r.users} مستخدم</Pill>
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+
+        <SectionCard title="ملخص النظام" description="أعداد السجلات الحالية">
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(data.counts).map(([key, value]) => (
+              <div key={key} className="rounded-xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">{COUNT_LABELS[key] ?? key}</p>
+                <p className="num mt-1 text-xl font-bold">{value}</p>
+              </div>
+            ))}
           </div>
         </SectionCard>
       </div>
