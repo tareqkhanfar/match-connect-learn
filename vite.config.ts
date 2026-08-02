@@ -12,4 +12,21 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    server: {
+      proxy: {
+        // Proxy Frappe's API through the dev server so the session cookie is
+        // same-origin. Override the target with VITE_BACKEND_URL when the
+        // backend runs elsewhere.
+        "/api": {
+          target: process.env["VITE_BACKEND_URL"] ?? "http://127.0.0.1:8016",
+          changeOrigin: true,
+        },
+        "/files": {
+          target: process.env["VITE_BACKEND_URL"] ?? "http://127.0.0.1:8016",
+          changeOrigin: true,
+        },
+      },
+    },
+  },
 });

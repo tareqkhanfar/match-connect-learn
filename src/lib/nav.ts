@@ -14,7 +14,7 @@ import {
   Settings,
   type LucideIcon,
 } from "lucide-react";
-import type { Role } from "./mock-data";
+import type { Role } from "./roles";
 
 export interface NavItem {
   label: string;

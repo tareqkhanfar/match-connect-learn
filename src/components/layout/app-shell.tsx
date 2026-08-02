@@ -2,16 +2,20 @@ import { Bell, Menu, Moon, Search, Sun } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { useApp } from "@/lib/app-context";
-import { roleLabels, type Role } from "@/lib/mock-data";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { roleLabels } from "@/lib/roles";
 import { Input } from "@/components/ui/input";
 
-const roles: Role[] = ["admin", "teacher", "student", "parent"];
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "—";
+  return (parts[0]![0] + (parts[1]?.[0] ?? "")).toUpperCase();
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { role, setRole, theme, toggleTheme } = useApp();
+  const { role, session, theme, toggleTheme } = useApp();
+  const displayName = session?.name ?? "";
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -37,18 +41,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Input placeholder="ابحث عن طالب، معلم، أو صف..." className="h-10 rounded-xl bg-secondary/60 pr-9" />
             </div>
             <div className="col-start-3 flex items-center gap-2">
-              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                <SelectTrigger className="h-10 w-[132px] rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {roleLabels[r]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <button
                 onClick={toggleTheme}
                 className="grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary"
@@ -64,11 +56,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="absolute left-2.5 top-2.5 size-2 rounded-full bg-destructive" />
               </button>
               <div className="hidden items-center gap-2.5 rounded-xl border border-border py-1 pl-3 pr-1.5 sm:flex">
-                <div className="grid size-8 place-items-center rounded-lg bg-brand-gradient text-xs font-bold text-primary-foreground">
-                  MA
-                </div>
+                {session?.image ? (
+                  <img
+                    src={session.image}
+                    alt=""
+                    className="size-8 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="grid size-8 place-items-center rounded-lg bg-brand-gradient text-xs font-bold text-primary-foreground">
+                    {initials(displayName)}
+                  </div>
+                )}
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold leading-tight">محمود العبد الله</p>
+                  <p className="truncate text-sm font-semibold leading-tight">{displayName}</p>
                   <p className="truncate text-[11px] text-muted-foreground">{roleLabels[role]}</p>
                 </div>
               </div>

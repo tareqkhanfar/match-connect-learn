@@ -1,58 +1,64 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Role } from "./mock-data";
+import { useLogin, useLogout, useSession } from "./api/hooks";
+import type { Role, Session } from "./api/types";
 
 interface AppState {
+  /** Persona resolved from the backend session (never chosen by the client). */
   role: Role;
-  setRole: (r: Role) => void;
+  session: Session | null;
   signedIn: boolean;
-  signIn: (r: Role) => void;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
+  signingIn: boolean;
+  signInError: string | null;
   theme: "light" | "dark";
   toggleTheme: () => void;
+  /** False until the session lookup has settled. */
   ready: boolean;
 }
 
 const AppContext = createContext<AppState | null>(null);
 
-const ROLE_KEY = "match-edu-role";
 const THEME_KEY = "match-edu-theme";
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>("admin");
-  const [signedIn, setSignedIn] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [ready, setReady] = useState(false);
+  const [signInError, setSignInError] = useState<string | null>(null);
+
+  const sessionQuery = useSession();
+  const loginMutation = useLogin();
+  const logoutMutation = useLogout();
 
   useEffect(() => {
-    const storedRole = window.localStorage.getItem(ROLE_KEY) as Role | null;
     const storedTheme = window.localStorage.getItem(THEME_KEY) as "light" | "dark" | null;
-    if (storedRole) {
-      setRoleState(storedRole);
-      setSignedIn(true);
-    }
     if (storedTheme) setTheme(storedTheme);
-    setReady(true);
   }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  const signIn = useCallback((r: Role) => {
-    window.localStorage.setItem(ROLE_KEY, r);
-    setRoleState(r);
-    setSignedIn(true);
-  }, []);
-
-  const setRole = useCallback((r: Role) => {
-    window.localStorage.setItem(ROLE_KEY, r);
-    setRoleState(r);
-  }, []);
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      setSignInError(null);
+      try {
+        await loginMutation.mutateAsync({ email, password });
+      } catch (error) {
+        // Prefer the Arabic message the backend sends for this UI.
+        const message =
+          (error as { messageAr?: string; message?: string }).messageAr ||
+          (error as Error).message ||
+          "تعذّر تسجيل الدخول";
+        setSignInError(message);
+        throw error;
+      }
+    },
+    [loginMutation],
+  );
 
   const signOut = useCallback(() => {
-    window.localStorage.removeItem(ROLE_KEY);
-    setSignedIn(false);
-  }, []);
+    logoutMutation.mutate();
+  }, [logoutMutation]);
 
   const toggleTheme = useCallback(() => {
     setTheme((t) => {
@@ -62,9 +68,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const value = useMemo(
-    () => ({ role, setRole, signedIn, signIn, signOut, theme, toggleTheme, ready }),
-    [role, setRole, signedIn, signIn, signOut, theme, toggleTheme, ready],
+  const session = sessionQuery.data ?? null;
+
+  const value = useMemo<AppState>(
+    () => ({
+      role: session?.role ?? "admin",
+      session,
+      signedIn: Boolean(session),
+      signIn,
+      signOut,
+      signingIn: loginMutation.isPending,
+      signInError,
+      theme,
+      toggleTheme,
+      ready: !sessionQuery.isLoading,
+    }),
+    [
+      session,
+      signIn,
+      signOut,
+      loginMutation.isPending,
+      signInError,
+      theme,
+      toggleTheme,
+      sessionQuery.isLoading,
+    ],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

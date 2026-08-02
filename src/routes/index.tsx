@@ -1,11 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { GraduationCap, Users, BookOpen, HeartHandshake, ShieldCheck, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { GraduationCap, BookOpen, HeartHandshake, ShieldCheck, ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useApp } from "@/lib/app-context";
-import { roleLabels, type Role } from "@/lib/mock-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,22 +17,34 @@ export const Route = createFileRoute("/")({
   component: LoginPage,
 });
 
-const roleCards: { role: Role; icon: typeof Users; hint: string }[] = [
-  { role: "admin", icon: ShieldCheck, hint: "إدارة كاملة للمدرسة" },
-  { role: "teacher", icon: BookOpen, hint: "الصفوف والحضور والدرجات" },
-  { role: "student", icon: GraduationCap, hint: "جدولي ودرجاتي وواجباتي" },
-  { role: "parent", icon: HeartHandshake, hint: "متابعة الأبناء" },
+// Shown as context only — the actual role comes from the account's own
+// permissions on the backend, never from a choice made here.
+const roleHints = [
+  { icon: ShieldCheck, label: "مدير المدرسة", hint: "إدارة كاملة للمدرسة" },
+  { icon: BookOpen, label: "معلم", hint: "الصفوف والحضور والدرجات" },
+  { icon: GraduationCap, label: "طالب", hint: "جدولي ودرجاتي وواجباتي" },
+  { icon: HeartHandshake, label: "ولي أمر", hint: "متابعة الأبناء" },
 ];
 
 function LoginPage() {
-  const { signIn } = useApp();
+  const { signIn, signingIn, signInError, signedIn, ready } = useApp();
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>("admin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  function submit(e: React.FormEvent) {
+  // Already signed in? Skip the login screen.
+  useEffect(() => {
+    if (ready && signedIn) navigate({ to: "/app" });
+  }, [ready, signedIn, navigate]);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    signIn(role);
-    navigate({ to: "/app" });
+    try {
+      await signIn(email, password);
+      navigate({ to: "/app" });
+    } catch {
+      // The error message is surfaced from context below.
+    }
   }
 
   return (
@@ -86,63 +96,75 @@ function LoginPage() {
           </div>
 
           <h2 className="text-2xl font-bold">مرحباً بعودتك 👋</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">اختر دورك وسجّل الدخول لمتابعة يومك الدراسي.</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            سجّل الدخول بحسابك — يتم تحديد صلاحياتك تلقائياً حسب دورك في المدرسة.
+          </p>
 
-          <div className="mt-7 space-y-2">
-            <Label className="text-sm font-semibold">اختر الدور</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {roleCards.map((c) => (
-                <button
-                  type="button"
-                  key={c.role}
-                  onClick={() => setRole(c.role)}
-                  className={cn(
-                    "rounded-2xl border p-3.5 text-right transition-all duration-200",
-                    role === c.role
-                      ? "border-primary bg-primary-soft shadow-soft"
-                      : "border-border bg-card hover:border-primary/40 hover:bg-secondary/60",
-                  )}
-                >
-                  <c.icon className={cn("size-5", role === c.role ? "text-primary" : "text-muted-foreground")} />
-                  <p className="mt-2 text-sm font-bold">{roleLabels[c.role]}</p>
-                  <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{c.hint}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-4">
+          <div className="mt-7 space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="email">البريد الإلكتروني</Label>
-              <Input id="email" type="email" defaultValue="admin@match-edu.ps" className="h-11 rounded-xl" required />
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                placeholder="name@school.ps"
+                className="h-11 rounded-xl"
+                required
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">كلمة المرور</Label>
-              <Input id="password" type="password" defaultValue="123456" className="h-11 rounded-xl" required />
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                className="h-11 rounded-xl"
+                required
+              />
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-muted-foreground">
-              <input type="checkbox" className="size-4 rounded accent-primary" defaultChecked />
-              تذكّرني
-            </label>
-            <button type="button" className="font-medium text-primary hover:underline">
-              نسيت كلمة المرور؟
-            </button>
-          </div>
+          {signInError && (
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive-soft px-3.5 py-3 text-sm text-destructive"
+            >
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <span>{signInError}</span>
+            </div>
+          )}
 
           <button
             type="submit"
-            className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient text-sm font-bold text-primary-foreground shadow-glow transition-transform hover:scale-[1.01] active:scale-[0.99]"
+            disabled={signingIn}
+            className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient text-sm font-bold text-primary-foreground shadow-glow transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            دخول إلى النظام
-            <ArrowLeft className="size-4" />
+            {signingIn ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                جارٍ تسجيل الدخول…
+              </>
+            ) : (
+              <>
+                دخول إلى النظام
+                <ArrowLeft className="size-4" />
+              </>
+            )}
           </button>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            بيانات العرض جاهزة — اضغط دخول لتجربة النظام كاملاً.
-          </p>
+          <div className="mt-7 grid grid-cols-2 gap-3">
+            {roleHints.map((c) => (
+              <div key={c.label} className="rounded-2xl border border-border bg-card p-3.5 text-right">
+                <c.icon className="size-5 text-muted-foreground" />
+                <p className="mt-2 text-sm font-bold">{c.label}</p>
+                <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{c.hint}</p>
+              </div>
+            ))}
+          </div>
         </form>
       </div>
     </div>

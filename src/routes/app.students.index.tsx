@@ -1,13 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download, Filter, Plus, Search, UserPlus, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, EmptyState, PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { grades, money, sections, statusMeta, students } from "@/lib/mock-data";
+import { money, statusMeta } from "@/lib/roles";
+import { useSaveStudent, useStudentFilters, useStudents } from "@/lib/api/hooks";
+import { ErrorState, TableSkeleton } from "@/components/shared/states";
 
 export const Route = createFileRoute("/app/students/")({
   head: () => ({
@@ -21,6 +23,16 @@ export const Route = createFileRoute("/app/students/")({
   component: StudentsPage,
 });
 
+/** Debounce the search box so we don't refetch on every keystroke. */
+function useDebounced<T>(value: T, delay = 350) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 function StudentsPage() {
   const [q, setQ] = useState("");
   const [grade, setGrade] = useState("all");
@@ -29,26 +41,29 @@ function StudentsPage() {
   const [page, setPage] = useState(1);
   const perPage = 10;
 
-  const filtered = useMemo(
-    () =>
-      students.filter(
-        (s) =>
-          (s.name.includes(q) || s.id.toLowerCase().includes(q.toLowerCase()) || s.guardian.includes(q)) &&
-          (grade === "all" || s.grade === grade) &&
-          (section === "all" || s.section === section) &&
-          (status === "all" || s.status === status),
-      ),
-    [q, grade, section, status],
-  );
+  const debouncedQ = useDebounced(q);
+  const filtersQuery = useStudentFilters();
 
-  const pages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const current = filtered.slice((page - 1) * perPage, page * perPage);
+  const { data, isLoading, isFetching, error, refetch } = useStudents({
+    search: debouncedQ || undefined,
+    program: grade === "all" ? undefined : grade,
+    batch: section === "all" ? undefined : section,
+    payment_status: status === "all" ? undefined : status,
+    page,
+    page_size: perPage,
+  });
+
+  const current = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  const grades = filtersQuery.data?.grades ?? [];
+  const sections = filtersQuery.data?.sections ?? [];
 
   return (
     <>
       <PageHeader
         title="إدارة الطلاب"
-        subtitle={`${filtered.length} طالباً من أصل ${students.length} في القائمة الحالية`}
+        subtitle={`${total} طالباً في القائمة الحالية`}
         actions={
           <>
             <button
@@ -104,7 +119,15 @@ function StudentsPage() {
       </div>
 
       <div className="card-surface overflow-hidden">
-        {current.length === 0 ? (
+        {error ? (
+          <div className="p-4">
+            <ErrorState error={error} onRetry={() => refetch()} />
+          </div>
+        ) : isLoading ? (
+          <div className="p-4">
+            <TableSkeleton rows={perPage} />
+          </div>
+        ) : current.length === 0 ? (
           <EmptyState icon={Users} title="لا توجد نتائج" description="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر أو مسح كلمة البحث." />
         ) : (
           <div className="overflow-x-auto">
@@ -132,10 +155,12 @@ function StudentsPage() {
                         </div>
                       </Link>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{s.grade} - {s.section}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
+                      {[s.grade, s.section].filter(Boolean).join(" - ") || "—"}
+                    </td>
                     <td className="px-4 py-3">
-                      <p className="truncate">{s.guardian}</p>
-                      <p className="num text-xs text-muted-foreground">{s.guardianPhone}</p>
+                      <p className="truncate">{s.guardian ?? "—"}</p>
+                      {s.guardianPhone && <p className="num text-xs text-muted-foreground">{s.guardianPhone}</p>}
                     </td>
                     <td className="px-4 py-3">
                       <div className="w-24">
@@ -157,7 +182,10 @@ function StudentsPage() {
 
         {current.length > 0 && (
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border px-4 py-3">
-            <p className="num truncate text-xs text-muted-foreground">صفحة {page} من {pages}</p>
+            <p className="num truncate text-xs text-muted-foreground">
+              صفحة {page} من {pages}
+              {isFetching && " • جارٍ التحديث…"}
+            </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -183,6 +211,48 @@ function StudentsPage() {
 
 function AddStudentDialog() {
   const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    gender: "",
+    date_of_birth: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
+  const saveStudent = useSaveStudent();
+
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function save() {
+    if (!form.first_name.trim()) {
+      toast.error("الاسم الأول مطلوب");
+      return;
+    }
+    try {
+      await saveStudent.mutateAsync(form);
+      toast.success("تم إضافة الطالب بنجاح");
+      setOpen(false);
+      setForm({
+        first_name: "",
+        middle_name: "",
+        last_name: "",
+        gender: "",
+        date_of_birth: "",
+        phone: "",
+        email: "",
+        address: "",
+      });
+    } catch (error) {
+      const message =
+        (error as { messageAr?: string }).messageAr || (error as Error).message || "تعذّر حفظ الطالب";
+      toast.error(message);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -199,46 +269,90 @@ function AddStudentDialog() {
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>الاسم الكامل</Label>
-            <Input placeholder="مثال: أحمد خالد العبد الله" className="rounded-xl" />
+          <div className="space-y-1.5">
+            <Label>الاسم الأول *</Label>
+            <Input
+              value={form.first_name}
+              onChange={(e) => set("first_name", e.target.value)}
+              placeholder="أحمد"
+              className="rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label>الصف</Label>
-            <Select>
-              <SelectTrigger className="rounded-xl"><SelectValue placeholder="اختر الصف" /></SelectTrigger>
-              <SelectContent>{grades.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+            <Label>اسم الأب</Label>
+            <Input
+              value={form.middle_name}
+              onChange={(e) => set("middle_name", e.target.value)}
+              placeholder="خالد"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>اسم العائلة</Label>
+            <Input
+              value={form.last_name}
+              onChange={(e) => set("last_name", e.target.value)}
+              placeholder="العبد الله"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>الجنس</Label>
+            <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر الجنس" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Male">ذكر</SelectItem>
+                <SelectItem value="Female">أنثى</SelectItem>
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>الشعبة</Label>
-            <Select>
-              <SelectTrigger className="rounded-xl"><SelectValue placeholder="اختر الشعبة" /></SelectTrigger>
-              <SelectContent>{sections.map((s) => <SelectItem key={s} value={s}>شعبة {s}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>اسم ولي الأمر</Label>
-            <Input placeholder="خالد العبد الله" className="rounded-xl" />
+            <Label>تاريخ الميلاد</Label>
+            <Input
+              type="date"
+              value={form.date_of_birth}
+              onChange={(e) => set("date_of_birth", e.target.value)}
+              className="rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>رقم الجوال</Label>
-            <Input placeholder="0599123456" className="rounded-xl" />
+            <Input
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              placeholder="0599123456"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>البريد الإلكتروني</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="student@school.ps"
+              className="rounded-xl"
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>العنوان</Label>
-            <Input placeholder="رام الله - حي الطيرة" className="rounded-xl" />
+            <Input
+              value={form.address}
+              onChange={(e) => set("address", e.target.value)}
+              placeholder="رام الله - حي الطيرة"
+              className="rounded-xl"
+            />
           </div>
         </div>
         <DialogFooter className="gap-2 sm:justify-start">
           <button
-            onClick={() => {
-              setOpen(false);
-              toast.success("تم إضافة الطالب بنجاح");
-            }}
-            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground"
+            onClick={save}
+            disabled={saveStudent.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
           >
-            حفظ الطالب
+            {saveStudent.isPending ? "جارٍ الحفظ…" : "حفظ الطالب"}
           </button>
           <button onClick={() => setOpen(false)} className="h-10 rounded-xl border border-border px-5 text-sm font-semibold">
             إلغاء

@@ -14,7 +14,9 @@ import {
   YAxis,
 } from "recharts";
 import { KpiCard, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
-import { announcements, attendanceTrend, classes, gradeDistribution, kpi, performanceData, students, teachers } from "@/lib/mock-data";
+import { useDashboard } from "@/lib/api/hooks";
+import type { AdminDashboard as AdminDashboardData } from "@/lib/api/types";
+import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
 
 const pieColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
@@ -29,25 +31,38 @@ const tooltipStyle = {
   },
 };
 
+const GENDER_LABELS: Record<string, string> = { Male: "طلاب", Female: "طالبات" };
+
 export function AdminDashboard() {
-  const genderSplit = [
-    { name: "طلاب", value: students.filter((s) => s.gender === "ذكر").length },
-    { name: "طالبات", value: students.filter((s) => s.gender === "أنثى").length },
-  ];
+  const { data, isLoading, error, refetch } = useDashboard();
+
+  if (isLoading) return <DashboardSkeleton />;
+  if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
+
+  const d = data as AdminDashboardData;
+  const kpi = d.kpi;
+  const attendanceTrend = d.attendance_trend ?? [];
+  const gradeDistribution = d.grade_distribution ?? [];
+  const performanceData = d.performance ?? [];
+  const announcements = d.announcements ?? [];
+  const genderSplit = (d.gender_split ?? []).map((g) => ({
+    name: GENDER_LABELS[g.name] ?? g.name,
+    value: g.value,
+  }));
 
   return (
     <>
       <PageHeader
         title="لوحة تحكم المدرسة"
-        subtitle="نظرة شاملة على الأداء الأكاديمي والحضور والأنشطة — العام الدراسي ٢٠٢٥/٢٠٢٦"
-        actions={<Pill tone="success">الفصل الثاني نشِط</Pill>}
+        subtitle={`نظرة شاملة على الأداء الأكاديمي والحضور والأنشطة${d.academic_year ? ` — العام الدراسي ${d.academic_year}` : ""}`}
+        actions={d.academic_year ? <Pill tone="success">{d.academic_year}</Pill> : null}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="عدد الطلاب" value={kpi.students} icon={Users} trend="+٤٢ طالباً هذا الفصل" tone="primary" />
-        <KpiCard label="عدد المعلمين" value={teachers.length} icon={GraduationCap} trend="٣ تعيينات جديدة" tone="accent" />
-        <KpiCard label="عدد الصفوف والشُعب" value={classes.length} icon={School} trend="١٢ صفاً دراسياً" tone="info" />
-        <KpiCard label="نسبة الحضور اليوم" value={`${kpi.attendanceToday}%`} icon={ClipboardCheck} trend="أعلى من الأسبوع الماضي" tone="warm" />
+        <KpiCard label="عدد الطلاب" value={kpi.students} icon={Users} tone="primary" />
+        <KpiCard label="عدد المعلمين" value={kpi.teachers} icon={GraduationCap} tone="accent" />
+        <KpiCard label="عدد الصفوف والشُعب" value={kpi.classes} icon={School} tone="info" />
+        <KpiCard label="نسبة الحضور اليوم" value={`${kpi.attendance_today}%`} icon={ClipboardCheck} tone="warm" />
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">

@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronsLeft, GraduationCap, LogOut, X } from "lucide-react";
 import { navGroups, navForRole } from "@/lib/nav";
 import { useApp } from "@/lib/app-context";
-import { roleLabels } from "@/lib/mock-data";
+import { roleLabels } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Props) {
-  const { role, signOut } = useApp();
+  const { role, session, signOut } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = navForRole(role);
 
@@ -82,7 +82,10 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
         {!collapsed && (
           <div className="rounded-xl bg-sidebar-accent/60 px-3 py-2.5">
             <p className="text-xs text-sidebar-foreground/60">مسجَّل الدخول كـ</p>
-            <p className="text-sm font-semibold">{roleLabels[role]}</p>
+            <p className="truncate text-sm font-semibold">{session?.name || roleLabels[role]}</p>
+            {session?.name && (
+              <p className="truncate text-[11px] text-sidebar-foreground/60">{roleLabels[role]}</p>
+            )}
           </div>
         )}
         <Link
