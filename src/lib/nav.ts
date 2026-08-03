@@ -16,6 +16,9 @@ import {
   ShieldAlert,
   Library,
   Bus,
+  BookOpenCheck,
+  Award,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./roles";
@@ -90,6 +93,20 @@ export const navItems: NavItem[] = [
     group: "المتابعة اليومية",
   },
   {
+    label: "سجل العلامات",
+    to: "/app/gradebook",
+    icon: BookOpenCheck,
+    roles: ["admin", "secretary", "teacher"],
+    group: "المتابعة اليومية",
+  },
+  {
+    label: "علاماتي",
+    to: "/app/record",
+    icon: Award,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المتابعة اليومية",
+  },
+  {
     label: "الواجبات",
     to: "/app/assignments",
     icon: NotebookPen,
@@ -147,6 +164,13 @@ export const navItems: NavItem[] = [
     to: "/app/reports",
     icon: BarChart3,
     roles: ["admin", "secretary", "teacher"],
+    group: "المالية والتواصل",
+  },
+  {
+    label: "خطط التقييم",
+    to: "/app/schemes",
+    icon: Scale,
+    roles: ["admin", "secretary"],
     group: "المالية والتواصل",
   },
   {

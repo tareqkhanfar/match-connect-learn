@@ -19,9 +19,12 @@ import { Route as AppClassesRouteImport } from './routes/app.classes'
 import { Route as AppCommunicationRouteImport } from './routes/app.communication'
 import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
+import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
+import { Route as AppRecordRouteImport } from './routes/app.record'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
+import { Route as AppSchemesRouteImport } from './routes/app.schemes'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppTeachersRouteImport } from './routes/app.teachers'
@@ -80,6 +83,11 @@ const AppFeesRoute = AppFeesRouteImport.update({
   path: '/fees',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGradebookRoute = AppGradebookRouteImport.update({
+  id: '/gradebook',
+  path: '/gradebook',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHealthRoute = AppHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -90,9 +98,19 @@ const AppLibraryRoute = AppLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRecordRoute = AppRecordRouteImport.update({
+  id: '/record',
+  path: '/record',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSchemesRoute = AppSchemesRouteImport.update({
+  id: '/schemes',
+  path: '/schemes',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -141,9 +159,12 @@ export interface FileRoutesByFullPath {
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
+  '/app/schemes': typeof AppSchemesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
@@ -162,9 +183,12 @@ export interface FileRoutesByTo {
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
+  '/app/schemes': typeof AppSchemesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
@@ -185,9 +209,12 @@ export interface FileRoutesById {
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
+  '/app/schemes': typeof AppSchemesRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
@@ -209,9 +236,12 @@ export interface FileRouteTypes {
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/record'
     | '/app/reports'
+    | '/app/schemes'
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
@@ -230,9 +260,12 @@ export interface FileRouteTypes {
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/record'
     | '/app/reports'
+    | '/app/schemes'
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
@@ -252,9 +285,12 @@ export interface FileRouteTypes {
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/record'
     | '/app/reports'
+    | '/app/schemes'
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
@@ -342,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFeesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/gradebook': {
+      id: '/app/gradebook'
+      path: '/gradebook'
+      fullPath: '/app/gradebook'
+      preLoaderRoute: typeof AppGradebookRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/health': {
       id: '/app/health'
       path: '/health'
@@ -356,11 +399,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLibraryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/record': {
+      id: '/app/record'
+      path: '/record'
+      fullPath: '/app/record'
+      preLoaderRoute: typeof AppRecordRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/reports': {
       id: '/app/reports'
       path: '/reports'
       fullPath: '/app/reports'
       preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/schemes': {
+      id: '/app/schemes'
+      path: '/schemes'
+      fullPath: '/app/schemes'
+      preLoaderRoute: typeof AppSchemesRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/settings': {
@@ -423,9 +480,12 @@ interface AppRouteChildren {
   AppCommunicationRoute: typeof AppCommunicationRoute
   AppExamsRoute: typeof AppExamsRoute
   AppFeesRoute: typeof AppFeesRoute
+  AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
+  AppRecordRoute: typeof AppRecordRoute
   AppReportsRoute: typeof AppReportsRoute
+  AppSchemesRoute: typeof AppSchemesRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppTeachersRoute: typeof AppTeachersRoute
@@ -444,9 +504,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppCommunicationRoute: AppCommunicationRoute,
   AppExamsRoute: AppExamsRoute,
   AppFeesRoute: AppFeesRoute,
+  AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
+  AppRecordRoute: AppRecordRoute,
   AppReportsRoute: AppReportsRoute,
+  AppSchemesRoute: AppSchemesRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppTeachersRoute: AppTeachersRoute,

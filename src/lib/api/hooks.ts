@@ -220,14 +220,16 @@ export function useGrades(
 
 // --- Attendance ------------------------------------------------------------
 
-export function useMyGroups() {
+/** Staff-only: students and parents get a 403, so pass enabled:false. */
+export function useMyGroups(enabled = true) {
   return useQuery<ClassRow[]>({
     queryKey: qk.myGroups,
     queryFn: () => apiGet<ClassRow[]>("attendance.my_groups"),
+    enabled,
   });
 }
 
-export function useAttendanceSheet(group: string | undefined, date: string) {
+export function useAttendanceSheet(group: string | undefined, date: string, enabled = true) {
   return useQuery<AttendanceSheet>({
     queryKey: qk.attendanceSheet(group ?? "", date),
     queryFn: () =>
@@ -235,7 +237,7 @@ export function useAttendanceSheet(group: string | undefined, date: string) {
         student_group: group,
         date,
       }),
-    enabled: Boolean(group),
+    enabled: enabled && Boolean(group),
   });
 }
 
@@ -957,5 +959,233 @@ export function useDepartments() {
     queryKey: ["departments"],
     queryFn: () => apiGet("academics.list_departments"),
     staleTime: 10 * 60 * 1000,
+  });
+}
+
+// --- Gradebook -------------------------------------------------------------
+
+export interface GradeBand {
+  grade: string;
+  label: string;
+  emoji: string;
+}
+
+export interface SchemeComponent {
+  component_name: string;
+  component_type: string;
+  type_label?: string;
+  weight: number;
+  max_score: number;
+}
+
+export interface GradeScheme {
+  id: string;
+  name: string;
+  scheme_name: string;
+  course: string | null;
+  program: string | null;
+  academic_year: string | null;
+  academic_term: string | null;
+  is_default: number;
+  total_weight: number;
+  components: SchemeComponent[];
+}
+
+export function useSchemes(params: Opt<{ course: string; program: string }> = {}) {
+  return useQuery<GradeScheme[]>({
+    queryKey: ["schemes", params],
+    queryFn: () => apiGet<GradeScheme[]>("gradebook.list_schemes", params),
+  });
+}
+
+export function useSaveScheme() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; total_weight: number }>("gradebook.save_scheme", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["schemes"] }),
+  });
+}
+
+export function useDeleteScheme() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (scheme: string) => apiPost<{ id: string }>("gradebook.delete_scheme", { scheme }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["schemes"] }),
+  });
+}
+
+export interface EntrySheetRow {
+  student: string;
+  student_name: string;
+  roll_number: number | null;
+  entry_id: string | null;
+  score: number | null;
+  max_score: number | null;
+  remarks: string | null;
+  entries: Array<{
+    id: string;
+    component_name: string;
+    component_type: string;
+    type_label: string;
+    score: number;
+    max_score: number;
+    is_bonus: boolean;
+  }>;
+}
+
+export interface EntrySheet {
+  student_group: string;
+  course: string;
+  program: string | null;
+  academic_year: string | null;
+  academic_term: string | null;
+  component_name: string | null;
+  scheme: { id: string; scheme_name: string; components: SchemeComponent[] } | null;
+  components: SchemeComponent[];
+  rows: EntrySheetRow[];
+  entered: number;
+  total: number;
+}
+
+export function useEntrySheet(
+  params: Opt<{
+    student_group: string;
+    course: string;
+    component_name: string;
+    academic_term: string;
+  }> = {},
+  enabled = true,
+) {
+  return useQuery<EntrySheet>({
+    queryKey: ["entry-sheet", params],
+    queryFn: () => apiGet<EntrySheet>("gradebook.get_entry_sheet", params),
+    enabled: enabled && Boolean(params.student_group && params.course),
+  });
+}
+
+export function useSaveMarks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ created: number; updated: number; skipped: string[] }>("gradebook.save_marks", {
+        payload,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+      qc.invalidateQueries({ queryKey: ["class-term-grades"] });
+      qc.invalidateQueries({ queryKey: ["academic-record"] });
+    },
+  });
+}
+
+export interface SubjectGrade extends GradeBand {
+  course: string;
+  percentage: number;
+  bonus: number;
+  final: number;
+  covered: number;
+  components: Array<
+    GradeBand & {
+      id: string;
+      component_name: string;
+      component_type: string;
+      type_label: string;
+      score: number;
+      max_score: number;
+      weight: number;
+      percentage: number;
+      is_bonus: boolean;
+      remarks: string | null;
+    }
+  >;
+}
+
+export interface TermGrades {
+  student: string;
+  student_name: string | null;
+  image: string | null;
+  academic_year: string | null;
+  academic_term: string | null;
+  subjects: SubjectGrade[];
+  overall: number;
+  overall_grade: GradeBand & { percentage: number };
+  subject_count: number;
+}
+
+export function useTermGrades(
+  student: string | undefined,
+  params: Opt<{ academic_year: string; academic_term: string }> = {},
+) {
+  return useQuery<TermGrades>({
+    queryKey: ["term-grades", student ?? "", params],
+    queryFn: () => apiGet<TermGrades>("gradebook.term_grades", { student, ...params }),
+    enabled: Boolean(student),
+  });
+}
+
+export interface AcademicRecord {
+  student: string;
+  student_name: string | null;
+  image: string | null;
+  periods: Array<{
+    academic_year: string | null;
+    academic_term: string | null;
+    subjects: SubjectGrade[];
+    overall: number;
+    overall_grade: GradeBand & { percentage: number };
+  }>;
+  cumulative: number;
+  cumulative_grade: GradeBand & { percentage: number };
+}
+
+export function useAcademicRecord(student: string | undefined) {
+  return useQuery<AcademicRecord>({
+    queryKey: ["academic-record", student ?? ""],
+    queryFn: () => apiGet<AcademicRecord>("gradebook.academic_record", { student }),
+    enabled: Boolean(student),
+  });
+}
+
+export interface ClassTermGrades {
+  student_group: string;
+  course: string | null;
+  academic_year: string | null;
+  academic_term: string | null;
+  rows: Array<
+    GradeBand & {
+      student: string;
+      student_name: string;
+      entries: number;
+      percentage: number;
+      bonus: number;
+      final: number;
+      covered: number;
+    }
+  >;
+  class_average: number;
+}
+
+export function useClassTermGrades(
+  params: Opt<{ student_group: string; course: string; academic_term: string }> = {},
+) {
+  return useQuery<ClassTermGrades>({
+    queryKey: ["class-term-grades", params],
+    queryFn: () => apiGet<ClassTermGrades>("gradebook.class_term_grades", params),
+    enabled: Boolean(params.student_group),
+  });
+}
+
+export function useImportExamResults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { assessment_plan: string; weight?: number }) =>
+      apiPost<{ created: number; updated: number }>("gradebook.import_exam_results", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+      qc.invalidateQueries({ queryKey: ["class-term-grades"] });
+    },
   });
 }

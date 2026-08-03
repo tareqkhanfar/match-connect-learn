@@ -66,7 +66,117 @@ function todayISO() {
 
 function AttendancePage() {
   const { role } = useApp();
-  const canMark = role === "admin" || role === "teacher";
+  // Students and parents never see the marking grid — only their own record.
+  if (role === "student" || role === "parent") return <MyAttendanceView />;
+  return <StaffAttendanceView />;
+}
+
+/** Read-only attendance for a student or their parent. */
+function MyAttendanceView() {
+  const { session } = useApp();
+  const students = session?.scope.students ?? [];
+  const [student, setStudent] = useState(session?.scope.student ?? students[0] ?? "");
+
+  const report = useAttendanceReport(student ? { student } : {});
+  const summary = report.data?.summary;
+  const trend = (report.data?.rows ?? []).map((r) => ({ month: r.date, present: r.rate }));
+
+  return (
+    <>
+      <PageHeader title="الحضور والغياب" subtitle="سجل الحضور الخاص بك" />
+
+      {students.length > 1 && (
+        <div className="card-surface mb-5 p-4">
+          <Select value={student} onValueChange={setStudent}>
+            <SelectTrigger className="h-10 rounded-xl md:w-[280px]">
+              <SelectValue placeholder="اختر الابن" />
+            </SelectTrigger>
+            <SelectContent>
+              {students.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="أيام الحضور" value={summary?.present ?? 0} icon={Check} tone="accent" />
+        <KpiCard label="أيام الغياب" value={summary?.absent ?? 0} icon={X} tone="warm" />
+        <KpiCard label="إجازات" value={summary?.leave ?? 0} icon={Clock} tone="info" />
+        <KpiCard
+          label="نسبة الحضور"
+          value={`${summary?.rate ?? 0}%`}
+          icon={ClipboardCheck}
+          tone="primary"
+        />
+      </div>
+
+      <div className="mt-5">
+        <SectionCard title="نسبة الحضور عبر الزمن" description="لكل يوم مسجَّل">
+          {report.error ? (
+            <ErrorState error={report.error} onRetry={() => report.refetch()} />
+          ) : report.isLoading ? (
+            <TableSkeleton rows={4} />
+          ) : trend.length === 0 ? (
+            <EmptyBlock title="لا توجد سجلات حضور بعد" />
+          ) : (
+            <div className="h-[280px] w-full" dir="ltr">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trend}>
+                  <defs>
+                    <linearGradient id="myAtt" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={34}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "0.75rem",
+                      fontSize: "12px",
+                      direction: "rtl",
+                    }}
+                    formatter={(v: number) => [`${v}%`, "الحضور"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="present"
+                    stroke="var(--chart-1)"
+                    strokeWidth={2.5}
+                    fill="url(#myAtt)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+    </>
+  );
+}
+
+/** Marking grid and reports for admin, secretary and teachers. */
+function StaffAttendanceView() {
+  const { role } = useApp();
+  const canMark = role === "admin" || role === "secretary" || role === "teacher";
 
   const groupsQuery = useMyGroups();
   const [groupId, setGroupId] = useState<string>("");
