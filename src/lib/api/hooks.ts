@@ -514,3 +514,440 @@ export function useSaveSettings() {
     },
   });
 }
+
+// --- Wellbeing: health and behaviour ---------------------------------------
+
+export interface HealthVisit {
+  id: string;
+  date: string;
+  type: string;
+  type_raw: string;
+  complaint: string | null;
+  treatment: string | null;
+  outcome: string;
+  parent_notified: boolean;
+}
+
+export interface HealthProfile {
+  student: string;
+  student_name: string | null;
+  record: {
+    name: string;
+    blood_group: string | null;
+    height_cm: number | null;
+    weight_kg: number | null;
+    chronic_conditions: string | null;
+    allergies: string | null;
+    medications: string | null;
+    special_needs: string | null;
+    immunisations: string | null;
+    last_checkup: string | null;
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
+    physician_name: string | null;
+    physician_phone: string | null;
+    notes: string | null;
+  } | null;
+  visits: HealthVisit[];
+}
+
+export function useHealthRecord(student: string | undefined) {
+  return useQuery<HealthProfile>({
+    queryKey: ["health", student ?? ""],
+    queryFn: () => apiGet<HealthProfile>("wellbeing.get_health_record", { student }),
+    enabled: Boolean(student),
+  });
+}
+
+export function useSaveHealthRecord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("wellbeing.save_health_record", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["health"] }),
+  });
+}
+
+export function useSaveHealthVisit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("wellbeing.save_health_visit", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["health"] }),
+  });
+}
+
+export function useDeleteHealthVisit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (visit: string) =>
+      apiPost<{ id: string }>("wellbeing.delete_health_visit", { visit }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["health"] }),
+  });
+}
+
+export interface BehaviourRow {
+  id: string;
+  student: string;
+  student_name: string;
+  date: string;
+  type: string;
+  type_raw: string;
+  points: number;
+  category: string | null;
+  student_group: string | null;
+  description: string | null;
+  action_taken: string | null;
+  parent_notified: boolean;
+}
+
+export interface BehaviourList extends Paginated<BehaviourRow> {
+  summary: { positive: number; negative: number; net_points: number };
+}
+
+export function useBehaviour(
+  params: Opt<{
+    filters: Record<string, unknown>;
+    page: number;
+    page_size: number;
+    sort_field: string;
+    sort_order: string;
+  }> = {},
+) {
+  return useQuery<BehaviourList>({
+    queryKey: ["behaviour", params],
+    queryFn: () => apiGet<BehaviourList>("wellbeing.list_behaviour", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useSaveBehaviour() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; points: number }>("wellbeing.save_behaviour", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["behaviour"] }),
+  });
+}
+
+export function useDeleteBehaviour() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (record: string) =>
+      apiPost<{ id: string }>("wellbeing.delete_behaviour", { record }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["behaviour"] }),
+  });
+}
+
+export function useBehaviourSummary(student: string | undefined) {
+  return useQuery<{
+    student: string;
+    positive: number;
+    negative: number;
+    net_points: number;
+    by_category: Array<{ category: string; count: number; points: number }>;
+  }>({
+    queryKey: ["behaviour-summary", student ?? ""],
+    queryFn: () => apiGet("wellbeing.behaviour_summary", { student }),
+    enabled: Boolean(student),
+  });
+}
+
+// --- Resources: library and transport --------------------------------------
+
+export interface BookRow {
+  id: string;
+  title: string;
+  author: string | null;
+  isbn: string | null;
+  category: string | null;
+  language: string | null;
+  publisher: string | null;
+  published_year: number | null;
+  shelf: string | null;
+  total_copies: number;
+  available_copies: number;
+  cover_image: string | null;
+}
+
+export function useBooks(
+  params: Opt<{
+    filters: Record<string, unknown>;
+    page: number;
+    page_size: number;
+    sort_field: string;
+    sort_order: string;
+  }> = {},
+) {
+  return useQuery<Paginated<BookRow>>({
+    queryKey: ["books", params],
+    queryFn: () => apiGet<Paginated<BookRow>>("resources.list_books", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useSaveBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("resources.save_book", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["books"] }),
+  });
+}
+
+export function useDeleteBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (book: string) => apiPost<{ id: string }>("resources.delete_book", { book }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["books"] }),
+  });
+}
+
+export interface LoanRow {
+  id: string;
+  book: string;
+  book_title: string;
+  student: string;
+  student_name: string;
+  status: string;
+  status_raw: string;
+  issue_date: string;
+  due_date: string;
+  return_date: string;
+  notes: string | null;
+}
+
+export function useLoans(
+  params: Opt<{
+    filters: Record<string, unknown>;
+    page: number;
+    page_size: number;
+    sort_field: string;
+    sort_order: string;
+  }> = {},
+) {
+  return useQuery<Paginated<LoanRow> & { summary: Record<string, number> }>({
+    queryKey: ["loans", params],
+    queryFn: () => apiGet("resources.list_loans", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useIssueBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("resources.issue_book", { payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["loans"] });
+      qc.invalidateQueries({ queryKey: ["books"] });
+    },
+  });
+}
+
+export function useReturnBook() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { loan: string; status?: string }) =>
+      apiPost<{ id: string; status: string }>("resources.return_book", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["loans"] });
+      qc.invalidateQueries({ queryKey: ["books"] });
+    },
+  });
+}
+
+export interface RouteRow {
+  id: string;
+  route_name: string;
+  vehicle_number: string | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  capacity: number;
+  assigned: number;
+  seats_left: number;
+  departure_time: string;
+  return_time: string;
+  active: boolean;
+  monthly_fee: number;
+  stops: string[];
+}
+
+export function useRoutes(filters?: Record<string, unknown>) {
+  return useQuery<RouteRow[]>({
+    queryKey: ["routes", filters ?? {}],
+    queryFn: () => apiGet<RouteRow[]>("resources.list_routes", { filters }),
+  });
+}
+
+export function useSaveRoute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("resources.save_route", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["routes"] }),
+  });
+}
+
+export function useDeleteRoute() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (route: string) => apiPost<{ id: string }>("resources.delete_route", { route }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["routes"] }),
+  });
+}
+
+export interface TransportAssignmentRow {
+  id: string;
+  student: string;
+  student_name: string;
+  route: string;
+  route_name: string | null;
+  stop: string | null;
+  active: boolean;
+  start_date: string;
+  end_date: string;
+  notes: string | null;
+}
+
+export function useTransportAssignments(
+  params: Opt<{ filters: Record<string, unknown>; page: number; page_size: number }> = {},
+) {
+  return useQuery<Paginated<TransportAssignmentRow>>({
+    queryKey: ["transport", params],
+    queryFn: () => apiGet("resources.list_transport_assignments", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useSaveTransportAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("resources.save_transport_assignment", { payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transport"] });
+      qc.invalidateQueries({ queryKey: ["routes"] });
+    },
+  });
+}
+
+export function useDeleteTransportAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (assignment: string) =>
+      apiPost<{ id: string }>("resources.delete_transport_assignment", { assignment }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["transport"] });
+      qc.invalidateQueries({ queryKey: ["routes"] });
+    },
+  });
+}
+
+// --- CRUD for academics ----------------------------------------------------
+
+export function useSaveClass() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("academics.save_class", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["classes"] }),
+  });
+}
+
+export function useDeleteClass() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (student_group: string) =>
+      apiPost<{ id: string }>("academics.delete_class", { student_group }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["classes"] }),
+  });
+}
+
+export function useSetClassStudents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student_group: string; students: string[] }) =>
+      apiPost<{ id: string; count: number }>("academics.set_class_students", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["classes"] });
+      qc.invalidateQueries({ queryKey: ["class-students"] });
+    },
+  });
+}
+
+export function useSaveSubject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("academics.save_subject", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subjects }),
+  });
+}
+
+export function useDeleteSubject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (course: string) => apiPost<{ id: string }>("academics.delete_subject", { course }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.subjects }),
+  });
+}
+
+export function useSaveTeacher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("academics.save_teacher", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teachers"] }),
+  });
+}
+
+export function useDeleteTeacher() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (instructor: string) =>
+      apiPost<{ id: string }>("academics.delete_teacher", { instructor }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teachers"] }),
+  });
+}
+
+export function useSaveExam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string }>("academics.save_exam", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["exams"] }),
+  });
+}
+
+export function useExamRoster(assessment_plan: string | undefined) {
+  return useQuery<{
+    exam: { id: string; title: string; subject: string; student_group: string; max: number };
+    rows: Array<{
+      student: string;
+      student_name: string;
+      result_id: string | null;
+      score: number | null;
+      grade: string | null;
+      comment: string | null;
+    }>;
+    entered: number;
+    total: number;
+  }>({
+    queryKey: ["exam-roster", assessment_plan ?? ""],
+    queryFn: () => apiGet("academics.exam_roster", { assessment_plan }),
+    enabled: Boolean(assessment_plan),
+  });
+}
+
+export function useSaveGrade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; score: number; grade: string }>("academics.save_grade", { payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["exam-roster"] });
+      qc.invalidateQueries({ queryKey: ["grades"] });
+    },
+  });
+}

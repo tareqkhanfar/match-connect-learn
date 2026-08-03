@@ -14,15 +14,19 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppAssignmentsRouteImport } from './routes/app.assignments'
 import { Route as AppAttendanceRouteImport } from './routes/app.attendance'
+import { Route as AppBehaviourRouteImport } from './routes/app.behaviour'
 import { Route as AppClassesRouteImport } from './routes/app.classes'
 import { Route as AppCommunicationRouteImport } from './routes/app.communication'
 import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
+import { Route as AppHealthRouteImport } from './routes/app.health'
+import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppTeachersRouteImport } from './routes/app.teachers'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
+import { Route as AppTransportRouteImport } from './routes/app.transport'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
 import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
 
@@ -51,6 +55,11 @@ const AppAttendanceRoute = AppAttendanceRouteImport.update({
   path: '/attendance',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBehaviourRoute = AppBehaviourRouteImport.update({
+  id: '/behaviour',
+  path: '/behaviour',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppClassesRoute = AppClassesRouteImport.update({
   id: '/classes',
   path: '/classes',
@@ -69,6 +78,16 @@ const AppExamsRoute = AppExamsRouteImport.update({
 const AppFeesRoute = AppFeesRouteImport.update({
   id: '/fees',
   path: '/fees',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHealthRoute = AppHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLibraryRoute = AppLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReportsRoute = AppReportsRouteImport.update({
@@ -96,6 +115,11 @@ const AppTimetableRoute = AppTimetableRouteImport.update({
   path: '/timetable',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTransportRoute = AppTransportRouteImport.update({
+  id: '/transport',
+  path: '/transport',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -112,15 +136,19 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
+  '/app/behaviour': typeof AppBehaviourRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/health': typeof AppHealthRoute
+  '/app/library': typeof AppLibraryRoute
   '/app/reports': typeof AppReportsRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
+  '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/students/': typeof AppStudentsIndexRoute
@@ -129,15 +157,19 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
+  '/app/behaviour': typeof AppBehaviourRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/health': typeof AppHealthRoute
+  '/app/library': typeof AppLibraryRoute
   '/app/reports': typeof AppReportsRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
+  '/app/transport': typeof AppTransportRoute
   '/app': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/students': typeof AppStudentsIndexRoute
@@ -148,15 +180,19 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
+  '/app/behaviour': typeof AppBehaviourRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/health': typeof AppHealthRoute
+  '/app/library': typeof AppLibraryRoute
   '/app/reports': typeof AppReportsRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
   '/app/timetable': typeof AppTimetableRoute
+  '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/students/': typeof AppStudentsIndexRoute
@@ -168,15 +204,19 @@ export interface FileRouteTypes {
     | '/app'
     | '/app/assignments'
     | '/app/attendance'
+    | '/app/behaviour'
     | '/app/classes'
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/health'
+    | '/app/library'
     | '/app/reports'
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
+    | '/app/transport'
     | '/app/'
     | '/app/students/$studentId'
     | '/app/students/'
@@ -185,15 +225,19 @@ export interface FileRouteTypes {
     | '/'
     | '/app/assignments'
     | '/app/attendance'
+    | '/app/behaviour'
     | '/app/classes'
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/health'
+    | '/app/library'
     | '/app/reports'
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
+    | '/app/transport'
     | '/app'
     | '/app/students/$studentId'
     | '/app/students'
@@ -203,15 +247,19 @@ export interface FileRouteTypes {
     | '/app'
     | '/app/assignments'
     | '/app/attendance'
+    | '/app/behaviour'
     | '/app/classes'
     | '/app/communication'
     | '/app/exams'
     | '/app/fees'
+    | '/app/health'
+    | '/app/library'
     | '/app/reports'
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
     | '/app/timetable'
+    | '/app/transport'
     | '/app/'
     | '/app/students/$studentId'
     | '/app/students/'
@@ -259,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAttendanceRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/behaviour': {
+      id: '/app/behaviour'
+      path: '/behaviour'
+      fullPath: '/app/behaviour'
+      preLoaderRoute: typeof AppBehaviourRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/classes': {
       id: '/app/classes'
       path: '/classes'
@@ -285,6 +340,20 @@ declare module '@tanstack/react-router' {
       path: '/fees'
       fullPath: '/app/fees'
       preLoaderRoute: typeof AppFeesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/health': {
+      id: '/app/health'
+      path: '/health'
+      fullPath: '/app/health'
+      preLoaderRoute: typeof AppHealthRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/library': {
+      id: '/app/library'
+      path: '/library'
+      fullPath: '/app/library'
+      preLoaderRoute: typeof AppLibraryRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/reports': {
@@ -322,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTimetableRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/transport': {
+      id: '/app/transport'
+      path: '/transport'
+      fullPath: '/app/transport'
+      preLoaderRoute: typeof AppTransportRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/students/': {
       id: '/app/students/'
       path: '/students'
@@ -342,15 +418,19 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAssignmentsRoute: typeof AppAssignmentsRoute
   AppAttendanceRoute: typeof AppAttendanceRoute
+  AppBehaviourRoute: typeof AppBehaviourRoute
   AppClassesRoute: typeof AppClassesRoute
   AppCommunicationRoute: typeof AppCommunicationRoute
   AppExamsRoute: typeof AppExamsRoute
   AppFeesRoute: typeof AppFeesRoute
+  AppHealthRoute: typeof AppHealthRoute
+  AppLibraryRoute: typeof AppLibraryRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppTeachersRoute: typeof AppTeachersRoute
   AppTimetableRoute: typeof AppTimetableRoute
+  AppTransportRoute: typeof AppTransportRoute
   AppIndexRoute: typeof AppIndexRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
   AppStudentsIndexRoute: typeof AppStudentsIndexRoute
@@ -359,15 +439,19 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAssignmentsRoute: AppAssignmentsRoute,
   AppAttendanceRoute: AppAttendanceRoute,
+  AppBehaviourRoute: AppBehaviourRoute,
   AppClassesRoute: AppClassesRoute,
   AppCommunicationRoute: AppCommunicationRoute,
   AppExamsRoute: AppExamsRoute,
   AppFeesRoute: AppFeesRoute,
+  AppHealthRoute: AppHealthRoute,
+  AppLibraryRoute: AppLibraryRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppTeachersRoute: AppTeachersRoute,
   AppTimetableRoute: AppTimetableRoute,
+  AppTransportRoute: AppTransportRoute,
   AppIndexRoute: AppIndexRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
   AppStudentsIndexRoute: AppStudentsIndexRoute,

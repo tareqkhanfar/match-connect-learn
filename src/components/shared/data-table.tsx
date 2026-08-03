@@ -1,0 +1,363 @@
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsUpDown,
+  Columns3,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Search,
+} from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { downloadExport, type ExportDataset } from "@/lib/api/export";
+import { cn } from "@/lib/utils";
+
+export interface Column<T> {
+  /** Key into the row object; also the field sent to the export endpoint. */
+  fieldname: string;
+  label: string;
+  /** Custom cell renderer. Falls back to the raw value. */
+  render?: ((row: T) => ReactNode) | undefined;
+  /** Right-align and use tabular numerals. */
+  numeric?: boolean | undefined;
+  sortable?: boolean | undefined;
+  /** Hidden until the user turns it on in the column menu. */
+  hiddenByDefault?: boolean | undefined;
+  /** Never offered in the column menu (e.g. an actions column). */
+  alwaysVisible?: boolean | undefined;
+  width?: string | undefined;
+}
+
+interface Props<T> {
+  columns: Column<T>[];
+  rows: T[];
+  /** Stable row key. */
+  rowKey: (row: T) => string;
+  isLoading?: boolean | undefined;
+  isFetching?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
+
+  /** Persist column visibility per table. */
+  storageKey?: string | undefined;
+
+  // Search
+  search?: string | undefined;
+  onSearchChange?: ((value: string) => void) | undefined;
+  searchPlaceholder?: string | undefined;
+
+  // Sorting (server-side)
+  sortField?: string | undefined;
+  sortOrder?: "asc" | "desc" | undefined;
+  onSortChange?: ((field: string, order: "asc" | "desc") => void) | undefined;
+
+  // Paging (server-side)
+  page?: number | undefined;
+  pageSize?: number | undefined;
+  total?: number | undefined;
+  onPageChange?: ((page: number) => void) | undefined;
+  onPageSizeChange?: ((size: number) => void) | undefined;
+
+  /** Enables the export menu. */
+  exportDataset?: ExportDataset | undefined;
+  exportFilters?: Record<string, unknown> | undefined;
+  exportTitle?: string | undefined;
+
+  /** Extra controls rendered in the toolbar. */
+  toolbar?: ReactNode | undefined;
+  emptyTitle?: string | undefined;
+  emptyDescription?: string | undefined;
+}
+
+const PAGE_SIZES = [10, 20, 50, 100];
+
+export function DataTable<T>({
+  columns,
+  rows,
+  rowKey,
+  isLoading,
+  isFetching,
+  error,
+  onRetry,
+  storageKey,
+  search,
+  onSearchChange,
+  searchPlaceholder = "ابحث...",
+  sortField,
+  sortOrder,
+  onSortChange,
+  page = 1,
+  pageSize = 20,
+  total,
+  onPageChange,
+  onPageSizeChange,
+  exportDataset,
+  exportFilters,
+  exportTitle,
+  toolbar,
+  emptyTitle = "لا توجد بيانات",
+  emptyDescription,
+}: Props<T>) {
+  // --- column visibility, remembered per table ---
+  const [hidden, setHidden] = useState<Set<string>>(() => {
+    const initial = new Set(
+      columns.filter((c) => c.hiddenByDefault && !c.alwaysVisible).map((c) => c.fieldname),
+    );
+    if (!storageKey || typeof window === "undefined") return initial;
+    try {
+      const saved = window.localStorage.getItem(`k12-cols-${storageKey}`);
+      if (saved) return new Set(JSON.parse(saved) as string[]);
+    } catch {
+      /* fall back to defaults */
+    }
+    return initial;
+  });
+
+  useEffect(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    window.localStorage.setItem(`k12-cols-${storageKey}`, JSON.stringify([...hidden]));
+  }, [hidden, storageKey]);
+
+  const visibleColumns = useMemo(
+    () => columns.filter((c) => c.alwaysVisible || !hidden.has(c.fieldname)),
+    [columns, hidden],
+  );
+
+  function toggleColumn(fieldname: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(fieldname)) next.delete(fieldname);
+      else next.add(fieldname);
+      return next;
+    });
+  }
+
+  function handleSort(column: Column<T>) {
+    if (!column.sortable || !onSortChange) return;
+    const nextOrder = sortField === column.fieldname && sortOrder === "asc" ? "desc" : "asc";
+    onSortChange(column.fieldname, nextOrder);
+  }
+
+  const [exporting, setExporting] = useState(false);
+
+  async function runExport(format: "excel" | "pdf") {
+    if (!exportDataset) return;
+    setExporting(true);
+    try {
+      // Export exactly the columns currently on screen, in order.
+      await downloadExport(format, {
+        dataset: exportDataset,
+        columns: visibleColumns
+          .filter((c) => !c.alwaysVisible || c.fieldname !== "actions")
+          .map((c) => ({ fieldname: c.fieldname, label: c.label })),
+        filters: exportFilters ?? {},
+        title: exportTitle,
+      });
+      toast.success(format === "excel" ? "تم تنزيل ملف Excel" : "تم تنزيل ملف PDF");
+    } catch (err) {
+      const message =
+        (err as { messageAr?: string }).messageAr || (err as Error).message || "تعذّر التصدير";
+      toast.error(message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const totalCount = total ?? rows.length;
+  const pages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+  return (
+    <div className="space-y-4">
+      {/* toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {onSearchChange && (
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search ?? ""}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="h-10 rounded-xl pr-9"
+            />
+          </div>
+        )}
+
+        {toolbar}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-colors hover:bg-secondary">
+              <Columns3 className="size-4" />
+              <span className="hidden sm:inline">الأعمدة</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+            <DropdownMenuLabel>إظهار الأعمدة</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {columns
+              .filter((c) => !c.alwaysVisible)
+              .map((c) => (
+                <DropdownMenuCheckboxItem
+                  key={c.fieldname}
+                  checked={!hidden.has(c.fieldname)}
+                  onCheckedChange={() => toggleColumn(c.fieldname)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {c.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setHidden(new Set())}>إظهار الكل</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {exportDataset && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                disabled={exporting}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-colors hover:bg-secondary disabled:opacity-60"
+              >
+                <Download className="size-4" />
+                <span className="hidden sm:inline">{exporting ? "جارٍ التصدير…" : "تصدير"}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => runExport("excel")}>
+                <FileSpreadsheet className="ml-2 size-4" />
+                Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => runExport("pdf")}>
+                <FileText className="ml-2 size-4" />
+                PDF للطباعة
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      {/* table */}
+      <div className="card-surface overflow-hidden">
+        {error ? (
+          <div className="p-4">
+            <ErrorState error={error} onRetry={onRetry} />
+          </div>
+        ) : isLoading ? (
+          <div className="p-4">
+            <TableSkeleton rows={Math.min(pageSize, 8)} />
+          </div>
+        ) : rows.length === 0 ? (
+          <EmptyBlock title={emptyTitle} description={emptyDescription} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="bg-secondary/60 text-xs text-muted-foreground">
+                <tr>
+                  {visibleColumns.map((c) => {
+                    const active = sortField === c.fieldname;
+                    return (
+                      <th
+                        key={c.fieldname}
+                        style={c.width ? { width: c.width } : undefined}
+                        className={cn(
+                          "px-4 py-3 font-semibold",
+                          c.numeric && "text-left",
+                          c.sortable &&
+                            onSortChange &&
+                            "cursor-pointer select-none hover:text-foreground",
+                        )}
+                        onClick={() => handleSort(c)}
+                      >
+                        <span className="inline-flex items-center gap-1.5">
+                          {c.label}
+                          {c.sortable &&
+                            onSortChange &&
+                            (active ? (
+                              sortOrder === "asc" ? (
+                                <ArrowUp className="size-3.5" />
+                              ) : (
+                                <ArrowDown className="size-3.5" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="size-3.5 opacity-40" />
+                            ))}
+                        </span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((row) => (
+                  <tr key={rowKey(row)} className="transition-colors hover:bg-secondary/40">
+                    {visibleColumns.map((c) => (
+                      <td
+                        key={c.fieldname}
+                        className={cn("px-4 py-3", c.numeric && "num text-left")}
+                      >
+                        {c.render
+                          ? c.render(row)
+                          : (((row as Record<string, unknown>)[c.fieldname] as ReactNode) ?? "—")}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* pagination */}
+        {rows.length > 0 && onPageChange && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
+            <p className="num text-xs text-muted-foreground">
+              {totalCount} سجل • صفحة {page} من {pages}
+              {isFetching && " • جارٍ التحديث…"}
+            </p>
+            <div className="flex items-center gap-2">
+              {onPageSizeChange && (
+                <select
+                  value={pageSize}
+                  onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                  className="h-8 rounded-lg border border-border bg-card px-2 text-xs"
+                >
+                  {PAGE_SIZES.map((s) => (
+                    <option key={s} value={s}>
+                      {s} / صفحة
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => onPageChange(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+              >
+                السابق
+              </button>
+              <button
+                onClick={() => onPageChange(Math.min(pages, page + 1))}
+                disabled={page >= pages}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
+              >
+                التالي
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -43,8 +43,8 @@ export function ErrorState({
   title = "تعذّر تحميل البيانات",
 }: {
   error?: unknown;
-  onRetry?: () => void;
-  title?: string;
+  onRetry?: (() => void) | undefined;
+  title?: string | undefined;
 }) {
   // Endpoints send an Arabic message; fall back to the English one.
   const message =
@@ -86,10 +86,10 @@ export function EmptyBlock({
   icon,
   action,
 }: {
-  title?: string;
-  description?: string;
-  icon?: ReactNode;
-  action?: ReactNode;
+  title?: string | undefined;
+  description?: string | undefined;
+  icon?: ReactNode | undefined;
+  action?: ReactNode | undefined;
 }) {
   return (
     <div className="grid place-items-center rounded-2xl border border-dashed border-border px-6 py-12 text-center">

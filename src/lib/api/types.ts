@@ -1,6 +1,6 @@
 /** Types mirroring the Match K12 backend payloads. */
 
-export type Role = "admin" | "teacher" | "student" | "parent";
+export type Role = "admin" | "secretary" | "teacher" | "student" | "parent";
 export type PaymentStatus = "paid" | "partial" | "late";
 
 export interface SessionScope {
