@@ -18,6 +18,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectItemLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -100,7 +101,9 @@ function GradebookPage() {
             <SelectContent>
               {(classesQuery.data ?? []).map((c) => (
                 <SelectItem key={c.name} value={c.name}>
-                  {c.student_group_name} ({c.students})
+                  <SelectItemLabel code={c.name}>
+                    {c.student_group_name} ({c.students})
+                  </SelectItemLabel>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -115,7 +118,7 @@ function GradebookPage() {
             <SelectContent>
               {(subjectsQuery.data ?? []).map((s) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.course_name}
+                  <SelectItemLabel code={s.id}>{s.course_name}</SelectItemLabel>
                 </SelectItem>
               ))}
             </SelectContent>

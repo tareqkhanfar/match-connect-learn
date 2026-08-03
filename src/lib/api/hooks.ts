@@ -106,6 +106,54 @@ export function useDashboard() {
   });
 }
 
+// --- Profile and personal preferences --------------------------------------
+
+export interface MyProfile {
+  profile: {
+    user: string;
+    email: string;
+    full_name: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    image: string | null;
+    persona: string;
+    persona_label: string;
+    last_login: string;
+    linked: Record<string, unknown> | null;
+  };
+  preferences: Record<string, string>;
+}
+
+export function useMyProfile() {
+  return useQuery<MyProfile>({
+    queryKey: ["my-profile"],
+    queryFn: () => apiGet<MyProfile>("settings.my_profile"),
+  });
+}
+
+export function useSaveMyProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ user: string; preferences: Record<string, string> }>(
+        "settings.save_my_profile",
+        { payload },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-profile"] });
+      qc.invalidateQueries({ queryKey: qk.session });
+    },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (vars: { current_password: string; new_password: string }) =>
+      apiPost<{ user: string }>("settings.change_password", vars),
+  });
+}
+
 // --- Notifications ---------------------------------------------------------
 
 export interface NotificationItem {
@@ -621,7 +669,23 @@ export interface SchoolSettings {
     }>;
   };
   roles: Array<{ persona: string; role: string; label: string; users: number }>;
+  policies: { student_open_messaging: boolean };
   counts: Record<string, number>;
+}
+
+/** School-wide messaging policy: may students write outside their teachers? */
+export function useSetOpenMessaging() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) =>
+      apiPost<{ student_open_messaging: boolean }>("messaging.set_open_messaging", {
+        enabled: enabled ? 1 : 0,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      qc.invalidateQueries({ queryKey: ["audience"] });
+    },
+  });
 }
 
 export function useSettings() {
@@ -1314,5 +1378,120 @@ export function useImportExamResults() {
       qc.invalidateQueries({ queryKey: ["term-grades"] });
       qc.invalidateQueries({ queryKey: ["class-term-grades"] });
     },
+  });
+}
+
+// --- Chat ------------------------------------------------------------------
+
+export interface AudiencePerson {
+  user: string;
+  name: string;
+  role: string;
+}
+
+export interface AudienceGroup {
+  id: string;
+  name: string;
+  program: string | null;
+  batch: string | null;
+  members: number;
+}
+
+export interface AudienceCourse {
+  id: string;
+  name: string;
+}
+
+export interface Audience {
+  people: AudiencePerson[];
+  groups: AudienceGroup[];
+  courses: AudienceCourse[];
+  policy: { student_open_messaging: boolean; restricted: boolean };
+}
+
+/** Everyone (and every section/course) the caller may address. */
+export function useAudience() {
+  return useQuery<Audience>({
+    queryKey: ["audience"],
+    queryFn: () => apiGet<Audience>("messaging.audience"),
+  });
+}
+
+export interface ConversationMessage {
+  id: string;
+  sender: string;
+  sender_name: string;
+  recipient: string;
+  body: string;
+  sent_on: string;
+  outgoing: boolean;
+  read: boolean;
+  files: SubmissionFile[];
+}
+
+export interface Conversation {
+  thread: string;
+  subject: string | null;
+  participants: Array<{ user: string; name: string }>;
+  /** True when a back-office user is reading someone else's conversation. */
+  observing: boolean;
+  messages: ConversationMessage[];
+}
+
+export function useConversation(thread: Opt<string>) {
+  return useQuery<Conversation>({
+    queryKey: ["conversation", thread],
+    queryFn: () => apiGet<Conversation>("messaging.conversation", { thread: thread! }),
+    enabled: Boolean(thread),
+    refetchInterval: 30_000,
+  });
+}
+
+export function useSendChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      body: string;
+      recipients?: string[];
+      groups?: string[];
+      courses?: string[];
+      subject?: string;
+      thread?: string;
+      files?: SubmissionFile[];
+    }) =>
+      apiPost<{ sent: number; messages: string[]; recipients: string[] }>(
+        "messaging.send",
+        vars,
+      ),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.inbox });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      if (vars.thread) qc.invalidateQueries({ queryKey: ["conversation", vars.thread] });
+    },
+  });
+}
+
+/** Back-office oversight of every conversation a student is part of. */
+export function useStudentConversations(student?: Opt<string>, limit = 50) {
+  return useQuery<{
+    student: string | null;
+    rows: Array<{
+      id: string;
+      thread: string;
+      subject: string | null;
+      preview: string;
+      from: string;
+      from_user: string;
+      to: string;
+      to_user: string;
+      time: string;
+    }>;
+  }>({
+    queryKey: ["student-conversations", student ?? null, limit],
+    queryFn: () =>
+      apiGet("messaging.student_conversations", {
+        ...(student ? { student } : {}),
+        limit,
+      }),
   });
 }

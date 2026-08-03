@@ -119,7 +119,8 @@ export function TeacherDashboard() {
                   </div>
                   <Link
                     to="/app/attendance"
-                    className="shrink-0 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-soft hover:text-primary"
+                    search={{ group: c.name }}
+                    className="shrink-0 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold transition-all hover:-translate-y-0.5 hover:bg-primary-soft hover:text-primary hover:shadow-soft active:translate-y-0"
                   >
                     تسجيل الحضور
                   </Link>

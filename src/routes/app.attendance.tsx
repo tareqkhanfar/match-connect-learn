@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Check, ClipboardCheck, Clock, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useApp } from "@/lib/app-context";
 import {
   useAttendanceReport,
@@ -47,6 +48,12 @@ export const Route = createFileRoute("/app/attendance")({
       { property: "og:title", content: "الحضور والغياب — Match Education" },
       { property: "og:description", content: "شبكة تفاعلية لتسجيل الحضور وتقارير دقيقة للغياب." },
     ],
+  }),
+  // A link may preselect the group, e.g. from the teacher's class list.
+  validateSearch: (search: Record<string, unknown>): { group?: string } => ({
+    ...(typeof search["group"] === "string" && search["group"]
+      ? { group: search["group"] }
+      : {}),
   }),
   component: AttendancePage,
 });
@@ -178,14 +185,29 @@ function StaffAttendanceView() {
   const { role } = useApp();
   const canMark = role === "admin" || role === "secretary" || role === "teacher";
 
+  const navigate = useNavigate();
+  const { group: groupFromUrl } = Route.useSearch();
   const groupsQuery = useMyGroups();
-  const [groupId, setGroupId] = useState<string>("");
+  const [groupId, setGroupId] = useState<string>(groupFromUrl ?? "");
   const [date, setDate] = useState(todayISO());
 
-  // Default to the first group once the list arrives.
+  // A group named in the URL wins; otherwise fall back to the first one.
+  // Without this the page always opened on the first group, so arriving from
+  // "تسجيل الحضور" on a specific class showed the wrong roster.
   useEffect(() => {
+    if (groupFromUrl) {
+      setGroupId(groupFromUrl);
+      return;
+    }
     if (!groupId && groupsQuery.data?.length) setGroupId(groupsQuery.data[0]!.name);
-  }, [groupsQuery.data, groupId]);
+  }, [groupFromUrl, groupsQuery.data, groupId]);
+
+  // Picking a group from the dropdown rewrites the URL, so the effect above
+  // does not snap the selection back to whatever the link carried.
+  function selectGroup(next: string) {
+    setGroupId(next);
+    void navigate({ to: "/app/attendance", search: next ? { group: next } : {}, replace: true });
+  }
 
   const sheetQuery = useAttendanceSheet(groupId || undefined, date);
   const reportQuery = useAttendanceReport(groupId ? { student_group: groupId } : {});
@@ -264,18 +286,18 @@ function StaffAttendanceView() {
       </div>
 
       <div className="card-surface my-5 grid gap-3 p-4 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <Select value={groupId} onValueChange={setGroupId}>
-          <SelectTrigger className="h-10 rounded-xl">
-            <SelectValue placeholder="اختر الشعبة" />
-          </SelectTrigger>
-          <SelectContent>
-            {(groupsQuery.data ?? []).map((c) => (
-              <SelectItem key={c.name} value={c.name}>
-                {c.student_group_name} ({c.students})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          options={(groupsQuery.data ?? []).map((c) => ({
+            value: c.name,
+            label: c.student_group_name,
+            code: c.name,
+            hint: `${c.students} طالباً`,
+          }))}
+          value={groupId}
+          onChange={selectGroup}
+          placeholder="اختر الشعبة"
+          searchPlaceholder="ابحث عن شعبة…"
+        />
         <Input
           type="date"
           value={date}

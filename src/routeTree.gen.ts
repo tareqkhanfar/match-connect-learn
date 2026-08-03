@@ -22,6 +22,7 @@ import { Route as AppFeesRouteImport } from './routes/app.fees'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
+import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppRecordRouteImport } from './routes/app.record'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppSchemesRouteImport } from './routes/app.schemes'
@@ -98,6 +99,11 @@ const AppLibraryRoute = AppLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRecordRoute = AppRecordRouteImport.update({
   id: '/record',
   path: '/record',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/profile': typeof AppProfileRoute
   '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
   '/app/schemes': typeof AppSchemesRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/profile': typeof AppProfileRoute
   '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
   '/app/schemes': typeof AppSchemesRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/profile': typeof AppProfileRoute
   '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
   '/app/schemes': typeof AppSchemesRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/profile'
     | '/app/record'
     | '/app/reports'
     | '/app/schemes'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/profile'
     | '/app/record'
     | '/app/reports'
     | '/app/schemes'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/profile'
     | '/app/record'
     | '/app/reports'
     | '/app/schemes'
@@ -399,6 +411,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLibraryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/profile': {
+      id: '/app/profile'
+      path: '/profile'
+      fullPath: '/app/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/record': {
       id: '/app/record'
       path: '/record'
@@ -483,6 +502,7 @@ interface AppRouteChildren {
   AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
+  AppProfileRoute: typeof AppProfileRoute
   AppRecordRoute: typeof AppRecordRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSchemesRoute: typeof AppSchemesRoute
@@ -507,6 +527,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
+  AppProfileRoute: AppProfileRoute,
   AppRecordRoute: AppRecordRoute,
   AppReportsRoute: AppReportsRoute,
   AppSchemesRoute: AppSchemesRoute,

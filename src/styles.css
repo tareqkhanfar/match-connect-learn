@@ -222,3 +222,80 @@
   direction: ltr;
   unicode-bidi: isolate;
 }
+
+/* ---------------------------------------------------------------------------
+   Global interaction polish.
+
+   Applied here rather than per component so every button, card and row in the
+   system reacts consistently, including the ones rendered by shadcn/ui.
+   --------------------------------------------------------------------------- */
+
+/* Cards lift slightly under the pointer. Opt out with .no-lift. */
+.card-surface:not(.no-lift) {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.card-surface:not(.no-lift):hover {
+  border-color: color-mix(in oklab, var(--color-primary) 28%, var(--color-border));
+  box-shadow: var(--shadow-card);
+}
+
+/* Anything clickable gets a pointer and a smooth reaction. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary,
+label[for] {
+  cursor: pointer;
+}
+
+button,
+[role="button"] {
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+/* A pressed button dips, which reads as tactile without a plugin. */
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: translateY(1px);
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Table rows highlight on hover so the eye can track across a wide row. */
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+tbody tr:hover {
+  background-color: color-mix(in oklab, var(--color-secondary) 60%, transparent);
+}
+
+/* Keyboard focus stays visible everywhere, and never behind a hover style. */
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-primary) 60%, transparent);
+  outline-offset: 2px;
+}
+
+/* Respect a user who has asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

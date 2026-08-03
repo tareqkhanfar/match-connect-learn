@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Save, School, ShieldCheck } from "lucide-react";
+import { MessagesSquare, Save, School, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
@@ -12,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
-import { useSaveSettings, useSettings } from "@/lib/api/hooks";
+import { useSaveSettings, useSetOpenMessaging, useSettings } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -42,6 +43,7 @@ const COUNT_LABELS: Record<string, string> = {
 function SettingsPage() {
   const { data, isLoading, error, refetch } = useSettings();
   const saveSettings = useSaveSettings();
+  const setOpenMessaging = useSetOpenMessaging();
 
   const [form, setForm] = useState({
     name: "",
@@ -227,6 +229,38 @@ function SettingsPage() {
               </li>
             ))}
           </ul>
+        </SectionCard>
+
+        <SectionCard
+          title="سياسة المراسلة"
+          description="من يستطيع الطالب مراسلته"
+          actions={<MessagesSquare className="size-4 text-muted-foreground" />}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">السماح للطالب بمراسلة الجميع</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                عند الإيقاف يستطيع الطالب مراسلة معلميه وإدارة المدرسة فقط. في كل الأحوال تستطيع
+                الإدارة الاطلاع على محادثات الطلاب.
+              </p>
+            </div>
+            <Switch
+              checked={data.policies?.student_open_messaging ?? false}
+              disabled={setOpenMessaging.isPending}
+              onCheckedChange={async (on) => {
+                try {
+                  await setOpenMessaging.mutateAsync(on);
+                  toast.success(on ? "تم السماح بالمراسلة المفتوحة" : "تم تقييد مراسلة الطلاب");
+                } catch (err) {
+                  const message =
+                    (err as { messageAr?: string }).messageAr ||
+                    (err as Error).message ||
+                    "تعذّر تحديث السياسة";
+                  toast.error(message);
+                }
+              }}
+            />
+          </div>
         </SectionCard>
 
         <SectionCard title="ملخص النظام" description="أعداد السجلات الحالية">

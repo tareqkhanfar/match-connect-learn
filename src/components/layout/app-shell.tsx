@@ -1,5 +1,7 @@
 import { Menu, Moon, Search, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
+import { UserMenu } from "./user-menu";
+import { ChatWidget } from "./chat-widget";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { useApp } from "@/lib/app-context";
@@ -57,19 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </button>
               <NotificationBell />
-              <div className="hidden items-center gap-2.5 rounded-xl border border-border py-1 pl-3 pr-1.5 sm:flex">
-                {session?.image ? (
-                  <img src={session.image} alt="" className="size-8 rounded-lg object-cover" />
-                ) : (
-                  <div className="grid size-8 place-items-center rounded-lg bg-brand-gradient text-xs font-bold text-primary-foreground">
-                    {initials(displayName)}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold leading-tight">{displayName}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">{roleLabels[role]}</p>
-                </div>
-              </div>
+              <UserMenu />
             </div>
           </div>
         </header>
@@ -80,6 +70,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </main>
       </div>
+
+      <ChatWidget />
     </div>
   );
 }
