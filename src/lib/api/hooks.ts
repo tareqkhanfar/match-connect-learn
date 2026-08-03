@@ -951,3 +951,11 @@ export function useSaveGrade() {
     },
   });
 }
+
+export function useDepartments() {
+  return useQuery<Array<{ name: string }>>({
+    queryKey: ["departments"],
+    queryFn: () => apiGet("academics.list_departments"),
+    staleTime: 10 * 60 * 1000,
+  });
+}

@@ -1,11 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { GraduationCap, Mail, Phone, Plus, Search } from "lucide-react";
+import { GraduationCap, Mail, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { Input } from "@/components/ui/input";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
-import { useTeachers } from "@/lib/api/hooks";
+import { useDeleteTeacher, useDepartments, useSaveTeacher, useTeachers } from "@/lib/api/hooks";
+import type { TeacherRow } from "@/lib/api/types";
+import { useApp } from "@/lib/app-context";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/app/teachers")({
   head: () => ({
@@ -21,7 +38,22 @@ export const Route = createFileRoute("/app/teachers")({
 
 function TeachersPage() {
   const [q, setQ] = useState("");
+  const { role } = useApp();
   const { data, isLoading, error, refetch } = useTeachers();
+  const deleteTeacher = useDeleteTeacher();
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<TeacherRow | null>(null);
+  const canManage = role === "admin" || role === "secretary";
+
+  async function removeTeacher(row: TeacherRow) {
+    if (!window.confirm(`حذف المعلم «${row.instructor_name}»؟`)) return;
+    try {
+      await deleteTeacher.mutateAsync(row.id);
+      toast.success("تم حذف المعلم");
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحذف");
+    }
+  }
 
   const teachers = data ?? [];
   // Filter on the client: the list is small and this keeps typing instant.
@@ -36,7 +68,7 @@ function TeachersPage() {
         subtitle={`${teachers.length} معلماً ومعلمة في الكادر التعليمي`}
         actions={
           <button
-            onClick={() => toast.info("إضافة معلم غير مفعّلة بعد")}
+            onClick={() => setCreating(true)}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
           >
             <Plus className="size-4" />
@@ -121,6 +153,24 @@ function TeachersPage() {
                 <p className="text-[11px] text-muted-foreground">عدد الشُعب</p>
                 <p className="num text-sm font-bold">{t.classes_count}</p>
               </div>
+
+              {canManage && (
+                <div className="mt-3 flex gap-2 border-t border-border pt-3">
+                  <button
+                    onClick={() => setEditing(t)}
+                    className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    onClick={() => removeTeacher(t)}
+                    className="rounded-lg bg-secondary px-2.5 py-1.5 text-destructive hover:bg-destructive-soft"
+                    aria-label="حذف"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -145,6 +195,119 @@ function TeachersPage() {
           </SectionCard>
         </div>
       )}
+
+      {(creating || editing) && (
+        <TeacherDialog
+          teacher={editing}
+          onClose={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function TeacherDialog({ teacher, onClose }: { teacher: TeacherRow | null; onClose: () => void }) {
+  const save = useSaveTeacher();
+  const departmentsQuery = useDepartments();
+  const [form, setForm] = useState({
+    instructor_name: teacher?.instructor_name ?? "",
+    gender: teacher?.gender ?? "",
+    department: teacher?.department ?? "",
+    status: teacher?.status ?? "Active",
+  });
+
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function submit() {
+    if (!form.instructor_name.trim()) {
+      toast.error("اسم المعلم مطلوب");
+      return;
+    }
+    try {
+      await save.mutateAsync({ ...(teacher ? { id: teacher.id } : {}), ...form });
+      toast.success(teacher ? "تم تحديث المعلم" : "تمت إضافة المعلم");
+      onClose();
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحفظ");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">{teacher ? "تعديل معلم" : "معلم جديد"}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>اسم المعلم *</Label>
+            <Input
+              value={form.instructor_name}
+              onChange={(e) => set("instructor_name", e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>الجنس</Label>
+            <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Male">ذكر</SelectItem>
+                <SelectItem value="Female">أنثى</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>الحالة</Label>
+            <Select value={form.status} onValueChange={(v) => set("status", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active">نشِط</SelectItem>
+                <SelectItem value="Left">منتهي الخدمة</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>القسم</Label>
+            <Select value={form.department} onValueChange={(v) => set("department", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر القسم" />
+              </SelectTrigger>
+              <SelectContent>
+                {(departmentsQuery.data ?? []).map((d) => (
+                  <SelectItem key={d.name} value={d.name}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={submit}
+            disabled={save.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {save.isPending ? "جارٍ الحفظ…" : "حفظ"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

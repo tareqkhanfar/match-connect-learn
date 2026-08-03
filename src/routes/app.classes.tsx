@@ -1,10 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DoorOpen, Plus, School, Users } from "lucide-react";
+import { DoorOpen, Plus, School, Trash2, Users } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
-import { useClasses } from "@/lib/api/hooks";
+import {
+  useClasses,
+  useDeleteClass,
+  useSaveClass,
+  useStudentFilters,
+  useTeachers,
+} from "@/lib/api/hooks";
+import type { ClassRow } from "@/lib/api/types";
+import { DataTable, type Column } from "@/components/shared/data-table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/app/classes")({
   head: () => ({
@@ -24,12 +49,68 @@ export const Route = createFileRoute("/app/classes")({
 function ClassesPage() {
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useClasses();
+  const deleteClass = useDeleteClass();
+  const [editing, setEditing] = useState<ClassRow | null>(null);
+  const [creating, setCreating] = useState(false);
   const classes = data ?? [];
+  const canManage = role === "admin" || role === "secretary";
 
   const totalStudents = classes.reduce((a, c) => a + (c.students ?? 0), 0);
   const capacity = classes.reduce((a, c) => a + (c.capacity ?? 0), 0);
   const occupancy = capacity > 0 ? Math.round((totalStudents / capacity) * 100) : 0;
   const avgSize = classes.length ? Math.round(totalStudents / classes.length) : 0;
+
+  async function removeClass(row: ClassRow) {
+    if (!window.confirm(`حذف الشعبة «${row.student_group_name}»؟`)) return;
+    try {
+      await deleteClass.mutateAsync(row.name);
+      toast.success("تم حذف الشعبة");
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحذف");
+    }
+  }
+
+  const columns: Column<ClassRow>[] = [
+    { fieldname: "student_group_name", label: "الشعبة" },
+    { fieldname: "program", label: "الصف" },
+    { fieldname: "batch", label: "القسم", hiddenByDefault: true },
+    { fieldname: "students", label: "عدد الطلاب", numeric: true },
+    { fieldname: "capacity", label: "السعة", numeric: true, hiddenByDefault: true },
+    { fieldname: "homeroom", label: "مربي الصف" },
+    { fieldname: "academic_year", label: "العام الدراسي", hiddenByDefault: true },
+    {
+      fieldname: "subjects",
+      label: "عدد المواد",
+      numeric: true,
+      render: (c) => c.subjects?.length ?? 0,
+    },
+    ...(canManage
+      ? [
+          {
+            fieldname: "actions",
+            label: "إجراءات",
+            alwaysVisible: true,
+            render: (c: ClassRow) => (
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setEditing(c)}
+                  className="rounded-lg bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                >
+                  تعديل
+                </button>
+                <button
+                  onClick={() => removeClass(c)}
+                  className="rounded-lg bg-secondary px-2 py-1 text-xs text-destructive hover:bg-destructive-soft"
+                  aria-label="حذف"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ),
+          } as Column<ClassRow>,
+        ]
+      : []),
+  ];
 
   return (
     <>
@@ -37,9 +118,9 @@ function ClassesPage() {
         title="الصفوف والشُعب"
         subtitle="إدارة الصفوف الدراسية وإسناد المعلمين والمواد"
         actions={
-          role === "admin" ? (
+          canManage ? (
             <button
-              onClick={() => toast.info("إضافة شعبة غير مفعّلة بعد")}
+              onClick={() => setCreating(true)}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
             >
               <Plus className="size-4" />
@@ -127,45 +208,155 @@ function ClassesPage() {
 
       {!isLoading && !error && classes.length > 0 && (
         <div className="mt-6">
-          <SectionCard title="ملخص الشُعب" description="عدد الطلاب والمعلمين المسندين لكل شعبة">
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
-                <thead className="text-xs text-muted-foreground">
-                  <tr>
-                    <th className="pb-3 pl-2 font-semibold">الشعبة</th>
-                    <th className="pb-3 pl-2 font-semibold">الصف</th>
-                    <th className="pb-3 pl-2 font-semibold">عدد الطلاب</th>
-                    <th className="pb-3 pl-2 font-semibold">مربي الصف</th>
-                    <th className="pb-3 pl-2 font-semibold">عدد المواد</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {classes.map((c) => (
-                    <tr key={c.name}>
-                      <td className="whitespace-nowrap py-2.5 pl-2 font-medium">
-                        {c.student_group_name}
-                      </td>
-                      <td className="whitespace-nowrap py-2.5 pl-2 text-muted-foreground">
-                        {c.program ?? "—"}
-                      </td>
-                      <td className="num py-2.5 pl-2">{c.students}</td>
-                      <td className="whitespace-nowrap py-2.5 pl-2 text-muted-foreground">
-                        {c.homeroom ?? "—"}
-                      </td>
-                      <td className="num py-2.5 pl-2 text-muted-foreground">
-                        {c.subjects?.length ?? 0}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="num mt-4 text-xs text-muted-foreground">
-              إجمالي الطلاب في الشُعب المعروضة: {totalStudents}
-            </p>
-          </SectionCard>
+          <DataTable
+            columns={columns}
+            rows={classes}
+            rowKey={(c) => c.name}
+            storageKey="classes"
+            exportDataset="classes"
+            exportTitle="الصفوف والشُعب"
+            emptyTitle="لا توجد شُعب"
+          />
         </div>
       )}
+
+      {(creating || editing) && (
+        <ClassDialog
+          klass={editing}
+          onClose={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+function ClassDialog({ klass, onClose }: { klass: ClassRow | null; onClose: () => void }) {
+  const save = useSaveClass();
+  const filtersQuery = useStudentFilters();
+  const teachersQuery = useTeachers();
+
+  const [form, setForm] = useState({
+    student_group_name: klass?.student_group_name ?? "",
+    program: klass?.program ?? "",
+    batch: klass?.batch ?? "",
+    max_strength: String(klass?.capacity ?? 35),
+  });
+  const [instructor, setInstructor] = useState(klass?.instructors?.[0]?.id ?? "");
+
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function submit() {
+    if (!form.student_group_name.trim() || !form.program) {
+      toast.error("اسم الشعبة والصف مطلوبان");
+      return;
+    }
+    try {
+      await save.mutateAsync({
+        ...(klass ? { id: klass.name } : {}),
+        ...form,
+        max_strength: Number(form.max_strength) || 35,
+        ...(instructor ? { instructors: [instructor] } : {}),
+      });
+      toast.success(klass ? "تم تحديث الشعبة" : "تمت إضافة الشعبة");
+      onClose();
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحفظ");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">{klass ? "تعديل الشعبة" : "شعبة جديدة"}</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>اسم الشعبة *</Label>
+            <Input
+              value={form.student_group_name}
+              onChange={(e) => set("student_group_name", e.target.value)}
+              placeholder="مثال: الصف الأول - أ"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>الصف *</Label>
+            <Select value={form.program} onValueChange={(v) => set("program", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر الصف" />
+              </SelectTrigger>
+              <SelectContent>
+                {(filtersQuery.data?.grades ?? []).map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>القسم</Label>
+            <Select value={form.batch} onValueChange={(v) => set("batch", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر القسم" />
+              </SelectTrigger>
+              <SelectContent>
+                {(filtersQuery.data?.sections ?? []).map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {b}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>السعة</Label>
+            <Input
+              type="number"
+              min={1}
+              value={form.max_strength}
+              onChange={(e) => set("max_strength", e.target.value)}
+              className="num rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>مربي الصف</Label>
+            <Select value={instructor} onValueChange={setInstructor}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر المعلم" />
+              </SelectTrigger>
+              <SelectContent>
+                {(teachersQuery.data ?? []).map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.instructor_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={submit}
+            disabled={save.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {save.isPending ? "جارٍ الحفظ…" : "حفظ"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

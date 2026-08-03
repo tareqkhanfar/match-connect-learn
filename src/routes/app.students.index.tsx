@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Download, Filter, Plus, Search, UserPlus, Users } from "lucide-react";
+import { Plus, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Avatar, EmptyState, PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
+import { Avatar, PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
+import { DataTable, type Column } from "@/components/shared/data-table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { money, statusMeta } from "@/lib/roles";
 import { useSaveStudent, useStudentFilters, useStudents } from "@/lib/api/hooks";
-import { ErrorState, TableSkeleton } from "@/components/shared/states";
+import type { StudentRow } from "@/lib/api/types";
 
 export const Route = createFileRoute("/app/students/")({
   head: () => ({
@@ -50,242 +51,201 @@ function useDebounced<T>(value: T, delay = 350) {
 }
 
 function StudentsPage() {
-  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const [grade, setGrade] = useState("all");
   const [section, setSection] = useState("all");
   const [status, setStatus] = useState("all");
+  const [gender, setGender] = useState("all");
   const [page, setPage] = useState(1);
-  const perPage = 10;
+  const [pageSize, setPageSize] = useState(20);
 
-  const debouncedQ = useDebounced(q);
+  const debouncedSearch = useDebounced(search);
   const filtersQuery = useStudentFilters();
 
-  const { data, isLoading, isFetching, error, refetch } = useStudents({
-    search: debouncedQ || undefined,
-    program: grade === "all" ? undefined : grade,
-    batch: section === "all" ? undefined : section,
-    payment_status: status === "all" ? undefined : status,
-    page,
-    page_size: perPage,
-  });
+  const apiFilters = {
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(grade !== "all" ? { program: grade } : {}),
+    ...(section !== "all" ? { batch: section } : {}),
+    ...(status !== "all" ? { payment_status: status } : {}),
+  };
 
-  const current = data?.items ?? [];
-  const total = data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / perPage));
+  const query = useStudents({ ...apiFilters, page, page_size: pageSize });
+
+  // Gender isn't a backend filter, so narrow the current page client-side.
+  const rows = (query.data?.items ?? []).filter((s) => gender === "all" || s.gender === gender);
+
   const grades = filtersQuery.data?.grades ?? [];
   const sections = filtersQuery.data?.sections ?? [];
+
+  function resetPage<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setPage(1);
+    };
+  }
+
+  const columns: Column<StudentRow>[] = [
+    {
+      fieldname: "name",
+      label: "الطالب",
+      render: (s) => (
+        <Link
+          to="/app/students/$studentId"
+          params={{ studentId: s.id }}
+          className="flex items-center gap-3"
+        >
+          <Avatar name={s.name} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">{s.name}</p>
+            <p className="num text-xs text-muted-foreground">{s.id}</p>
+          </div>
+        </Link>
+      ),
+    },
+    {
+      fieldname: "grade",
+      label: "الصف",
+      render: (s) => [s.grade, s.section].filter(Boolean).join(" - ") || "—",
+    },
+    { fieldname: "gender", label: "الجنس", hiddenByDefault: true },
+    {
+      fieldname: "guardian",
+      label: "ولي الأمر",
+      render: (s) => (
+        <div className="min-w-0">
+          <p className="truncate">{s.guardian ?? "—"}</p>
+          {s.guardianPhone && (
+            <p className="num text-xs text-muted-foreground">{s.guardianPhone}</p>
+          )}
+        </div>
+      ),
+    },
+    { fieldname: "phone", label: "هاتف الطالب", hiddenByDefault: true },
+    { fieldname: "email", label: "البريد الإلكتروني", hiddenByDefault: true },
+    { fieldname: "birthDate", label: "تاريخ الميلاد", numeric: true, hiddenByDefault: true },
+    { fieldname: "address", label: "العنوان", hiddenByDefault: true },
+    { fieldname: "enrolled", label: "تاريخ الالتحاق", numeric: true, hiddenByDefault: true },
+    {
+      fieldname: "attendanceRate",
+      label: "الحضور",
+      render: (s) => (
+        <div className="w-24">
+          <ProgressBar
+            value={s.attendanceRate}
+            tone={
+              s.attendanceRate >= 90 ? "success" : s.attendanceRate >= 80 ? "warning" : "danger"
+            }
+          />
+          <span className="num mt-1 block text-xs text-muted-foreground">{s.attendanceRate}%</span>
+        </div>
+      ),
+    },
+    { fieldname: "average", label: "المعدل", numeric: true },
+    {
+      fieldname: "feeTotal",
+      label: "الرسوم",
+      numeric: true,
+      render: (s) => (
+        <span className="whitespace-nowrap text-muted-foreground">
+          {money(s.feePaid)} / {money(s.feeTotal)}
+        </span>
+      ),
+    },
+    {
+      fieldname: "status",
+      label: "الحالة",
+      render: (s) => (
+        <Pill
+          tone={s.status === "paid" ? "success" : s.status === "partial" ? "warning" : "danger"}
+        >
+          {statusMeta[s.status].label}
+        </Pill>
+      ),
+    },
+  ];
 
   return (
     <>
       <PageHeader
         title="إدارة الطلاب"
-        subtitle={`${total} طالباً في القائمة الحالية`}
-        actions={
+        subtitle={`${query.data?.total ?? 0} طالباً في القائمة الحالية`}
+        actions={<AddStudentDialog />}
+      />
+
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(s) => s.id}
+        storageKey="students"
+        isLoading={query.isLoading}
+        isFetching={query.isFetching}
+        error={query.error}
+        onRetry={() => query.refetch()}
+        search={search}
+        onSearchChange={resetPage(setSearch)}
+        searchPlaceholder="ابحث بالاسم أو الرقم..."
+        page={page}
+        pageSize={pageSize}
+        total={query.data?.total}
+        onPageChange={setPage}
+        onPageSizeChange={resetPage(setPageSize)}
+        exportDataset="students"
+        exportFilters={apiFilters}
+        exportTitle="قائمة الطلاب"
+        emptyTitle="لا توجد نتائج"
+        emptyDescription="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر."
+        toolbar={
           <>
-            <button
-              onClick={() => toast.success("تم تجهيز ملف Excel للتحميل")}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-colors hover:bg-secondary"
-            >
-              <Download className="size-4" />
-              <span className="hidden sm:inline">تصدير</span>
-            </button>
-            <AddStudentDialog />
+            <Select value={grade} onValueChange={resetPage(setGrade)}>
+              <SelectTrigger className="h-10 w-[150px] rounded-xl">
+                <SelectValue placeholder="الصف" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الصفوف</SelectItem>
+                {grades.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={section} onValueChange={resetPage(setSection)}>
+              <SelectTrigger className="h-10 w-[130px] rounded-xl">
+                <SelectValue placeholder="الشعبة" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الشُعب</SelectItem>
+                {sections.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    شعبة {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={gender} onValueChange={resetPage(setGender)}>
+              <SelectTrigger className="h-10 w-[120px] rounded-xl">
+                <SelectValue placeholder="الجنس" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">الكل</SelectItem>
+                <SelectItem value="ذكر">ذكر</SelectItem>
+                <SelectItem value="أنثى">أنثى</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={status} onValueChange={resetPage(setStatus)}>
+              <SelectTrigger className="h-10 w-[140px] rounded-xl">
+                <SelectValue placeholder="حالة الرسوم" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الحالات</SelectItem>
+                <SelectItem value="paid">مدفوع</SelectItem>
+                <SelectItem value="partial">جزئي</SelectItem>
+                <SelectItem value="late">متأخر</SelectItem>
+              </SelectContent>
+            </Select>
           </>
         }
       />
-
-      <div className="card-surface mb-5 p-4">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              placeholder="ابحث بالاسم، الرقم، أو ولي الأمر..."
-              className="h-10 rounded-xl pr-9"
-            />
-          </div>
-          <Select
-            value={grade}
-            onValueChange={(v) => {
-              setGrade(v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="الصف" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الصفوف</SelectItem>
-              {grades.map((g) => (
-                <SelectItem key={g} value={g}>
-                  {g}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={section}
-            onValueChange={(v) => {
-              setSection(v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="الشعبة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الشُعب</SelectItem>
-              {sections.map((s) => (
-                <SelectItem key={s} value={s}>
-                  شعبة {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="h-10 rounded-xl">
-              <SelectValue placeholder="حالة الرسوم" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الحالات</SelectItem>
-              <SelectItem value="paid">مدفوع</SelectItem>
-              <SelectItem value="partial">جزئي</SelectItem>
-              <SelectItem value="late">متأخر</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="card-surface overflow-hidden">
-        {error ? (
-          <div className="p-4">
-            <ErrorState error={error} onRetry={() => refetch()} />
-          </div>
-        ) : isLoading ? (
-          <div className="p-4">
-            <TableSkeleton rows={perPage} />
-          </div>
-        ) : current.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="لا توجد نتائج"
-            description="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر أو مسح كلمة البحث."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead className="bg-secondary/60 text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">الطالب</th>
-                  <th className="px-4 py-3 font-semibold">الصف</th>
-                  <th className="px-4 py-3 font-semibold">ولي الأمر</th>
-                  <th className="px-4 py-3 font-semibold">الحضور</th>
-                  <th className="px-4 py-3 font-semibold">المعدل</th>
-                  <th className="px-4 py-3 font-semibold">الرسوم</th>
-                  <th className="px-4 py-3 font-semibold">الحالة</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {current.map((s) => (
-                  <tr key={s.id} className="transition-colors hover:bg-secondary/40">
-                    <td className="px-4 py-3">
-                      <Link
-                        to="/app/students/$studentId"
-                        params={{ studentId: s.id }}
-                        className="flex items-center gap-3"
-                      >
-                        <Avatar name={s.name} />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold hover:text-primary">{s.name}</p>
-                          <p className="num text-xs text-muted-foreground">{s.id}</p>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
-                      {[s.grade, s.section].filter(Boolean).join(" - ") || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="truncate">{s.guardian ?? "—"}</p>
-                      {s.guardianPhone && (
-                        <p className="num text-xs text-muted-foreground">{s.guardianPhone}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="w-24">
-                        <ProgressBar
-                          value={s.attendanceRate}
-                          tone={
-                            s.attendanceRate >= 90
-                              ? "success"
-                              : s.attendanceRate >= 80
-                                ? "warning"
-                                : "danger"
-                          }
-                        />
-                        <span className="num mt-1 block text-xs text-muted-foreground">
-                          {s.attendanceRate}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="num px-4 py-3 font-semibold">{s.average}</td>
-                    <td className="num whitespace-nowrap px-4 py-3 text-muted-foreground">
-                      {money(s.feePaid)} / {money(s.feeTotal)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Pill
-                        tone={
-                          s.status === "paid"
-                            ? "success"
-                            : s.status === "partial"
-                              ? "warning"
-                              : "danger"
-                        }
-                      >
-                        {statusMeta[s.status].label}
-                      </Pill>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {current.length > 0 && (
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border px-4 py-3">
-            <p className="num truncate text-xs text-muted-foreground">
-              صفحة {page} من {pages}
-              {isFetching && " • جارٍ التحديث…"}
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-              >
-                السابق
-              </button>
-              <button
-                onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                disabled={page === pages}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-              >
-                التالي
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </>
   );
 }

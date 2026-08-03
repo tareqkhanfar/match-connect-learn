@@ -13,6 +13,8 @@ import {
   YAxis,
 } from "recharts";
 import { Avatar, KpiCard, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
+import { DataTable, type Column } from "@/components/shared/data-table";
+import type { FeeRow } from "@/lib/api/types";
 import {
   Select,
   SelectContent,
@@ -61,23 +63,55 @@ function FeesPage() {
   const pages = Math.max(1, Math.ceil(total / perPage));
   const lateCount = collectionQuery.data?.by_status.find((s) => s.status === "late")?.count ?? 0;
 
+  const apiFilters = { ...(status !== "all" ? { status } : {}) };
+
+  const columns: Column<FeeRow>[] = [
+    {
+      fieldname: "student_name",
+      label: "الطالب",
+      render: (f) => (
+        <div className="flex items-center gap-3">
+          <Avatar name={f.student_name ?? ""} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{f.student_name}</p>
+            <p className="num text-xs text-muted-foreground">{f.id}</p>
+          </div>
+        </div>
+      ),
+    },
+    { fieldname: "grade", label: "الصف" },
+    { fieldname: "date", label: "تاريخ الإصدار", numeric: true, hiddenByDefault: true },
+    { fieldname: "due_date", label: "تاريخ الاستحقاق", numeric: true },
+    { fieldname: "term", label: "الفصل", hiddenByDefault: true },
+    { fieldname: "total", label: "الإجمالي", numeric: true, render: (f) => money(f.total) },
+    {
+      fieldname: "paid",
+      label: "المدفوع",
+      numeric: true,
+      render: (f) => <span className="text-success">{money(f.paid)}</span>,
+    },
+    {
+      fieldname: "outstanding",
+      label: "المتبقي",
+      numeric: true,
+      render: (f) => <span className="text-destructive">{money(f.outstanding)}</span>,
+    },
+    {
+      fieldname: "status",
+      label: "الحالة",
+      render: (f) => (
+        <Pill
+          tone={f.status === "paid" ? "success" : f.status === "partial" ? "warning" : "danger"}
+        >
+          {statusMeta[f.status].label}
+        </Pill>
+      ),
+    },
+  ];
+
   return (
     <>
-      <PageHeader
-        title="الرسوم المالية"
-        subtitle="متابعة التحصيل والفواتير وحالات الدفع"
-        actions={
-          isAdmin ? (
-            <button
-              onClick={() => toast.info("تصدير التقرير غير مفعّل بعد")}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold hover:bg-secondary"
-            >
-              <Download className="size-4" />
-              تصدير التقرير
-            </button>
-          ) : null
-        }
-      />
+      <PageHeader title="الرسوم المالية" subtitle="متابعة التحصيل والفواتير وحالات الدفع" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -166,10 +200,25 @@ function FeesPage() {
       )}
 
       <div className="mt-5">
-        <SectionCard
-          title="فواتير الطلاب"
-          description={`${total} فاتورة`}
-          actions={
+        <DataTable
+          columns={columns}
+          rows={items}
+          rowKey={(f) => f.id}
+          storageKey="fees"
+          isLoading={feesQuery.isLoading}
+          isFetching={feesQuery.isFetching}
+          error={feesQuery.error}
+          onRetry={() => feesQuery.refetch()}
+          page={page}
+          pageSize={perPage}
+          total={total}
+          onPageChange={setPage}
+          exportDataset="fees"
+          exportFilters={apiFilters}
+          exportTitle="الرسوم المالية"
+          emptyTitle="لا توجد فواتير"
+          emptyDescription="لم يتم إصدار أي فواتير مطابقة للفلتر الحالي."
+          toolbar={
             <Select
               value={status}
               onValueChange={(v) => {
@@ -177,7 +226,7 @@ function FeesPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-[150px] rounded-xl">
+              <SelectTrigger className="h-10 w-[150px] rounded-xl">
                 <SelectValue placeholder="الحالة" />
               </SelectTrigger>
               <SelectContent>
@@ -188,98 +237,7 @@ function FeesPage() {
               </SelectContent>
             </Select>
           }
-        >
-          {feesQuery.error ? (
-            <ErrorState error={feesQuery.error} onRetry={() => feesQuery.refetch()} />
-          ) : feesQuery.isLoading ? (
-            <TableSkeleton rows={8} />
-          ) : items.length === 0 ? (
-            <EmptyBlock
-              title="لا توجد فواتير"
-              description="لم يتم إصدار أي فواتير مطابقة للفلتر الحالي."
-            />
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-right text-sm">
-                  <thead className="text-xs text-muted-foreground">
-                    <tr>
-                      <th className="pb-3 font-semibold">الطالب</th>
-                      <th className="pb-3 font-semibold">الصف</th>
-                      <th className="pb-3 font-semibold">تاريخ الاستحقاق</th>
-                      <th className="pb-3 font-semibold">الإجمالي</th>
-                      <th className="pb-3 font-semibold">المدفوع</th>
-                      <th className="pb-3 font-semibold">المتبقي</th>
-                      <th className="pb-3 font-semibold">الحالة</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {items.map((f) => (
-                      <tr key={f.id} className="transition-colors hover:bg-secondary/40">
-                        <td className="py-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar name={f.student_name ?? ""} />
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold">{f.student_name}</p>
-                              <p className="num text-xs text-muted-foreground">{f.id}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap py-3 text-muted-foreground">
-                          {f.grade ?? "—"}
-                        </td>
-                        <td className="num whitespace-nowrap py-3 text-muted-foreground">
-                          {f.due_date}
-                        </td>
-                        <td className="num py-3">{money(f.total)}</td>
-                        <td className="num py-3 text-success">{money(f.paid)}</td>
-                        <td className="num py-3 text-destructive">{money(f.outstanding)}</td>
-                        <td className="py-3">
-                          <Pill
-                            tone={
-                              f.status === "paid"
-                                ? "success"
-                                : f.status === "partial"
-                                  ? "warning"
-                                  : "danger"
-                            }
-                          >
-                            {statusMeta[f.status].label}
-                          </Pill>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {pages > 1 && (
-                <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border pt-3">
-                  <p className="num truncate text-xs text-muted-foreground">
-                    صفحة {page} من {pages}
-                    {feesQuery.isFetching && " • جارٍ التحديث…"}
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-                    >
-                      السابق
-                    </button>
-                    <button
-                      onClick={() => setPage((p) => Math.min(pages, p + 1))}
-                      disabled={page === pages}
-                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-                    >
-                      التالي
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </SectionCard>
+        />
       </div>
     </>
   );

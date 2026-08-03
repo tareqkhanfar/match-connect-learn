@@ -16,10 +16,20 @@ import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/state
 import { useApp } from "@/lib/app-context";
 import {
   useAssignments,
+  useClasses,
   useGradeSubmission,
+  useSaveAssignment,
+  useSubjects,
   useSubmissions,
   useSubmitAssignment,
 } from "@/lib/api/hooks";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/app/assignments")({
   head: () => ({
@@ -38,7 +48,7 @@ export const Route = createFileRoute("/app/assignments")({
 
 function AssignmentsPage() {
   const { role } = useApp();
-  const isStaff = role === "admin" || role === "teacher";
+  const isStaff = role === "admin" || role === "secretary" || role === "teacher";
   const isStudent = role === "student";
 
   const { data, isLoading, error, refetch } = useAssignments();
@@ -46,6 +56,7 @@ function AssignmentsPage() {
 
   const [gradingFor, setGradingFor] = useState<string | null>(null);
   const [submittingFor, setSubmittingFor] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   return (
     <>
@@ -55,7 +66,7 @@ function AssignmentsPage() {
         actions={
           isStaff ? (
             <button
-              onClick={() => toast.info("إنشاء واجب من الواجهة غير مفعّل بعد")}
+              onClick={() => setCreating(true)}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
             >
               <Plus className="size-4" />
@@ -152,6 +163,7 @@ function AssignmentsPage() {
         </div>
       )}
 
+      {creating && <AssignmentDialog onClose={() => setCreating(false)} />}
       {gradingFor && <GradingDialog assignment={gradingFor} onClose={() => setGradingFor(null)} />}
       {submittingFor && (
         <SubmitDialog assignment={submittingFor} onClose={() => setSubmittingFor(null)} />
@@ -275,6 +287,133 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
             className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
           >
             {submit.isPending ? "جارٍ التسليم…" : "تسليم"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AssignmentDialog({ onClose }: { onClose: () => void }) {
+  const save = useSaveAssignment();
+  const classesQuery = useClasses();
+  const subjectsQuery = useSubjects();
+
+  const [form, setForm] = useState({
+    title: "",
+    course: "",
+    student_group: "",
+    due_date: "",
+    maximum_score: "100",
+    description: "",
+  });
+
+  function set<K extends keyof typeof form>(key: K, value: string) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function submit() {
+    const missing = !form.title.trim() || !form.course || !form.student_group || !form.due_date;
+    if (missing) {
+      toast.error("العنوان والمادة والشعبة وتاريخ التسليم مطلوبة");
+      return;
+    }
+    try {
+      await save.mutateAsync({ ...form, maximum_score: Number(form.maximum_score) || 100 });
+      toast.success("تم إنشاء الواجب");
+      onClose();
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحفظ");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">واجب جديد</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>عنوان الواجب *</Label>
+            <Input
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>المادة *</Label>
+            <Select value={form.course} onValueChange={(v) => set("course", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر المادة" />
+              </SelectTrigger>
+              <SelectContent>
+                {(subjectsQuery.data ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.course_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>الشعبة *</Label>
+            <Select value={form.student_group} onValueChange={(v) => set("student_group", v)}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="اختر الشعبة" />
+              </SelectTrigger>
+              <SelectContent>
+                {(classesQuery.data ?? []).map((c) => (
+                  <SelectItem key={c.name} value={c.name}>
+                    {c.student_group_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>تاريخ التسليم *</Label>
+            <Input
+              type="date"
+              value={form.due_date}
+              onChange={(e) => set("due_date", e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>الدرجة العظمى</Label>
+            <Input
+              type="number"
+              min={1}
+              value={form.maximum_score}
+              onChange={(e) => set("maximum_score", e.target.value)}
+              className="num rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>الوصف</Label>
+            <textarea
+              value={form.description}
+              onChange={(e) => set("description", e.target.value)}
+              rows={4}
+              className="w-full rounded-xl border border-border bg-card p-3 text-sm"
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={submit}
+            disabled={save.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {save.isPending ? "جارٍ الحفظ…" : "حفظ"}
           </button>
           <button
             onClick={onClose}
