@@ -189,6 +189,66 @@ export interface StudentBrief {
   academic_year: string | null;
 }
 
+/** Everything about one child — the parent's focused view. */
+export interface ChildOverview {
+  student: StudentBrief;
+  kpi: {
+    attendance_rate: number;
+    average: number;
+    pending_assignments: number;
+    outstanding_fees: number;
+  };
+  grade: { grade: string; label: string; emoji: string; percentage: number } | null;
+  subjects: Array<{
+    course: string;
+    percentage: number;
+    bonus: number;
+    final: number;
+    covered: number;
+    grade: string;
+    label: string;
+    emoji: string;
+    components: Array<{
+      id: string;
+      component_name: string;
+      component_type: string;
+      type_label: string;
+      score: number;
+      max_score: number;
+      weight: number;
+      percentage: number;
+      is_bonus: boolean;
+      remarks: string | null;
+      grade: string;
+      label: string;
+      emoji: string;
+    }>;
+  }>;
+  today_schedule: Array<{
+    id: string;
+    course: string;
+    teacher: string | null;
+    room: string | null;
+    from_time: string;
+    to_time: string;
+    title: string;
+  }>;
+  assignments: Array<{
+    id: string;
+    title: string;
+    subject: string;
+    due: string;
+    max: number;
+    submitted: boolean;
+    submission_status: string;
+    score: number | null;
+  }>;
+  attendance: { present: number; absent: number; leave: number; total: number; rate: number };
+  behaviour: { positive: number; negative: number; net_points: number };
+  fees: { total: number; paid: number; outstanding: number; status: string };
+  announcements: AnnouncementRow[];
+}
+
 export interface ClassRow {
   name: string;
   student_group_name: string;

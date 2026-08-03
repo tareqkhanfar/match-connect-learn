@@ -113,6 +113,38 @@ export async function apiPost<T>(method: string, body: Record<string, unknown> =
 }
 
 /**
+ * Multipart upload — the browser sets its own Content-Type boundary, so unlike
+ * apiPost we must not set that header ourselves.
+ */
+export async function apiUpload<T>(
+  method: string,
+  file: File,
+  fields: Record<string, string> = {},
+): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
+
+  const res = await fetch(endpointUrl(method), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+      "X-Frappe-CSRF-Token": getCsrfToken(),
+    },
+    body: form,
+  });
+  return parseResponse<T>(res, method);
+}
+
+/** Absolute URL for a stored file, so links work when the SPA is hosted apart. */
+export function fileUrl(url: string): string {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `${API_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
+/**
  * Frappe exposes the CSRF token on the served page. When the frontend is
  * hosted separately there is none, and Frappe accepts the request without it
  * as long as the session cookie is valid.

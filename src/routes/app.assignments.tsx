@@ -1,6 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { NotebookPen, Plus, Send } from "lucide-react";
-import { useState } from "react";
+import {
+  AlertTriangle,
+  Award,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  NotebookPen,
+  Plus,
+  Send,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
 import {
@@ -13,6 +24,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { RichText, RichTextView } from "@/components/shared/rich-text";
+import {
+  FileList,
+  FileUpload,
+  type UploadedFile,
+} from "@/components/shared/file-upload";
 import { useApp } from "@/lib/app-context";
 import {
   useAssignments,
@@ -20,6 +37,7 @@ import {
   useGradeSubmission,
   useSaveAssignment,
   useSubjects,
+  useSubmission,
   useSubmissions,
   useSubmitAssignment,
 } from "@/lib/api/hooks";
@@ -176,12 +194,25 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
   const { data, isLoading, error, refetch } = useSubmissions(assignment);
   const gradeSubmission = useGradeSubmission();
   const [scores, setScores] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   async function saveScore(student: string) {
     const raw = scores[student];
     if (raw === undefined || raw === "") return;
+    const max = data?.assignment.max ?? 100;
+    const value = Number(raw);
+    if (Number.isNaN(value) || value < 0 || value > max) {
+      toast.error(`الدرجة يجب أن تكون بين ٠ و${max}`);
+      return;
+    }
     try {
-      await gradeSubmission.mutateAsync({ assignment, student, score: Number(raw) });
+      await gradeSubmission.mutateAsync({
+        assignment,
+        student,
+        score: value,
+        ...(feedback[student] ? { feedback: feedback[student] } : {}),
+      });
       toast.success("تم حفظ الدرجة");
     } catch (err) {
       const message =
@@ -192,7 +223,7 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {data ? `${data.assignment.title} — التسليمات` : "التسليمات"}
@@ -204,35 +235,88 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
         ) : isLoading ? (
           <TableSkeleton rows={5} />
         ) : (
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto">
-            {data!.rows.map((r) => (
-              <div
-                key={r.student}
-                className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl border border-border p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{r.student_name}</p>
-                  <p className="text-xs text-muted-foreground">{r.status}</p>
-                </div>
-                <Input
-                  type="number"
-                  min={0}
-                  max={data!.assignment.max}
-                  placeholder="الدرجة"
-                  value={scores[r.student] ?? (r.score != null ? String(r.score) : "")}
-                  onChange={(e) => setScores((p) => ({ ...p, [r.student]: e.target.value }))}
-                  className="num h-9 w-24 rounded-lg text-center"
-                />
-                <button
-                  onClick={() => saveScore(r.student)}
-                  disabled={gradeSubmission.isPending}
-                  className="rounded-lg bg-secondary px-3 py-2 text-xs font-semibold hover:bg-primary-soft hover:text-primary disabled:opacity-50"
-                >
-                  حفظ
-                </button>
-              </div>
-            ))}
-          </div>
+          <>
+            <p className="text-xs text-muted-foreground">
+              سلّم {data!.submitted} من {data!.total} طالبًا — الدرجة العظمى {data!.assignment.max}
+            </p>
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto">
+              {data!.rows.map((r) => {
+                const open = expanded === r.student;
+                const hasWork = Boolean(r.content) || (r.files?.length ?? 0) > 0;
+                return (
+                  <div key={r.student} className="rounded-xl border border-border">
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 p-3">
+                      <button
+                        onClick={() => setExpanded(open ? null : r.student)}
+                        disabled={!hasWork}
+                        title={hasWork ? "عرض التسليم" : "لا يوجد تسليم"}
+                        aria-label={`عرض تسليم ${r.student_name}`}
+                        className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-30"
+                      >
+                        {open ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronLeft className="h-4 w-4" />
+                        )}
+                      </button>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{r.student_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.status}
+                          {r.files?.length ? ` — ${r.files.length} مرفق` : ""}
+                        </p>
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={data!.assignment.max}
+                        placeholder="الدرجة"
+                        value={scores[r.student] ?? (r.score != null ? String(r.score) : "")}
+                        onChange={(e) => setScores((p) => ({ ...p, [r.student]: e.target.value }))}
+                        className="num h-9 w-24 rounded-lg text-center"
+                      />
+                      <button
+                        onClick={() => saveScore(r.student)}
+                        disabled={gradeSubmission.isPending}
+                        className="rounded-lg bg-secondary px-3 py-2 text-xs font-semibold hover:bg-primary-soft hover:text-primary disabled:opacity-50"
+                      >
+                        حفظ
+                      </button>
+                    </div>
+
+                    {open && (
+                      <div className="space-y-3 border-t border-border bg-muted/20 p-3">
+                        <div>
+                          <Label className="mb-1.5 block text-xs">إجابة الطالب</Label>
+                          <div className="rounded-lg border border-border bg-background p-3">
+                            <RichTextView html={r.content ?? ""} />
+                          </div>
+                        </div>
+                        {r.files?.length ? (
+                          <div>
+                            <Label className="mb-1.5 block text-xs">المرفقات</Label>
+                            <FileList files={r.files} />
+                          </div>
+                        ) : null}
+                        <div>
+                          <Label className="mb-1.5 block text-xs">ملاحظات للطالب</Label>
+                          <textarea
+                            rows={2}
+                            value={feedback[r.student] ?? r.feedback ?? ""}
+                            onChange={(e) =>
+                              setFeedback((p) => ({ ...p, [r.student]: e.target.value }))
+                            }
+                            placeholder="اكتب ملاحظاتك… تُحفظ مع الدرجة"
+                            className="w-full rounded-lg border border-border bg-background p-2 text-sm"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
 
         <DialogFooter className="sm:justify-start">
@@ -250,12 +334,32 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
 
 function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: () => void }) {
   const submit = useSubmitAssignment();
+  const { data, isLoading, error } = useSubmission(assignment);
+
   const [content, setContent] = useState("");
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Seed the editor from any previous attempt, once the fetch settles.
+  useEffect(() => {
+    if (!data || loaded) return;
+    setContent(data.submission?.content ?? "");
+    setFiles(data.submission?.files ?? []);
+    setLoaded(true);
+  }, [data, loaded]);
+
+  const info = data?.assignment;
+  const existing = data?.submission;
+  const locked = existing?.status === "Graded" || existing?.status === "Returned";
+  const overdue = Boolean(info?.due && info.due < new Date().toISOString().slice(0, 10));
+  const hasAnswer = Boolean(content.replace(/<[^>]*>/g, "").trim()) || files.length > 0;
 
   async function send() {
     try {
-      await submit.mutateAsync({ assignment, content });
-      toast.success("تم تسليم الواجب");
+      const result = await submit.mutateAsync({ assignment, content, files });
+      toast.success(
+        result.status === "Late" ? "تم التسليم متأخرًا" : "تم تسليم الواجب بنجاح",
+      );
       onClose();
     } catch (err) {
       const message =
@@ -266,33 +370,134 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-right">تسليم الواجب</DialogTitle>
+          <DialogTitle className="text-right">
+            {info ? `تسليم: ${info.title}` : "تسليم الواجب"}
+          </DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label>إجابتك</Label>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={6}
-            className="w-full rounded-xl border border-border bg-card p-3 text-sm"
-            placeholder="اكتب إجابتك هنا…"
-          />
-        </div>
+
+        {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>}
+        {error && (
+          <p className="py-6 text-center text-sm text-destructive">تعذّر تحميل تفاصيل الواجب.</p>
+        )}
+
+        {info && (
+          <div className="space-y-5">
+            {/* Brief: what was asked, when it is due, how it is marked. */}
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-muted-foreground">المادة:</span>
+                  <strong>{info.course}</strong>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-muted-foreground">التسليم:</span>
+                  <strong className={overdue ? "text-destructive" : ""}>{info.due}</strong>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Award className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-muted-foreground">الدرجة:</span>
+                  <strong>{info.max}</strong>
+                </span>
+              </div>
+              {info.description ? (
+                <RichTextView html={info.description} />
+              ) : (
+                <p className="text-sm text-muted-foreground">لم يضف المعلم وصفًا لهذا الواجب.</p>
+              )}
+              {info.files.length > 0 && (
+                <div className="mt-3">
+                  <Label className="mb-2 block text-xs">ملفات المعلم</Label>
+                  <FileList files={info.files} />
+                </div>
+              )}
+            </div>
+
+            {overdue && !locked && (
+              <p className="flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                انتهى موعد التسليم — سيُسجَّل تسليمك كمتأخر.
+              </p>
+            )}
+
+            {locked ? (
+              /* Already marked: show the work and the feedback, read-only. */
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>
+                    تم تصحيح هذا الواجب — الدرجة {existing?.score ?? 0} من {info.max}
+                  </span>
+                </div>
+                <div>
+                  <Label className="mb-2 block">إجابتك</Label>
+                  <div className="rounded-xl border border-border p-3">
+                    <RichTextView html={existing?.content ?? ""} />
+                  </div>
+                </div>
+                {existing?.files.length ? (
+                  <div>
+                    <Label className="mb-2 block">مرفقاتك</Label>
+                    <FileList files={existing.files} />
+                  </div>
+                ) : null}
+                {existing?.feedback && (
+                  <div>
+                    <Label className="mb-2 block">ملاحظات المعلم</Label>
+                    <p className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+                      {existing.feedback}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div>
+                  <Label className="mb-2 block">إجابتك</Label>
+                  <RichText
+                    value={content}
+                    onChange={setContent}
+                    placeholder="اكتب إجابتك هنا… يمكنك التنسيق والترقيم"
+                    disabled={submit.isPending}
+                  />
+                </div>
+                <div>
+                  <Label className="mb-2 block">المرفقات</Label>
+                  <FileUpload
+                    files={files}
+                    onChange={setFiles}
+                    disabled={submit.isPending}
+                  />
+                </div>
+                {existing && (
+                  <p className="text-xs text-muted-foreground">
+                    سلّمت هذا الواجب في {existing.submitted_on.slice(0, 16)} — إعادة التسليم ستحل
+                    محل التسليم السابق.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <DialogFooter className="gap-2 sm:justify-start">
-          <button
-            onClick={send}
-            disabled={submit.isPending}
-            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
-          >
-            {submit.isPending ? "جارٍ التسليم…" : "تسليم"}
-          </button>
+          {!locked && (
+            <button
+              onClick={send}
+              disabled={submit.isPending || !hasAnswer || isLoading}
+              className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+            >
+              {submit.isPending ? "جارٍ التسليم…" : existing ? "إعادة التسليم" : "تسليم"}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
           >
-            إلغاء
+            {locked ? "إغلاق" : "إلغاء"}
           </button>
         </DialogFooter>
       </DialogContent>

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Megaphone, MessagesSquare, Plus, Send } from "lucide-react";
+import { Megaphone, MessagesSquare, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
@@ -21,10 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { RichText, RichTextView } from "@/components/shared/rich-text";
 import { useApp } from "@/lib/app-context";
+import { isBackOffice } from "@/lib/roles";
+import type { AnnouncementRow } from "@/lib/api/types";
 import {
   useAnnouncements,
   useContacts,
+  useDeleteAnnouncement,
   useInbox,
   useSaveAnnouncement,
   useSendMessage,
@@ -48,14 +52,20 @@ export const Route = createFileRoute("/app/communication")({
 
 function CommunicationPage() {
   const { role } = useApp();
-  const canPost = role === "admin" || role === "teacher";
+  // Mirrors the backend guard on save_announcement.
+  const canPost = role === "admin" || role === "secretary" || role === "teacher";
+  // Only the back office may edit or remove an announcement once posted.
+  const canManageAnnouncements = isBackOffice(role);
 
   const announcementsQuery = useAnnouncements();
   const inboxQuery = useInbox();
+  const deleteAnnouncement = useDeleteAnnouncement();
 
   const [openThread, setOpenThread] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
   const [postingAnnouncement, setPostingAnnouncement] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<AnnouncementRow | null>(null);
+  const [deletingAnnouncement, setDeletingAnnouncement] = useState<AnnouncementRow | null>(null);
 
   const announcements = announcementsQuery.data ?? [];
   const messages = inboxQuery.data ?? [];
@@ -108,21 +118,42 @@ function CommunicationPage() {
                 <li key={a.id} className="py-3.5 first:pt-0 last:pb-0">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <p className="truncate text-sm font-semibold">{a.title}</p>
-                    <Pill
-                      tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}
-                    >
-                      {a.type}
-                    </Pill>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Pill
+                        tone={a.type === "تنبيه" ? "danger" : a.type === "حدث" ? "info" : "primary"}
+                      >
+                        {a.type}
+                      </Pill>
+                      {canManageAnnouncements && (
+                        <>
+                          <button
+                            onClick={() => setEditingAnnouncement(a)}
+                            title="تعديل"
+                            aria-label={`تعديل ${a.title}`}
+                            className="rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingAnnouncement(a)}
+                            title="حذف"
+                            aria-label={`حذف ${a.title}`}
+                            className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   {a.body && (
-                    <div
-                      className="mt-1 line-clamp-2 text-xs text-muted-foreground"
-                      // Announcement bodies are authored by staff in a rich-text field.
-                      dangerouslySetInnerHTML={{ __html: a.body }}
-                    />
+                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      <RichTextView html={a.body} />
+                    </div>
                   )}
                   <p className="num mt-1.5 text-[11px] text-muted-foreground">
                     {a.date} • {a.audience}
+                    {a.expires_on ? ` • ينتهي ${a.expires_on}` : ""}
                   </p>
                 </li>
               ))}
@@ -171,6 +202,52 @@ function CommunicationPage() {
       {openThread && <ThreadDialog thread={openThread} onClose={() => setOpenThread(null)} />}
       {composing && <ComposeDialog onClose={() => setComposing(false)} />}
       {postingAnnouncement && <AnnouncementDialog onClose={() => setPostingAnnouncement(false)} />}
+      {editingAnnouncement && (
+        <AnnouncementDialog
+          existing={editingAnnouncement}
+          onClose={() => setEditingAnnouncement(null)}
+        />
+      )}
+
+      {deletingAnnouncement && (
+        <Dialog open onOpenChange={(o) => !o && setDeletingAnnouncement(null)}>
+          <DialogContent className="max-w-md" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="text-right">حذف الإعلان</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              هل تريد حذف «{deletingAnnouncement.title}»؟ لا يمكن التراجع عن هذا الإجراء.
+            </p>
+            <DialogFooter className="gap-2 sm:justify-start">
+              <button
+                onClick={async () => {
+                  try {
+                    await deleteAnnouncement.mutateAsync(deletingAnnouncement.id);
+                    toast.success("تم حذف الإعلان");
+                    setDeletingAnnouncement(null);
+                  } catch (err) {
+                    const message =
+                      (err as { messageAr?: string }).messageAr ||
+                      (err as Error).message ||
+                      "تعذّر حذف الإعلان";
+                    toast.error(message);
+                  }
+                }}
+                disabled={deleteAnnouncement.isPending}
+                className="h-10 rounded-xl bg-destructive px-5 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {deleteAnnouncement.isPending ? "جارٍ الحذف…" : "حذف"}
+              </button>
+              <button
+                onClick={() => setDeletingAnnouncement(null)}
+                className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+              >
+                إلغاء
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
@@ -218,7 +295,7 @@ function ThreadDialog({ thread, onClose }: { thread: string; onClose: () => void
                 }`}
               >
                 <p className="text-[11px] font-semibold opacity-80">{m.sender_name}</p>
-                <div dangerouslySetInnerHTML={{ __html: m.body }} />
+                <RichTextView html={m.body} />
                 <p className="num mt-1 text-[10px] opacity-60">{m.sent_on}</p>
               </div>
             ))}
@@ -347,12 +424,20 @@ function ComposeDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function AnnouncementDialog({ onClose }: { onClose: () => void }) {
+/** Composer for a new announcement, or editor for an existing one. */
+function AnnouncementDialog({
+  existing,
+  onClose,
+}: {
+  existing?: AnnouncementRow;
+  onClose: () => void;
+}) {
   const save = useSaveAnnouncement();
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [type, setType] = useState("Announcement");
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [body, setBody] = useState(existing?.body ?? "");
+  const [type, setType] = useState(existing?.type_raw ?? "Announcement");
   const [audience, setAudience] = useState("All");
+  const [expiresOn, setExpiresOn] = useState(existing?.expires_on ?? "");
 
   async function submit() {
     if (!title.trim()) {
@@ -360,8 +445,15 @@ function AnnouncementDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     try {
-      await save.mutateAsync({ title, body, type, audience });
-      toast.success("تم نشر الإعلان");
+      await save.mutateAsync({
+        ...(existing ? { id: existing.id } : {}),
+        title,
+        body,
+        type,
+        audience,
+        ...(expiresOn ? { expires_on: expiresOn } : {}),
+      });
+      toast.success(existing ? "تم تحديث الإعلان" : "تم نشر الإعلان");
       onClose();
     } catch (err) {
       const message =
@@ -372,9 +464,11 @@ function AnnouncementDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-right">إعلان جديد</DialogTitle>
+          <DialogTitle className="text-right">
+            {existing ? "تعديل الإعلان" : "إعلان جديد"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -416,12 +510,24 @@ function AnnouncementDialog({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="space-y-1.5">
+            <Label>ينتهي في (اختياري)</Label>
+            <Input
+              type="date"
+              value={expiresOn}
+              onChange={(e) => setExpiresOn(e.target.value)}
+              className="num rounded-xl"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              بعد هذا التاريخ لن يظهر الإعلان في لوحة الإعلانات.
+            </p>
+          </div>
+          <div className="space-y-1.5">
             <Label>النص</Label>
-            <Textarea
+            <RichText
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="rounded-xl"
-              rows={5}
+              onChange={setBody}
+              placeholder="اكتب نص الإعلان… يمكنك التنسيق والترقيم"
+              disabled={save.isPending}
             />
           </div>
         </div>
@@ -432,7 +538,7 @@ function AnnouncementDialog({ onClose }: { onClose: () => void }) {
             disabled={save.isPending}
             className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
           >
-            {save.isPending ? "جارٍ النشر…" : "نشر"}
+            {save.isPending ? "جارٍ الحفظ…" : existing ? "حفظ التعديلات" : "نشر"}
           </button>
           <button
             onClick={onClose}

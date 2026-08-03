@@ -9,6 +9,7 @@ import type {
   AttendanceReport,
   AttendanceSheet,
   ClassRow,
+  ChildOverview,
   ExamRow,
   FeeList,
   GradeRow,
@@ -102,6 +103,65 @@ export function useDashboard() {
   return useQuery<AnyDashboard>({
     queryKey: qk.dashboard,
     queryFn: () => apiGet<AnyDashboard>("dashboard.summary"),
+  });
+}
+
+// --- Notifications ---------------------------------------------------------
+
+export interface NotificationItem {
+  id: string;
+  category: string;
+  category_label: string;
+  title: string;
+  body: string;
+  time: string;
+  tone: "danger" | "warning" | "info" | "success";
+  link: string;
+  ref: string;
+  read: boolean;
+  count?: number;
+}
+
+export interface NotificationFeed {
+  items: NotificationItem[];
+  unread: number;
+  total: number;
+}
+
+/** The notification list. Refetched on an interval so the bell stays current. */
+export function useNotifications(limit = 30, unreadOnly = false) {
+  return useQuery<NotificationFeed>({
+    queryKey: ["notifications", limit, unreadOnly],
+    queryFn: () =>
+      apiGet<NotificationFeed>("notifications.feed", {
+        limit,
+        ...(unreadOnly ? { unread_only: 1 } : {}),
+      }),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { notification?: string; all?: boolean }) =>
+      apiPost<{ read: number }>("notifications.mark_read", {
+        ...(vars.notification ? { notification: vars.notification } : {}),
+        ...(vars.all ? { all: 1 } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      qc.invalidateQueries({ queryKey: qk.inbox });
+    },
+  });
+}
+
+/** Full picture of a single child, for the parent's focused view. */
+export function useChildOverview(student: Opt<string>) {
+  return useQuery<ChildOverview>({
+    queryKey: ["child-overview", student],
+    queryFn: () => apiGet<ChildOverview>("dashboard.child_overview", { student: student! }),
+    enabled: Boolean(student),
   });
 }
 
@@ -305,6 +365,8 @@ export function useSubmissions(assignment: string | undefined) {
       score: number | null;
       submitted_on: string | null;
       feedback: string | null;
+      content: string | null;
+      files: SubmissionFile[];
     }>;
     submitted: number;
     total: number;
@@ -315,13 +377,64 @@ export function useSubmissions(assignment: string | undefined) {
   });
 }
 
+export interface SubmissionFile {
+  file_url: string;
+  file_name: string;
+  file_size?: number;
+}
+
+export interface SubmissionDetail {
+  assignment: {
+    id: string;
+    title: string;
+    description: string | null;
+    due: string;
+    max: number;
+    status: string;
+    course: string;
+    files: SubmissionFile[];
+  };
+  submission: {
+    id: string;
+    status: string;
+    status_label: string;
+    content: string | null;
+    submitted_on: string;
+    score: number | null;
+    feedback: string | null;
+    files: SubmissionFile[];
+  } | null;
+}
+
+/** One assignment plus the viewer's own submission — powers the submit dialog. */
+export function useSubmission(assignment: Opt<string>, student?: Opt<string>) {
+  return useQuery({
+    queryKey: ["submission", assignment, student ?? null],
+    queryFn: () =>
+      apiGet<SubmissionDetail>("assignments.get_submission", {
+        assignment: assignment!,
+        ...(student ? { student } : {}),
+      }),
+    enabled: Boolean(assignment),
+  });
+}
+
 export function useSubmitAssignment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { assignment: string; content?: string; attachment?: string }) =>
-      apiPost<{ id: string; status: string }>("assignments.submit_assignment", vars),
-    onSuccess: () => {
+    mutationFn: (vars: {
+      assignment: string;
+      content?: string;
+      attachment?: string;
+      files?: SubmissionFile[];
+    }) =>
+      apiPost<{ id: string; status: string; status_label: string; files: number }>(
+        "assignments.submit_assignment",
+        vars,
+      ),
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["assignments"] });
+      qc.invalidateQueries({ queryKey: ["submission", vars.assignment] });
       qc.invalidateQueries({ queryKey: qk.dashboard });
     },
   });
@@ -394,6 +507,20 @@ export function useSaveAnnouncement() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.announcements });
       qc.invalidateQueries({ queryKey: qk.dashboard });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useDeleteAnnouncement() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (announcement: string) =>
+      apiPost<{ id: string }>("communication.delete_announcement", { announcement }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.announcements });
+      qc.invalidateQueries({ queryKey: qk.dashboard });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 }

@@ -1,4 +1,5 @@
-import { Bell, Menu, Moon, Search, Sun } from "lucide-react";
+import { Menu, Moon, Search, Sun } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { useApp } from "@/lib/app-context";
@@ -55,13 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Moon className="size-[18px]" />
                 )}
               </button>
-              <button
-                className="relative grid size-10 place-items-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary"
-                aria-label="الإشعارات"
-              >
-                <Bell className="size-[18px]" />
-                <span className="absolute left-2.5 top-2.5 size-2 rounded-full bg-destructive" />
-              </button>
+              <NotificationBell />
               <div className="hidden items-center gap-2.5 rounded-xl border border-border py-1 pl-3 pr-1.5 sm:flex">
                 {session?.image ? (
                   <img src={session.image} alt="" className="size-8 rounded-lg object-cover" />
