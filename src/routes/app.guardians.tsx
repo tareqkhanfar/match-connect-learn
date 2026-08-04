@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Mail, Phone, Plus, Trash2, Users } from "lucide-react";
 import { PageHeader, Pill } from "@/components/shared/ui-kit";
 import { DataTable, type Column } from "@/components/shared/data-table";
+import { useConfirm } from "@/components/shared/confirm";
 import { BulkActions } from "@/components/shared/bulk-actions";
 import { StudentPicker } from "@/components/shared/student-picker";
 import {
@@ -46,6 +47,7 @@ const RELATIONS = [
 ];
 
 function GuardiansPage() {
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -57,7 +59,13 @@ function GuardiansPage() {
   const unlink = useUnlinkGuardian();
 
   async function removeLink(guardian: string, student: string, name: string) {
-    if (!window.confirm(`فك ارتباط ${name} بولي الأمر؟`)) return;
+    const ok = await confirm({
+      title: `فك ارتباط ${name} بولي الأمر؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await unlink.mutateAsync({ student, guardian });
       toast.success("تم فك الارتباط");

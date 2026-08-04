@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   useBooks,
   useDeleteBook,
@@ -82,6 +83,7 @@ function LibraryPage() {
 }
 
 function BooksTab({ canManage }: { canManage: boolean }) {
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [availableOnly, setAvailableOnly] = useState("all");
   const [page, setPage] = useState(1);
@@ -112,7 +114,13 @@ function BooksTab({ canManage }: { canManage: boolean }) {
   const available = rows.reduce((a, b) => a + b.available_copies, 0);
 
   async function remove(row: BookRow) {
-    if (!window.confirm(`حذف «${row.title}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف «${row.title}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteBook.mutateAsync(row.id);
       toast.success("تم حذف الكتاب");

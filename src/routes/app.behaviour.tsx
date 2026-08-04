@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   useBehaviour,
   useDeleteBehaviour,
@@ -76,6 +77,7 @@ function useDebounced<T>(value: T, delay = 350) {
 }
 
 function BehaviourPage() {
+  const confirm = useConfirm();
   const { role } = useApp();
   const canEdit = isBackOffice(role) || role === "teacher";
 
@@ -115,7 +117,13 @@ function BehaviourPage() {
   const summary = query.data?.summary;
 
   async function remove(row: BehaviourRow) {
-    if (!window.confirm(`حذف سجل «${row.student_name}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف سجل «${row.student_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteBehaviour.mutateAsync(row.id);
       toast.success("تم حذف السجل");

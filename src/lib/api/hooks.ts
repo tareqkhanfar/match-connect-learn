@@ -1324,11 +1324,15 @@ export interface AcademicRecord {
     academic_year: string | null;
     academic_term: string | null;
     subjects: SubjectGrade[];
-    overall: number;
-    overall_grade: GradeBand & { percentage: number };
+    /** Null when the viewer may not see a total for this period. */
+    overall: number | null;
+    overall_grade: (GradeBand & { percentage: number }) | null;
+    published: boolean;
+    shows_overall: boolean;
   }>;
-  cumulative: number;
-  cumulative_grade: GradeBand & { percentage: number };
+  cumulative: number | null;
+  cumulative_grade: (GradeBand & { percentage: number }) | null;
+  shows_cumulative: boolean;
 }
 
 export function useAcademicRecord(student: string | undefined) {
@@ -1728,5 +1732,175 @@ export function useBulkUpdate() {
         vars,
       ),
     onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+// --- End-of-term grade workflow --------------------------------------------
+
+export interface TermSubmissionRow {
+  id: string | null;
+  student_group: string;
+  course: string;
+  status: "Draft" | "Submitted" | "Returned" | "Approved" | "Published";
+  status_label: string;
+  students: number;
+  entered: number;
+  complete: boolean;
+  submitted_on: string;
+  review_notes: string | null;
+  instructor: string | null;
+}
+
+/** What each of my classes/subjects owes, and where it stands. */
+export function useMySubmissions(academicTerm?: Opt<string>) {
+  return useQuery<{ rows: TermSubmissionRow[]; academic_term: string | null }>({
+    queryKey: ["term-submissions", academicTerm ?? null],
+    queryFn: () =>
+      apiGet("gradeflow.my_submissions", academicTerm ? { academic_term: academicTerm } : {}),
+  });
+}
+
+export function useSubmitTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      academic_term?: string;
+      notes?: string;
+    }) => apiPost<{ id: string; status: string; students: number }>("gradeflow.submit_term", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["term-submissions"] });
+      qc.invalidateQueries({ queryKey: ["term-overview"] });
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+    },
+  });
+}
+
+export function useReviewTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { submission: string; action: "approve" | "return"; notes?: string }) =>
+      apiPost<{ id: string; status: string }>("gradeflow.review_term", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["term-overview"] });
+      qc.invalidateQueries({ queryKey: ["term-submissions"] });
+    },
+  });
+}
+
+export interface TermOverviewRow {
+  student_group: string;
+  name: string;
+  expected: number;
+  submitted: number;
+  approved: number;
+  published: number;
+  returned: number;
+  ready: boolean;
+  is_published: boolean;
+  subjects: Array<{
+    id: string;
+    course: string;
+    status: string;
+    status_label: string;
+    instructor: string | null;
+    submitted_on: string;
+  }>;
+}
+
+/** The administration's publishing console. */
+export function useTermOverview(academicTerm?: Opt<string>, enabled = true) {
+  return useQuery<{ rows: TermOverviewRow[]; academic_term: string | null }>({
+    queryKey: ["term-overview", academicTerm ?? null],
+    queryFn: () =>
+      apiGet("gradeflow.term_overview", academicTerm ? { academic_term: academicTerm } : {}),
+    enabled,
+  });
+}
+
+export function usePublishTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student_group: string; academic_term?: string; force?: boolean }) =>
+      apiPost<{ published: number }>("gradeflow.publish_term", {
+        student_group: vars.student_group,
+        ...(vars.academic_term ? { academic_term: vars.academic_term } : {}),
+        ...(vars.force ? { force: 1 } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["term-overview"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+      qc.invalidateQueries({ queryKey: ["academic-record"] });
+    },
+  });
+}
+
+export function useUnpublishTerm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student_group: string; academic_term?: string; reason?: string }) =>
+      apiPost<{ reopened: number }>("gradeflow.unpublish_term", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["term-overview"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+    },
+  });
+}
+
+// --- Carrying assignment marks into the term gradebook ----------------------
+
+export interface ImportableAssignment {
+  id: string;
+  title: string;
+  course: string;
+  max: number;
+  due: string;
+  status: string;
+  graded: number;
+  total: number;
+  ready: boolean;
+  imported: boolean;
+}
+
+export function useImportableAssignments(
+  params: Opt<{ student_group: string; course: string }> = {},
+  enabled = true,
+) {
+  return useQuery<ImportableAssignment[]>({
+    queryKey: ["importable-assignments", params],
+    queryFn: () => apiGet<ImportableAssignment[]>("gradebook.importable_assignments", params),
+    enabled: Boolean(params.student_group) && enabled,
+  });
+}
+
+export function useImportAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { assignment: string; weight?: number; component_name?: string }) =>
+      apiPost<{ created: number; updated: number }>("gradebook.import_assignment", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["importable-assignments"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+    },
+  });
+}
+
+export function useImportAssignmentsCombined() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      assignments: string[];
+      component_name?: string;
+      weight?: number;
+    }) => apiPost<{ created: number; updated: number }>("gradebook.import_assignments_combined", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["importable-assignments"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+    },
   });
 }

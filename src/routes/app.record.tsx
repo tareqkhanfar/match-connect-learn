@@ -6,6 +6,7 @@ import {
   FileText,
   GraduationCap,
   Layers,
+  Lock,
   Printer,
   TrendingUp,
   Users,
@@ -317,13 +318,25 @@ function RecordBody({ data }: { data: NonNullable<ReturnType<typeof useAcademicR
   return (
     <>
       <div className="mb-5 grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-        <GradeHero
-          percentage={data.cumulative}
-          grade={data.cumulative_grade.grade}
-          emoji={data.cumulative_grade.emoji}
-          label={data.cumulative_grade.label}
-          caption="المعدل التراكمي"
-        />
+        {data.shows_cumulative && data.cumulative_grade ? (
+          <GradeHero
+            percentage={data.cumulative ?? 0}
+            grade={data.cumulative_grade.grade}
+            emoji={data.cumulative_grade.emoji}
+            label={data.cumulative_grade.label}
+            caption="المعدل التراكمي"
+          />
+        ) : (
+          /* The total belongs to the administration, or the term is not
+             published yet — say so rather than showing a misleading zero. */
+          <div className="card-surface flex flex-col items-center justify-center gap-2 p-6 text-center">
+            <Lock className="size-6 text-muted-foreground" />
+            <p className="text-sm font-semibold">المعدل غير متاح</p>
+            <p className="text-xs text-muted-foreground">
+              يظهر المعدل التراكمي بعد اعتماد الإدارة ونشر نتائج الفصل.
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="card-surface flex items-center gap-3 p-4">
@@ -365,13 +378,20 @@ function RecordBody({ data }: { data: NonNullable<ReturnType<typeof useAcademicR
             title={period.academic_year ?? "—"}
             description={period.academic_term ?? "كل الفصول"}
             actions={
-              <GradeBadge
-                percentage={period.overall}
-                grade={period.overall_grade.grade}
-                emoji={period.overall_grade.emoji}
-                label={period.overall_grade.label}
-                size="lg"
-              />
+              period.shows_overall && period.overall_grade ? (
+                <GradeBadge
+                  percentage={period.overall ?? 0}
+                  grade={period.overall_grade.grade}
+                  emoji={period.overall_grade.emoji}
+                  label={period.overall_grade.label}
+                  size="lg"
+                />
+              ) : (
+                <Pill tone="muted">
+                  <Lock className="ml-1 inline size-3" />
+                  {period.published ? "المعدل لدى الإدارة" : "لم تُنشر النتائج"}
+                </Pill>
+              )
             }
           >
             {period.subjects.length === 0 ? (

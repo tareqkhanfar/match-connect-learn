@@ -30,6 +30,7 @@ import { Route as AppSchemesRouteImport } from './routes/app.schemes'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppTeachersRouteImport } from './routes/app.teachers'
+import { Route as AppTermRouteImport } from './routes/app.term'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
@@ -140,6 +141,11 @@ const AppTeachersRoute = AppTeachersRouteImport.update({
   path: '/teachers',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTermRoute = AppTermRouteImport.update({
+  id: '/term',
+  path: '/term',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTimetableRoute = AppTimetableRouteImport.update({
   id: '/timetable',
   path: '/timetable',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
+  '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
+  '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/transport': typeof AppTransportRoute
   '/app': typeof AppIndexRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/teachers': typeof AppTeachersRoute
+  '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
+    | '/app/term'
     | '/app/timetable'
     | '/app/transport'
     | '/app/'
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
+    | '/app/term'
     | '/app/timetable'
     | '/app/transport'
     | '/app'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/subjects'
     | '/app/teachers'
+    | '/app/term'
     | '/app/timetable'
     | '/app/transport'
     | '/app/'
@@ -479,6 +491,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeachersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/term': {
+      id: '/app/term'
+      path: '/term'
+      fullPath: '/app/term'
+      preLoaderRoute: typeof AppTermRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/timetable': {
       id: '/app/timetable'
       path: '/timetable'
@@ -529,6 +548,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppTeachersRoute: typeof AppTeachersRoute
+  AppTermRoute: typeof AppTermRoute
   AppTimetableRoute: typeof AppTimetableRoute
   AppTransportRoute: typeof AppTransportRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -555,6 +575,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppTeachersRoute: AppTeachersRoute,
+  AppTermRoute: AppTermRoute,
   AppTimetableRoute: AppTimetableRoute,
   AppTransportRoute: AppTransportRoute,
   AppIndexRoute: AppIndexRoute,

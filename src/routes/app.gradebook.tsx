@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpenCheck, Download, Save, Settings2, Sparkles, Users } from "lucide-react";
+import { BookOpenCheck, Download, FileDown, Save, Settings2, Sparkles, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -11,6 +11,13 @@ import {
   SectionCard,
 } from "@/components/shared/ui-kit";
 import { GradeBadge, progressTone } from "@/components/shared/grade-badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +39,9 @@ import {
   useSchemes,
   useSubjects,
   type SchemeComponent,
+  useImportableAssignments,
+  useImportAssignment,
+  useImportAssignmentsCombined,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/gradebook")({
@@ -43,6 +53,13 @@ export const Route = createFileRoute("/app/gradebook")({
         content: "إدخال علامات الطلاب لكل مكوّن تقييم واحتساب علامة الفصل تلقائياً.",
       },
     ],
+  }),
+  // The term-workflow page links straight to a class/subject.
+  validateSearch: (search: Record<string, unknown>): { group?: string; course?: string } => ({
+    ...(typeof search["group"] === "string" && search["group"] ? { group: search["group"] } : {}),
+    ...(typeof search["course"] === "string" && search["course"]
+      ? { course: search["course"] }
+      : {}),
   }),
   component: GradebookPage,
 });
@@ -64,8 +81,11 @@ function GradebookPage() {
   const classesQuery = useClasses();
   const subjectsQuery = useSubjects();
 
-  const [group, setGroup] = useState("");
-  const [course, setCourse] = useState("");
+  // A link from the term-workflow page preselects the class and subject.
+  const { group: groupFromUrl, course: courseFromUrl } = Route.useSearch();
+  const [group, setGroup] = useState(groupFromUrl ?? "");
+  const [course, setCourse] = useState(courseFromUrl ?? "");
+  const [importing, setImporting] = useState(false);
 
   // Default to the first class the user can see.
   useEffect(() => {
@@ -87,8 +107,19 @@ function GradebookPage() {
   return (
     <>
       <PageHeader
-        title="سجل العلامات"
-        subtitle="أدخل علامات كل مكوّن، وتُحتسب علامة الفصل تلقائياً"
+        title="رصد العلامات"
+        subtitle="أدخل علامات كل مكوّن، وتُحتسب علامة المادة تلقائياً"
+        actions={
+          group && course ? (
+            <button
+              onClick={() => setImporting(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:bg-secondary active:translate-y-0"
+            >
+              <FileDown className="size-4" />
+              ترحيل علامات الواجبات
+            </button>
+          ) : null
+        }
       />
 
       <div className="card-surface mb-5 grid gap-3 p-4 md:grid-cols-2">
@@ -150,6 +181,14 @@ function GradebookPage() {
             <ClassSummary group={group} course={course} />
           </TabsContent>
         </Tabs>
+      )}
+
+      {importing && group && course && (
+        <ImportAssignmentsDialog
+          group={group}
+          course={course}
+          onClose={() => setImporting(false)}
+        />
       )}
     </>
   );
@@ -430,5 +469,184 @@ function ClassSummary({ group, course }: { group: string; course: string }) {
         )}
       </SectionCard>
     </>
+  );
+}
+
+/**
+ * Carry assignment marks into the term gradebook.
+ *
+ * Schools usually want one "الواجبات" line rather than a row per assignment,
+ * so the combined mode averages each student's assignments as a percentage.
+ */
+function ImportAssignmentsDialog({
+  group,
+  course,
+  onClose,
+}: {
+  group: string;
+  course: string;
+  onClose: () => void;
+}) {
+  const { data, isLoading } = useImportableAssignments({ student_group: group, course });
+  const importOne = useImportAssignment();
+  const importCombined = useImportAssignmentsCombined();
+
+  const [selected, setSelected] = useState<string[]>([]);
+  const [mode, setMode] = useState<"combined" | "separate">("combined");
+  const [componentName, setComponentName] = useState("الواجبات");
+  const [weight, setWeight] = useState("20");
+
+  const ready = (data ?? []).filter((a) => a.ready);
+  const busy = importOne.isPending || importCombined.isPending;
+
+  function toggle(id: string) {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  async function submit() {
+    if (selected.length === 0) {
+      toast.error("اختر واجباً واحداً على الأقل");
+      return;
+    }
+    try {
+      if (mode === "combined") {
+        await importCombined.mutateAsync({
+          student_group: group,
+          course,
+          assignments: selected,
+          component_name: componentName || "الواجبات",
+          ...(weight ? { weight: Number(weight) } : {}),
+        });
+      } else {
+        for (const id of selected) {
+          await importOne.mutateAsync({
+            assignment: id,
+            ...(weight ? { weight: Number(weight) } : {}),
+          });
+        }
+      }
+      toast.success(
+        mode === "combined"
+          ? `تم ترحيل ${selected.length} واجب كمكوّن واحد`
+          : `تم ترحيل ${selected.length} واجب كمكوّنات منفصلة`,
+      );
+      onClose();
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الترحيل");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">ترحيل علامات الواجبات — {course}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="rounded-xl border border-info/30 bg-info-soft p-3 text-xs leading-relaxed">
+            تُرحّل علامات الواجبات المُصححة فقط. الطلاب الذين لم تُصحّح واجباتهم بعد لا تُحتسب لهم
+            علامة (ولا تُصفَّر).
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-secondary p-1">
+            <button
+              onClick={() => setMode("combined")}
+              className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+                mode === "combined" ? "bg-card shadow-soft" : "text-muted-foreground"
+              }`}
+            >
+              مكوّن واحد (متوسط)
+            </button>
+            <button
+              onClick={() => setMode("separate")}
+              className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+                mode === "separate" ? "bg-card shadow-soft" : "text-muted-foreground"
+              }`}
+            >
+              مكوّن لكل واجب
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {mode === "combined" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">اسم المكوّن</Label>
+                <Input
+                  value={componentName}
+                  onChange={(e) => setComponentName(e.target.value)}
+                  className="h-9 rounded-lg"
+                />
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label className="text-xs">الوزن (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                className="num h-9 rounded-lg"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-2 block text-xs">
+              الواجبات المُصححة ({ready.length})
+            </Label>
+            {isLoading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
+            ) : ready.length === 0 ? (
+              <EmptyBlock
+                title="لا توجد واجبات مُصححة"
+                description="صحّح تسليمات الواجبات أولاً حتى تتمكن من ترحيل علاماتها."
+              />
+            ) : (
+              <ul className="space-y-2">
+                {ready.map((a) => (
+                  <li key={a.id}>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-secondary/40">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(a.id)}
+                        onChange={() => toggle(a.id)}
+                        className="size-4 accent-primary"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{a.title}</span>
+                        <span className="num block text-[11px] text-muted-foreground">
+                          مُصحح {a.graded}/{a.total} • من {a.max} • التسليم {a.due}
+                        </span>
+                      </span>
+                      {a.imported && <Pill tone="muted">مُرحّل سابقاً</Pill>}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={submit}
+            disabled={busy || selected.length === 0}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {busy ? "جارٍ الترحيل…" : `ترحيل (${selected.length})`}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

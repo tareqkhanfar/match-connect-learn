@@ -19,6 +19,7 @@ import {
   BookOpenCheck,
   Award,
   Scale,
+  ArrowUpFromLine,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./roles";
@@ -126,6 +127,18 @@ export const navItems: NavItem[] = [
     labelByRole: { admin: "رصد العلامات", secretary: "رصد العلامات" },
     to: "/app/gradebook",
     icon: BookOpenCheck,
+    roles: ["admin", "secretary", "teacher"],
+    group: "المتابعة اليومية",
+  },
+  {
+    label: "ترحيل علامات الفصل",
+    labelByRole: {
+      admin: "اعتماد ونشر النتائج",
+      secretary: "اعتماد ونشر النتائج",
+      teacher: "ترحيل علاماتي",
+    },
+    to: "/app/term",
+    icon: ArrowUpFromLine,
     roles: ["admin", "secretary", "teacher"],
     group: "المتابعة اليومية",
   },

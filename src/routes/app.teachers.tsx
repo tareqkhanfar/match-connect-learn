@@ -10,6 +10,7 @@ import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/state
 import { useDeleteTeacher, useDepartments, useSaveTeacher, useTeachers } from "@/lib/api/hooks";
 import type { TeacherRow } from "@/lib/api/types";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/app/teachers")({
 });
 
 function TeachersPage() {
+  const confirm = useConfirm();
   const [q, setQ] = useState("");
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useTeachers();
@@ -116,7 +118,13 @@ function TeachersPage() {
   ];
 
   async function removeTeacher(row: TeacherRow) {
-    if (!window.confirm(`حذف المعلم «${row.instructor_name}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف المعلم «${row.instructor_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteTeacher.mutateAsync(row.id);
       toast.success("تم حذف المعلم");

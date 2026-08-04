@@ -7,6 +7,7 @@ import { DataTable, type Column } from "@/components/shared/data-table";
 import { ViewToggle, useViewMode } from "@/components/shared/view-toggle";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import { byRole } from "@/lib/roles";
 import { useDeleteSubject, useSaveSubject, useStudentFilters, useSubjects } from "@/lib/api/hooks";
 import type { SubjectRow } from "@/lib/api/types";
@@ -46,6 +47,7 @@ const ACCENTS = [
 ];
 
 function SubjectsPage() {
+  const confirm = useConfirm();
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useSubjects();
   const deleteSubject = useDeleteSubject();
@@ -104,7 +106,13 @@ function SubjectsPage() {
   const canManage = role === "admin" || role === "secretary";
 
   async function removeSubject(row: SubjectRow) {
-    if (!window.confirm(`حذف المادة «${row.course_name}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف المادة «${row.course_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteSubject.mutateAsync(row.id);
       toast.success("تم حذف المادة");

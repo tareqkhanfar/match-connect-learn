@@ -22,6 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   useDeleteHealthVisit,
   useHealthRecord,
@@ -70,6 +71,7 @@ function useDebounced<T>(value: T, delay = 350) {
 }
 
 function HealthPage() {
+  const confirm = useConfirm();
   const { role, session } = useApp();
   const canEdit = isBackOffice(role);
   // Students and parents land straight on their own record.
@@ -94,7 +96,13 @@ function HealthPage() {
   const visits = query.data?.visits ?? [];
 
   async function removeVisit(id: string) {
-    if (!window.confirm("حذف هذه الزيارة؟")) return;
+    const ok = await confirm({
+      title: "حذف هذه الزيارة؟",
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteVisit.mutateAsync(id);
       toast.success("تم حذف الزيارة");

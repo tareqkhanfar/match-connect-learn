@@ -24,6 +24,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   useDeleteRoute,
   useDeleteTransportAssignment,
@@ -84,6 +85,7 @@ function TransportPage() {
 }
 
 function RoutesTab({ canManage }: { canManage: boolean }) {
+  const confirm = useConfirm();
   const query = useRoutes();
   const deleteRoute = useDeleteRoute();
   const [editing, setEditing] = useState<RouteRow | null>(null);
@@ -94,7 +96,13 @@ function RoutesTab({ canManage }: { canManage: boolean }) {
   const assigned = routes.reduce((a, r) => a + r.assigned, 0);
 
   async function remove(route: RouteRow) {
-    if (!window.confirm(`حذف الخط «${route.route_name}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف الخط «${route.route_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteRoute.mutateAsync(route.id);
       toast.success("تم حذف الخط");
@@ -379,6 +387,7 @@ function RouteDialog({ route, onClose }: { route: RouteRow | null; onClose: () =
 }
 
 function AssignmentsTab({ canManage }: { canManage: boolean }) {
+  const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [routeFilter, setRouteFilter] = useState("all");
   const [page, setPage] = useState(1);
@@ -395,7 +404,13 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
   const remove = useDeleteTransportAssignment();
 
   async function unassign(row: TransportAssignmentRow) {
-    if (!window.confirm(`إلغاء إسناد «${row.student_name}»؟`)) return;
+    const ok = await confirm({
+      title: `إلغاء إسناد «${row.student_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await remove.mutateAsync(row.id);
       toast.success("تم إلغاء الإسناد");

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   useClasses,
   useDeleteClass,
@@ -47,6 +48,7 @@ export const Route = createFileRoute("/app/classes")({
 });
 
 function ClassesPage() {
+  const confirm = useConfirm();
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useClasses();
   const deleteClass = useDeleteClass();
@@ -61,7 +63,13 @@ function ClassesPage() {
   const avgSize = classes.length ? Math.round(totalStudents / classes.length) : 0;
 
   async function removeClass(row: ClassRow) {
-    if (!window.confirm(`حذف الشعبة «${row.student_group_name}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف الشعبة «${row.student_group_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteClass.mutateAsync(row.name);
       toast.success("تم حذف الشعبة");

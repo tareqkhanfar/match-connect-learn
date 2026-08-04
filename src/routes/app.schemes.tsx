@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useConfirm } from "@/components/shared/confirm";
 import {
   useDeleteScheme,
   useSaveScheme,
@@ -57,6 +58,7 @@ const TYPE_AR: Record<string, string> = {
 };
 
 function SchemesPage() {
+  const confirm = useConfirm();
   const { role } = useApp();
   const canManage = isBackOffice(role);
 
@@ -68,7 +70,13 @@ function SchemesPage() {
   const schemes = query.data ?? [];
 
   async function remove(s: GradeScheme) {
-    if (!window.confirm(`حذف خطة «${s.scheme_name}»؟`)) return;
+    const ok = await confirm({
+      title: `حذف خطة «${s.scheme_name}»؟`,
+      description: "لا يمكن التراجع عن هذا الإجراء.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
     try {
       await deleteScheme.mutateAsync(s.id);
       toast.success("تم حذف الخطة");
