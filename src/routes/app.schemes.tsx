@@ -248,7 +248,7 @@ function SchemeDialog({ scheme, onClose }: { scheme: GradeScheme | null; onClose
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {scheme ? "تعديل خطة التقييم" : "خطة تقييم جديدة"}

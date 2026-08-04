@@ -323,7 +323,7 @@ function HealthRecordDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">السجل الصحي</DialogTitle>
         </DialogHeader>
@@ -487,7 +487,7 @@ function VisitDialog({ student, onClose }: { student: string; onClose: () => voi
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">زيارة عيادة</DialogTitle>
         </DialogHeader>

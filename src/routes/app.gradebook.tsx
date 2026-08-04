@@ -540,7 +540,7 @@ function ImportAssignmentsDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">ترحيل علامات الواجبات — {course}</DialogTitle>
         </DialogHeader>

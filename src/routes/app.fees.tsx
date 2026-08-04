@@ -349,7 +349,7 @@ function InvoiceDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">فاتورة رسوم جديدة</DialogTitle>
         </DialogHeader>
@@ -458,7 +458,7 @@ function PaymentDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">تسجيل دفعة — {fee.student}</DialogTitle>
         </DialogHeader>

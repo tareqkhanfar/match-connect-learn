@@ -279,7 +279,7 @@ function ClassDialog({ klass, onClose }: { klass: ClassRow | null; onClose: () =
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">{klass ? "تعديل الشعبة" : "شعبة جديدة"}</DialogTitle>
         </DialogHeader>

@@ -387,7 +387,7 @@ function BehaviourDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {record ? "تعديل السجل السلوكي" : "سجل سلوكي جديد"}

@@ -310,7 +310,7 @@ function BookDialog({ book, onClose }: { book: BookRow | null; onClose: () => vo
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">{book ? "تعديل كتاب" : "كتاب جديد"}</DialogTitle>
         </DialogHeader>
@@ -446,7 +446,7 @@ function IssueDialog({ book, onClose }: { book: BookRow; onClose: () => void }) 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">إعارة: {book.title}</DialogTitle>
         </DialogHeader>

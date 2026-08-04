@@ -269,7 +269,7 @@ function RouteDialog({ route, onClose }: { route: RouteRow | null; onClose: () =
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">{route ? "تعديل الخط" : "خط نقل جديد"}</DialogTitle>
         </DialogHeader>
@@ -546,7 +546,7 @@ function AssignDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">إسناد طالب لخط</DialogTitle>
         </DialogHeader>

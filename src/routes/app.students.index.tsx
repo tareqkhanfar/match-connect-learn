@@ -326,7 +326,7 @@ function AddStudentDialog() {
           إضافة طالب
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-right">
             <UserPlus className="size-5 text-primary" />

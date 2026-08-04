@@ -343,7 +343,7 @@ function TeacherDialog({ teacher, onClose }: { teacher: TeacherRow | null; onClo
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">{teacher ? "تعديل معلم" : "معلم جديد"}</DialogTitle>
         </DialogHeader>

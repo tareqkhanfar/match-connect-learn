@@ -118,7 +118,7 @@ export function BulkActions({
       )}
 
       <Dialog open={confirming} onOpenChange={setConfirming}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent className="max-w-xl" dir="rtl">
           <DialogHeader>
             <DialogTitle className="text-right">تأكيد الحذف</DialogTitle>
           </DialogHeader>

@@ -246,7 +246,7 @@ function GuardianDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {guardian ? "تعديل ولي أمر" : "إضافة ولي أمر"}
@@ -340,7 +340,7 @@ function LinkChildDialog({ guardian, onClose }: { guardian: GuardianRow; onClose
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">ربط ابن بـ {guardian.name}</DialogTitle>
         </DialogHeader>

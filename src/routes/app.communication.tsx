@@ -211,7 +211,7 @@ function CommunicationPage() {
 
       {deletingAnnouncement && (
         <Dialog open onOpenChange={(o) => !o && setDeletingAnnouncement(null)}>
-          <DialogContent className="max-w-md" dir="rtl">
+          <DialogContent className="max-w-xl" dir="rtl">
             <DialogHeader>
               <DialogTitle className="text-right">حذف الإعلان</DialogTitle>
             </DialogHeader>
@@ -276,7 +276,7 @@ function ThreadDialog({ thread, onClose }: { thread: string; onClose: () => void
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">المحادثة</DialogTitle>
         </DialogHeader>
@@ -358,7 +358,7 @@ function ComposeDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">رسالة جديدة</DialogTitle>
         </DialogHeader>
@@ -464,7 +464,7 @@ function AnnouncementDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {existing ? "تعديل الإعلان" : "إعلان جديد"}

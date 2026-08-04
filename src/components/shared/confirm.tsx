@@ -91,11 +91,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
 
       <Dialog open={Boolean(options)} onOpenChange={(open) => !open && settle(false)}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent className="max-w-xl" dir="rtl">
           <DialogHeader>
             <div className="flex items-start gap-3">
-              <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${tone.ring}`}>
-                <Icon className="size-5" />
+              <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${tone.ring}`}>
+                <Icon className="size-6" />
               </span>
               <div className="min-w-0 pt-1">
                 <DialogTitle className="text-right">{options?.title}</DialogTitle>
@@ -104,20 +104,20 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           </DialogHeader>
 
           {options?.description && (
-            <p className="text-sm leading-relaxed text-muted-foreground">{options.description}</p>
+            <p className="text-[15px] leading-relaxed text-muted-foreground">{options.description}</p>
           )}
           {options?.body}
 
           <DialogFooter className="gap-2 sm:justify-start">
             <button
               onClick={() => settle(true)}
-              className={`h-10 rounded-xl px-5 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0 ${tone.button}`}
+              className={`h-11 rounded-xl px-6 text-sm font-bold shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0 ${tone.button}`}
             >
               {options?.confirmLabel ?? "تأكيد"}
             </button>
             <button
               onClick={() => settle(false)}
-              className="h-10 rounded-xl border border-border px-4 text-sm font-semibold transition-colors hover:bg-secondary"
+              className="h-11 rounded-xl border border-border px-5 text-sm font-semibold transition-colors hover:bg-secondary"
             >
               {options?.cancelLabel ?? "إلغاء"}
             </button>

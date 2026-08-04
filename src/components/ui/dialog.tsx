@@ -38,12 +38,12 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid max-h-[92vh] w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-2xl border border-border/60 bg-card p-0 shadow-2xl duration-200",
+        "fixed left-[50%] top-[50%] z-50 grid max-h-[92vh] w-[calc(100%-2rem)] max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-5 overflow-y-auto rounded-2xl border border-border/60 bg-card p-0 shadow-2xl duration-200",
         // Header and footer are full-width bands with their own padding; every
         // other direct child is body content, so inset it from the edges.
         // Without this the p-0 above would leave bodies flush against the border.
-        "[&>*:not([data-dialog-band])]:mx-6",
-        "[&>*:not([data-dialog-band]):first-child]:mt-6 [&>*:not([data-dialog-band]):last-child]:mb-6",
+        "[&>*:not([data-dialog-band])]:mx-7",
+        "[&>*:not([data-dialog-band]):first-child]:mt-7 [&>*:not([data-dialog-band]):last-child]:mb-7",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2",
         className,
       )}
@@ -52,7 +52,7 @@ const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         data-dialog-band=""
-        className="absolute left-4 top-4 grid size-8 place-items-center rounded-lg text-muted-foreground ring-offset-background transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none"
+        className="absolute left-5 top-5 grid size-9 place-items-center rounded-lg text-muted-foreground ring-offset-background transition-colors hover:bg-secondary hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none"
       >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
@@ -65,7 +65,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col space-y-1.5 border-b border-border/60 px-6 pb-4 pt-5 text-right",
+      "flex flex-col space-y-1.5 border-b border-border/60 px-7 pb-5 pt-6 text-right",
       className,
     )}
     data-dialog-band=""
@@ -77,7 +77,7 @@ DialogHeader.displayName = "DialogHeader";
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse gap-2 border-t border-border/60 bg-muted/30 px-6 py-4 sm:flex-row sm:justify-start",
+      "flex flex-col-reverse gap-2.5 border-t border-border/60 bg-muted/30 px-7 py-5 sm:flex-row sm:justify-start",
       className,
     )}
     data-dialog-band=""
@@ -92,7 +92,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-base font-bold leading-tight tracking-tight", className)}
+    className={cn("text-lg font-bold leading-tight tracking-tight", className)}
     {...props}
   />
 ));

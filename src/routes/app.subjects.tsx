@@ -280,7 +280,7 @@ function SubjectDialog({ subject, onClose }: { subject: SubjectRow | null; onClo
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">{subject ? "تعديل مادة" : "مادة جديدة"}</DialogTitle>
         </DialogHeader>

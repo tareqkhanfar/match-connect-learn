@@ -224,7 +224,7 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {data ? `${data.assignment.title} — التسليمات` : "التسليمات"}
@@ -371,7 +371,7 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto" dir="rtl">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">
             {info ? `تسليم: ${info.title}` : "تسليم الواجب"}
@@ -541,7 +541,7 @@ function AssignmentDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg" dir="rtl">
+      <DialogContent className="max-w-2xl" dir="rtl">
         <DialogHeader>
           <DialogTitle className="text-right">واجب جديد</DialogTitle>
         </DialogHeader>
