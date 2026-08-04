@@ -114,8 +114,12 @@ export const navItems: NavItem[] = [
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
-    label: "الامتحانات والدرجات",
-    labelByRole: { student: "امتحاناتي", parent: "امتحانات الأبناء" },
+    label: "جدول الامتحانات",
+    labelByRole: {
+      teacher: "جدول امتحاناتي",
+      student: "جدول امتحاناتي",
+      parent: "جدول امتحانات الأبناء",
+    },
     to: "/app/exams",
     icon: FileSpreadsheet,
     roles: ["admin", "secretary", "teacher", "student", "parent"],

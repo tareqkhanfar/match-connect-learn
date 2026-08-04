@@ -1104,15 +1104,6 @@ export function useDeleteTeacher() {
   });
 }
 
-export function useSaveExam() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      apiPost<{ id: string }>("academics.save_exam", { payload }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["exams"] }),
-  });
-}
-
 export function useExamRoster(assessment_plan: string | undefined) {
   return useQuery<{
     exam: { id: string; title: string; subject: string; student_group: string; max: number };
@@ -1902,5 +1893,89 @@ export function useImportAssignmentsCombined() {
       qc.invalidateQueries({ queryKey: ["importable-assignments"] });
       qc.invalidateQueries({ queryKey: ["term-grades"] });
     },
+  });
+}
+
+// --- Exam timetable ---------------------------------------------------------
+
+export interface ExamSitting {
+  id: string;
+  title: string;
+  course: string;
+  program: string | null;
+  student_group: string;
+  date: string;
+  from_time: string;
+  to_time: string;
+  duration: number;
+  room: string | null;
+  room_name: string | null;
+  examiner: string | null;
+  examiner_name: string | null;
+  supervisor: string | null;
+  supervisor_name: string | null;
+  max: number;
+  exam_type: string;
+  exam_type_label: string;
+  colour: string;
+  academic_term: string | null;
+  academic_year: string | null;
+  upcoming: boolean;
+  days_away: number | null;
+}
+
+export interface ExamSchedule {
+  exams: ExamSitting[];
+  upcoming: number;
+  past: number;
+  types: Array<{ code: string; label: string; colour: string }>;
+}
+
+export function useExamSchedule(
+  params: Opt<{
+    academic_term: string;
+    student_group: string;
+    course: string;
+    exam_type: string;
+    from_date: string;
+    to_date: string;
+  }> = {},
+) {
+  return useQuery<ExamSchedule>({
+    queryKey: ["exam-schedule", params],
+    queryFn: () => apiGet<ExamSchedule>("exams.schedule", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export interface ExamFormOptions {
+  groups: Array<{ id: string; name: string; program: string | null; students: number }>;
+  courses: string[];
+  rooms: Array<{ id: string; name: string; capacity: number }>;
+  types: Array<{ code: string; label: string; colour: string }>;
+}
+
+export function useExamFormOptions(enabled = true) {
+  return useQuery<ExamFormOptions>({
+    queryKey: ["exam-form-options"],
+    queryFn: () => apiGet<ExamFormOptions>("exams.form_options"),
+    enabled,
+  });
+}
+
+export function useSaveExam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; title: string; date: string }>("exams.save_exam", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["exam-schedule"] }),
+  });
+}
+
+export function useDeleteExam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (exam: string) => apiPost<{ id: string }>("exams.delete_exam", { exam }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["exam-schedule"] }),
   });
 }
