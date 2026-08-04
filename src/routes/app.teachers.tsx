@@ -3,6 +3,8 @@ import { GraduationCap, Mail, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
+import { DataTable, type Column } from "@/components/shared/data-table";
+import { ViewToggle, useViewMode } from "@/components/shared/view-toggle";
 import { Input } from "@/components/ui/input";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useDeleteTeacher, useDepartments, useSaveTeacher, useTeachers } from "@/lib/api/hooks";
@@ -44,6 +46,74 @@ function TeachersPage() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<TeacherRow | null>(null);
   const canManage = role === "admin" || role === "secretary";
+  const [view, setView] = useViewMode("teachers");
+
+  const columns: Column<TeacherRow>[] = [
+    { fieldname: "instructor_name", label: "الاسم", sortable: true },
+    { fieldname: "department", label: "القسم", render: (t) => t.department ?? "—" },
+    {
+      fieldname: "classes_count",
+      label: "عدد الشُعب",
+      numeric: true,
+      render: (t) => t.classes_count,
+    },
+    {
+      fieldname: "classes",
+      label: "الشُعب",
+      render: (t) =>
+        t.classes.length ? (
+          <span className="flex flex-wrap gap-1">
+            {t.classes.slice(0, 3).map((c) => (
+              <Pill key={c} tone="primary">
+                {c}
+              </Pill>
+            ))}
+            {t.classes.length > 3 && (
+              <span className="num text-xs text-muted-foreground">+{t.classes.length - 3}</span>
+            )}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    { fieldname: "phone", label: "الهاتف", numeric: true, render: (t) => t.phone ?? "—" },
+    { fieldname: "email", label: "البريد", hiddenByDefault: true, render: (t) => t.email ?? "—" },
+    {
+      fieldname: "status",
+      label: "الحالة",
+      render: (t) =>
+        t.status ? (
+          <Pill tone={t.status === "Active" ? "success" : "muted"}>
+            {t.status === "Active" ? "نشِط" : t.status}
+          </Pill>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      fieldname: "actions",
+      label: "",
+      alwaysVisible: true,
+      render: (t) =>
+        canManage ? (
+          <span className="flex gap-1.5">
+            <button
+              onClick={() => setEditing(t)}
+              className="rounded-lg bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+            >
+              تعديل
+            </button>
+            <button
+              onClick={() => removeTeacher(t)}
+              aria-label="حذف"
+              className="rounded-lg bg-secondary px-2 py-1 text-destructive hover:bg-destructive-soft"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </span>
+        ) : null,
+    },
+  ];
 
   async function removeTeacher(row: TeacherRow) {
     if (!window.confirm(`حذف المعلم «${row.instructor_name}»؟`)) return;
@@ -67,16 +137,40 @@ function TeachersPage() {
         title="إدارة المعلمين"
         subtitle={`${teachers.length} معلماً ومعلمة في الكادر التعليمي`}
         actions={
-          <button
-            onClick={() => setCreating(true)}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
-          >
-            <Plus className="size-4" />
-            إضافة معلم
-          </button>
+          <>
+            <ViewToggle mode={view} onChange={setView} />
+            {canManage && (
+              <button
+                onClick={() => setCreating(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <Plus className="size-4" />
+                إضافة معلم
+              </button>
+            )}
+          </>
         }
       />
 
+      {view === "table" ? (
+        <DataTable
+          columns={columns}
+          rows={list}
+          rowKey={(t) => t.id}
+          storageKey="teachers"
+          isLoading={isLoading}
+          error={error}
+          onRetry={() => refetch()}
+          search={q}
+          onSearchChange={setQ}
+          searchPlaceholder="ابحث بالاسم أو القسم..."
+          exportDataset="teachers"
+          exportTitle="قائمة المعلمين"
+          emptyTitle="لا يوجد معلمون"
+          emptyDescription="لم نجد أي معلم يطابق البحث."
+        />
+      ) : (
+        <>
       <div className="relative mb-5 max-w-md">
         <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -174,6 +268,8 @@ function TeachersPage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
 
       {!isLoading && !error && teachers.length > 0 && (

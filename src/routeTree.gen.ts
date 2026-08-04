@@ -20,6 +20,7 @@ import { Route as AppCommunicationRouteImport } from './routes/app.communication
 import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
+import { Route as AppGuardiansRouteImport } from './routes/app.guardians'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
@@ -87,6 +88,11 @@ const AppFeesRoute = AppFeesRouteImport.update({
 const AppGradebookRoute = AppGradebookRouteImport.update({
   id: '/gradebook',
   path: '/gradebook',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGuardiansRoute = AppGuardiansRouteImport.update({
+  id: '/guardians',
+  path: '/guardians',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHealthRoute = AppHealthRouteImport.update({
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
   '/app/gradebook': typeof AppGradebookRoute
+  '/app/guardians': typeof AppGuardiansRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
   '/app/gradebook': typeof AppGradebookRoute
+  '/app/guardians': typeof AppGuardiansRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
   '/app/gradebook': typeof AppGradebookRoute
+  '/app/guardians': typeof AppGuardiansRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
@@ -246,6 +255,7 @@ export interface FileRouteTypes {
     | '/app/exams'
     | '/app/fees'
     | '/app/gradebook'
+    | '/app/guardians'
     | '/app/health'
     | '/app/library'
     | '/app/profile'
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/app/exams'
     | '/app/fees'
     | '/app/gradebook'
+    | '/app/guardians'
     | '/app/health'
     | '/app/library'
     | '/app/profile'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/app/exams'
     | '/app/fees'
     | '/app/gradebook'
+    | '/app/guardians'
     | '/app/health'
     | '/app/library'
     | '/app/profile'
@@ -395,6 +407,13 @@ declare module '@tanstack/react-router' {
       path: '/gradebook'
       fullPath: '/app/gradebook'
       preLoaderRoute: typeof AppGradebookRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/guardians': {
+      id: '/app/guardians'
+      path: '/guardians'
+      fullPath: '/app/guardians'
+      preLoaderRoute: typeof AppGuardiansRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/health': {
@@ -500,6 +519,7 @@ interface AppRouteChildren {
   AppExamsRoute: typeof AppExamsRoute
   AppFeesRoute: typeof AppFeesRoute
   AppGradebookRoute: typeof AppGradebookRoute
+  AppGuardiansRoute: typeof AppGuardiansRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppProfileRoute: typeof AppProfileRoute
@@ -525,6 +545,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppExamsRoute: AppExamsRoute,
   AppFeesRoute: AppFeesRoute,
   AppGradebookRoute: AppGradebookRoute,
+  AppGuardiansRoute: AppGuardiansRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppProfileRoute: AppProfileRoute,

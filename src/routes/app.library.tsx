@@ -33,7 +33,7 @@ import {
   type BookRow,
   type LoanRow,
 } from "@/lib/api/hooks";
-import { isBackOffice } from "@/lib/roles";
+import { byRole, isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/library")({
   head: () => ({
@@ -60,7 +60,7 @@ function LibraryPage() {
 
   return (
     <>
-      <PageHeader title="المكتبة" subtitle="فهرس الكتب وإعارات الطلاب" />
+      <PageHeader title={byRole(role, "المكتبة", { student: "مكتبتي", parent: "استعارات الأبناء" })} subtitle="فهرس الكتب وإعارات الطلاب" />
       <Tabs defaultValue="books" dir="rtl">
         <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
           <TabsTrigger value="books" className="rounded-lg">

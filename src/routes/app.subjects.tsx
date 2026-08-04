@@ -3,8 +3,11 @@ import { BookOpen, GraduationCap, Plus, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill } from "@/components/shared/ui-kit";
+import { DataTable, type Column } from "@/components/shared/data-table";
+import { ViewToggle, useViewMode } from "@/components/shared/view-toggle";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { byRole } from "@/lib/roles";
 import { useDeleteSubject, useSaveSubject, useStudentFilters, useSubjects } from "@/lib/api/hooks";
 import type { SubjectRow } from "@/lib/api/types";
 import {
@@ -48,6 +51,56 @@ function SubjectsPage() {
   const deleteSubject = useDeleteSubject();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SubjectRow | null>(null);
+  const [view, setView] = useViewMode("subjects");
+
+  const columns: Column<SubjectRow>[] = [
+    { fieldname: "course_name", label: "المادة", sortable: true },
+    { fieldname: "code", label: "الرمز", numeric: true, render: (s) => s.code || "—" },
+    { fieldname: "department", label: "القسم", render: (s) => s.department ?? "—" },
+    { fieldname: "teacher", label: "المعلم", render: (s) => s.teacher ?? "—" },
+    {
+      fieldname: "grades",
+      label: "الصفوف",
+      render: (s) =>
+        s.grades.length ? (
+          <span className="flex flex-wrap gap-1">
+            {s.grades.slice(0, 3).map((g) => (
+              <Pill key={g} tone="primary">
+                {g}
+              </Pill>
+            ))}
+            {s.grades.length > 3 && (
+              <span className="num text-xs text-muted-foreground">+{s.grades.length - 3}</span>
+            )}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      fieldname: "actions",
+      label: "",
+      alwaysVisible: true,
+      render: (s) =>
+        canManage ? (
+          <span className="flex gap-1.5">
+            <button
+              onClick={() => setEditing(s)}
+              className="rounded-lg bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+            >
+              تعديل
+            </button>
+            <button
+              onClick={() => removeSubject(s)}
+              aria-label="حذف"
+              className="rounded-lg bg-secondary px-2 py-1 text-destructive hover:bg-destructive-soft"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </span>
+        ) : null,
+    },
+  ];
   const canManage = role === "admin" || role === "secretary";
 
   async function removeSubject(row: SubjectRow) {
@@ -67,18 +120,21 @@ function SubjectsPage() {
   return (
     <>
       <PageHeader
-        title="المواد الدراسية"
+        title={byRole(role, "المواد الدراسية", { teacher: "موادي" })}
         subtitle="إدارة المناهج وربطها بالصفوف والمعلمين"
         actions={
-          canManage ? (
-            <button
-              onClick={() => setCreating(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
-            >
-              <Plus className="size-4" />
-              إضافة مادة
-            </button>
-          ) : null
+          <>
+            <ViewToggle mode={view} onChange={setView} />
+            {canManage && (
+              <button
+                onClick={() => setCreating(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <Plus className="size-4" />
+                إضافة مادة
+              </button>
+            )}
+          </>
         }
       />
 
@@ -89,7 +145,20 @@ function SubjectsPage() {
       </div>
 
       <div className="mt-6">
-        {error ? (
+        {view === "table" ? (
+          <DataTable
+            columns={columns}
+            rows={subjects}
+            rowKey={(s) => s.id}
+            storageKey="subjects"
+            isLoading={isLoading}
+            error={error}
+            onRetry={() => refetch()}
+            exportDataset="subjects"
+            exportTitle="المواد الدراسية"
+            emptyTitle="لا توجد مواد دراسية"
+          />
+        ) : error ? (
           <ErrorState error={error} onRetry={() => refetch()} />
         ) : isLoading ? (
           <TableSkeleton rows={6} />

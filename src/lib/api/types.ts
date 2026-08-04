@@ -8,6 +8,8 @@ export interface SessionScope {
   instructor: string | null;
   guardian: string | null;
   students: string[];
+  /** The same students, with names — for pickers a parent uses. */
+  children: Array<{ id: string; name: string }>;
 }
 
 export interface Session {

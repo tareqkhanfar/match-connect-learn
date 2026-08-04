@@ -58,6 +58,11 @@ interface SearchableSelectProps {
   /** Show an "all" entry that clears the selection — handy for filters. */
   clearable?: boolean;
   clearLabel?: string;
+  /**
+   * Notified as the user types. Supply this when the option list is fetched
+   * from the server; local filtering still runs over whatever has arrived.
+   */
+  onSearchChange?: ((query: string) => void) | undefined;
 }
 
 /**
@@ -76,12 +81,23 @@ export function SearchableSelect({
   className,
   clearable = false,
   clearLabel = "الكل",
+  onSearchChange,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
+  function updateQuery(next: string) {
+    setQuery(next);
+    onSearchChange?.(next);
+  }
+
   const selected = useMemo(() => options.find((o) => o.value === value), [options, value]);
-  const filtered = useMemo(() => options.filter((o) => matches(o, query)), [options, query]);
+  // When the caller fetches on search, the server has already filtered; running
+  // the local filter as well would hide rows it deliberately returned.
+  const filtered = useMemo(
+    () => (onSearchChange ? options : options.filter((o) => matches(o, query))),
+    [options, query, onSearchChange],
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -125,7 +141,7 @@ export function SearchableSelect({
           <CommandInput
             placeholder={searchPlaceholder}
             value={query}
-            onValueChange={setQuery}
+            onValueChange={updateQuery}
             className="text-right"
           />
           <CommandList>
@@ -137,7 +153,7 @@ export function SearchableSelect({
                   onSelect={() => {
                     onChange("");
                     setOpen(false);
-                    setQuery("");
+                    updateQuery("");
                   }}
                   className="gap-2"
                 >
@@ -153,7 +169,7 @@ export function SearchableSelect({
                   onSelect={() => {
                     onChange(option.value);
                     setOpen(false);
-                    setQuery("");
+                    updateQuery("");
                   }}
                   className="gap-2"
                 >

@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { byRole } from "@/lib/roles";
 import { useExams, useGrades } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/exams")({
@@ -112,7 +113,7 @@ function ExamsPage() {
 
   return (
     <>
-      <PageHeader title="الامتحانات والدرجات" subtitle="جدول الامتحانات والنتائج المسجّلة" />
+      <PageHeader title={byRole(role, "الامتحانات والدرجات", { student: "امتحاناتي", parent: "امتحانات الأبناء" })} subtitle="جدول الامتحانات والنتائج المسجّلة" />
 
       <Tabs defaultValue="schedule" dir="rtl">
         <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">

@@ -29,7 +29,7 @@ import {
   useStudents,
   type BehaviourRow,
 } from "@/lib/api/hooks";
-import { isBackOffice } from "@/lib/roles";
+import { byRole, isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/behaviour")({
   head: () => ({
@@ -197,7 +197,7 @@ function BehaviourPage() {
   return (
     <>
       <PageHeader
-        title="السلوك والانضباط"
+        title={byRole(role, "السلوك والانضباط", { student: "سلوكي", parent: "سلوك الأبناء" })}
         subtitle="سجل النقاط الإيجابية والمخالفات"
         actions={
           canEdit ? (

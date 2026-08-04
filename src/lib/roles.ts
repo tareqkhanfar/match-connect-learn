@@ -30,3 +30,18 @@ export const statusMeta: Record<PaymentStatus, { label: string; cls: string }> =
 export function money(n: number) {
   return `${Number(n || 0).toLocaleString("en-US")} ₪`;
 }
+
+/**
+ * Pick the variant that suits the viewer's role.
+ *
+ * Screens are shared across roles but mean different things: "الحضور والغياب"
+ * is a register for staff and a personal record for a student. Pass only the
+ * roles that differ; the rest fall back to `base`.
+ */
+export function byRole(
+  role: Role,
+  base: string,
+  overrides: Partial<Record<Role, string>> = {},
+): string {
+  return overrides[role] ?? base;
+}

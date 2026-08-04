@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { byRole } from "@/lib/roles";
 import { useClasses, useTimetable } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/timetable")({
@@ -84,7 +85,7 @@ function TimetablePage() {
   return (
     <>
       <PageHeader
-        title="الجدول الدراسي"
+        title={byRole(role, "الجدول الدراسي", { teacher: "جدولي", student: "جدولي الدراسي", parent: "جدول الأبناء" })}
         subtitle={
           picksClass
             ? `${selectedClass?.student_group_name ?? ""} • ${timetableQuery.data?.week_start ?? ""}`

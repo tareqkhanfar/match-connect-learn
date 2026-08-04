@@ -23,7 +23,7 @@ import {
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { RichText, RichTextView } from "@/components/shared/rich-text";
 import { useApp } from "@/lib/app-context";
-import { isBackOffice } from "@/lib/roles";
+import { byRole, isBackOffice } from "@/lib/roles";
 import type { AnnouncementRow } from "@/lib/api/types";
 import {
   useAnnouncements,
@@ -73,7 +73,7 @@ function CommunicationPage() {
   return (
     <>
       <PageHeader
-        title="التواصل والإعلانات"
+        title={byRole(role, "التواصل والإعلانات", { student: "الإعلانات والرسائل", parent: "الإعلانات والرسائل" })}
         subtitle="لوحة الإعلانات والرسائل"
         actions={
           <>

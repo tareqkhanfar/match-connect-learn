@@ -14,7 +14,10 @@ export type ExportDataset =
   | "behaviour"
   | "books"
   | "loans"
-  | "transport";
+  | "transport"
+  | "guardians"
+  | "health"
+  | "routes";
 
 export interface ExportRequest {
   dataset: ExportDataset;

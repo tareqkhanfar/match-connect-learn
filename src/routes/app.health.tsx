@@ -29,7 +29,7 @@ import {
   useSaveHealthVisit,
   useStudents,
 } from "@/lib/api/hooks";
-import { isBackOffice } from "@/lib/roles";
+import { byRole, isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/health")({
   head: () => ({
@@ -106,7 +106,7 @@ function HealthPage() {
   return (
     <>
       <PageHeader
-        title="الصحة المدرسية"
+        title={byRole(role, "الصحة المدرسية", { student: "ملفي الصحي", parent: "صحة الأبناء" })}
         subtitle="السجل الصحي وزيارات العيادة"
         actions={
           canEdit && selected ? (

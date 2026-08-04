@@ -1495,3 +1495,238 @@ export function useStudentConversations(student?: Opt<string>, limit = 50) {
       }),
   });
 }
+
+// --- Fees: write operations -------------------------------------------------
+
+export interface FeeFormOptions {
+  structures: Array<{
+    id: string;
+    name: string;
+    program: string | null;
+    academic_year: string | null;
+    academic_term: string | null;
+    total: number;
+  }>;
+  categories: string[];
+  modes: string[];
+  companies: string[];
+}
+
+export function useFeeFormOptions(enabled = true) {
+  return useQuery<FeeFormOptions>({
+    queryKey: ["fee-form-options"],
+    queryFn: () => apiGet<FeeFormOptions>("fees.fee_form_options"),
+    enabled,
+  });
+}
+
+export function useSaveFee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; grand_total: number; outstanding: number }>("fees.save_fee", {
+        payload,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fees"] });
+      qc.invalidateQueries({ queryKey: qk.collection });
+      qc.invalidateQueries({ queryKey: qk.dashboard });
+    },
+  });
+}
+
+export function useRecordPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      fees: string;
+      amount: number;
+      mode_of_payment?: string;
+      reference_no?: string;
+      posting_date?: string;
+      remarks?: string;
+    }) =>
+      apiPost<{
+        journal_entry: string;
+        fees: string;
+        paid: number;
+        outstanding: number;
+        status: string;
+      }>("fees.record_payment", vars),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["fees"] });
+      qc.invalidateQueries({ queryKey: qk.feeDetail(vars.fees) });
+      qc.invalidateQueries({ queryKey: ["fee-payments", vars.fees] });
+      qc.invalidateQueries({ queryKey: qk.collection });
+      qc.invalidateQueries({ queryKey: qk.dashboard });
+    },
+  });
+}
+
+export function useCancelFee() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fees: string) => apiPost<{ id: string }>("fees.cancel_fee", { fees }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fees"] });
+      qc.invalidateQueries({ queryKey: qk.collection });
+    },
+  });
+}
+
+export function useFeePayments(fees: Opt<string>) {
+  return useQuery<
+    Array<{
+      id: string;
+      amount: number;
+      date: string;
+      mode: string | null;
+      reference: string | null;
+      remarks: string | null;
+    }>
+  >({
+    queryKey: ["fee-payments", fees],
+    queryFn: () => apiGet("fees.list_payments", { fees: fees! }),
+    enabled: Boolean(fees),
+  });
+}
+
+// --- Guardians --------------------------------------------------------------
+
+export interface GuardianRow {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  alternate_phone: string | null;
+  occupation: string | null;
+  designation: string | null;
+  user: string | null;
+  image: string | null;
+  children: Array<{ id: string; name: string; relation: string | null }>;
+  children_count: number;
+}
+
+export function useGuardians(params: Opt<{ search: string; page: number; page_size: number }> = {}) {
+  return useQuery<Paginated<GuardianRow>>({
+    queryKey: ["guardians", params],
+    queryFn: () => apiGet<Paginated<GuardianRow>>("students.list_guardians", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useSaveGuardian() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; name: string }>("students.save_guardian", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["guardians"] }),
+  });
+}
+
+export function useDeleteGuardian() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (guardian: string) =>
+      apiPost<{ id: string }>("students.delete_guardian", { guardian }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["guardians"] }),
+  });
+}
+
+export function useLinkGuardian() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student: string; guardian: string; relation?: string }) =>
+      apiPost<{ student: string }>("students.link_guardian", vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["guardians"] });
+      qc.invalidateQueries({ queryKey: qk.student(vars.student) });
+    },
+  });
+}
+
+export function useUnlinkGuardian() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student: string; guardian: string }) =>
+      apiPost<{ student: string }>("students.unlink_guardian", vars),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["guardians"] });
+      qc.invalidateQueries({ queryKey: qk.student(vars.student) });
+    },
+  });
+}
+
+// --- Health register --------------------------------------------------------
+
+export interface HealthRow {
+  id: string;
+  student: string;
+  student_name: string;
+  blood_group: string | null;
+  chronic_conditions: string | null;
+  allergies: string | null;
+  medications: string | null;
+  emergency_contact: string | null;
+  emergency_phone: string | null;
+  visits: number;
+  updated: string;
+}
+
+export function useHealthRegister(
+  params: Opt<{
+    filters: Record<string, unknown>;
+    search: string;
+    page: number;
+    page_size: number;
+    sort_by: string;
+    sort_order: string;
+  }> = {},
+  enabled = true,
+) {
+  return useQuery<Paginated<HealthRow>>({
+    queryKey: ["health-register", params],
+    queryFn: () => apiGet<Paginated<HealthRow>>("wellbeing.list_health_records", params),
+    placeholderData: (prev) => prev,
+    enabled,
+  });
+}
+
+// --- Bulk actions -----------------------------------------------------------
+
+export function useBulkOptions(doctype: Opt<string>, enabled = true) {
+  return useQuery<{ can_delete: boolean; fields: string[] }>({
+    queryKey: ["bulk-options", doctype],
+    queryFn: () => apiGet("bulk.bulk_options", { doctype: doctype! }),
+    enabled: Boolean(doctype) && enabled,
+  });
+}
+
+export function useBulkDelete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { doctype: string; records: string[] }) =>
+      apiPost<{ deleted: number; failed: Array<{ name: string; reason: string }> }>(
+        "bulk.bulk_delete",
+        vars,
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export function useBulkUpdate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      doctype: string;
+      records: string[];
+      field: string;
+      value: string | number;
+    }) =>
+      apiPost<{ updated: number; failed: Array<{ name: string; reason: string }> }>(
+        "bulk.bulk_update",
+        vars,
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}

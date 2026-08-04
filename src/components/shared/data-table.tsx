@@ -75,6 +75,14 @@ interface Props<T> {
   exportFilters?: Record<string, unknown> | undefined;
   exportTitle?: string | undefined;
 
+  /**
+   * Enables row selection. When set, a checkbox column appears and the
+   * toolbar swaps for a bulk-action bar while anything is selected.
+   */
+  bulkDoctype?: string | undefined;
+  /** Rendered in the bulk bar; receives the selection and a way to clear it. */
+  bulkActions?: ((selected: string[], clear: () => void) => ReactNode) | undefined;
+
   /** Extra controls rendered in the toolbar. */
   toolbar?: ReactNode | undefined;
   emptyTitle?: string | undefined;
@@ -106,10 +114,44 @@ export function DataTable<T>({
   exportDataset,
   exportFilters,
   exportTitle,
+  bulkDoctype,
+  bulkActions,
   toolbar,
   emptyTitle = "لا توجد بيانات",
   emptyDescription,
 }: Props<T>) {
+  // --- row selection (only when the caller enables bulk actions) ---
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selectable = Boolean(bulkDoctype && bulkActions);
+  const pageKeys = useMemo(() => rows.map(rowKey), [rows, rowKey]);
+  const allOnPageSelected = pageKeys.length > 0 && pageKeys.every((k) => selected.has(k));
+
+  // A selection must not survive a page or filter change — the ids would no
+  // longer correspond to anything the user can see.
+  useEffect(() => {
+    setSelected(new Set());
+  }, [page, search, sortField, sortOrder, pageSize]);
+
+  function toggleRow(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function togglePage() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageKeys.forEach((k) => next.delete(k));
+      else pageKeys.forEach((k) => next.add(k));
+      return next;
+    });
+  }
+
+  const clearSelection = () => setSelected(new Set());
+
   // --- column visibility, remembered per table ---
   const [hidden, setHidden] = useState<Set<string>>(() => {
     const initial = new Set(
@@ -180,6 +222,24 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
+      {/* While rows are selected the bulk bar replaces the toolbar, so the
+          available actions are unambiguous. */}
+      {selectable && selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2">
+          <span className="num text-sm font-semibold text-primary">
+            {selected.size} محدد
+          </span>
+          <button
+            onClick={clearSelection}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+          >
+            إلغاء التحديد
+          </button>
+          <span className="mx-1 h-4 w-px bg-primary/30" />
+          {bulkActions!([...selected], clearSelection)}
+        </div>
+      )}
+
       {/* toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         {onSearchChange && (
@@ -265,6 +325,17 @@ export function DataTable<T>({
             <table className="w-full text-right text-sm">
               <thead className="bg-secondary/60 text-xs text-muted-foreground">
                 <tr>
+                  {selectable && (
+                    <th className="w-10 px-4 py-3">
+                      <input
+                        type="checkbox"
+                        aria-label="تحديد كل الصفوف الظاهرة"
+                        checked={allOnPageSelected}
+                        onChange={togglePage}
+                        className="size-4 cursor-pointer accent-primary"
+                      />
+                    </th>
+                  )}
                   {visibleColumns.map((c) => {
                     const active = sortField === c.fieldname;
                     return (
@@ -300,8 +371,27 @@ export function DataTable<T>({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {rows.map((row) => (
-                  <tr key={rowKey(row)} className="transition-colors hover:bg-secondary/40">
+                {rows.map((row) => {
+                  const key = rowKey(row);
+                  return (
+                  <tr
+                    key={key}
+                    className={cn(
+                      "transition-colors hover:bg-secondary/40",
+                      selected.has(key) && "bg-primary-soft/40",
+                    )}
+                  >
+                    {selectable && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label="تحديد الصف"
+                          checked={selected.has(key)}
+                          onChange={() => toggleRow(key)}
+                          className="size-4 cursor-pointer accent-primary"
+                        />
+                      </td>
+                    )}
                     {visibleColumns.map((c) => (
                       <td
                         key={c.fieldname}
@@ -313,7 +403,8 @@ export function DataTable<T>({
                       </td>
                     ))}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

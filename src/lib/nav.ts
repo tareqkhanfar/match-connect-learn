@@ -23,17 +23,31 @@ import {
 } from "lucide-react";
 import type { Role } from "./roles";
 
+/**
+ * A label that may read differently per role.
+ *
+ * The same screen means different things to different people: "علاماتي" is
+ * right for a student but wrong for a principal, who is looking at *other*
+ * people's marks. `label` is the fallback; `labelByRole` overrides it.
+ */
 export interface NavItem {
   label: string;
+  labelByRole?: Partial<Record<Role, string>>;
   to: string;
   icon: LucideIcon;
   roles: Role[];
   group: string;
+  groupByRole?: Partial<Record<Role, string>>;
 }
 
 export const navItems: NavItem[] = [
   {
     label: "لوحة التحكم",
+    labelByRole: {
+      teacher: "لوحة المعلم",
+      student: "صفحتي الرئيسية",
+      parent: "متابعة الأبناء",
+    },
     to: "/app",
     icon: LayoutDashboard,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
@@ -43,6 +57,7 @@ export const navItems: NavItem[] = [
   // Academic administration
   {
     label: "الطلاب",
+    labelByRole: { teacher: "طلابي" },
     to: "/app/students",
     icon: Users,
     roles: ["admin", "secretary", "teacher"],
@@ -56,6 +71,13 @@ export const navItems: NavItem[] = [
     group: "الإدارة الأكاديمية",
   },
   {
+    label: "أولياء الأمور",
+    to: "/app/guardians",
+    icon: Users,
+    roles: ["admin", "secretary"],
+    group: "الإدارة الأكاديمية",
+  },
+  {
     label: "الصفوف والشُعب",
     to: "/app/classes",
     icon: School,
@@ -64,6 +86,7 @@ export const navItems: NavItem[] = [
   },
   {
     label: "المواد الدراسية",
+    labelByRole: { teacher: "موادي" },
     to: "/app/subjects",
     icon: BookOpen,
     roles: ["admin", "secretary", "teacher"],
@@ -73,94 +96,125 @@ export const navItems: NavItem[] = [
   // Day-to-day
   {
     label: "الحضور والغياب",
+    labelByRole: { student: "حضوري", parent: "حضور الأبناء" },
     to: "/app/attendance",
     icon: ClipboardCheck,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
     label: "الجدول الدراسي",
+    labelByRole: { teacher: "جدولي", student: "جدولي الدراسي" },
     to: "/app/timetable",
     icon: CalendarDays,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
     label: "الامتحانات والدرجات",
+    labelByRole: { student: "امتحاناتي", parent: "امتحانات الأبناء" },
     to: "/app/exams",
     icon: FileSpreadsheet,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
-    label: "سجل العلامات",
+    label: "رصد العلامات",
+    labelByRole: { admin: "رصد العلامات", secretary: "رصد العلامات" },
     to: "/app/gradebook",
     icon: BookOpenCheck,
     roles: ["admin", "secretary", "teacher"],
     group: "المتابعة اليومية",
   },
   {
-    label: "علاماتي",
+    // The same screen, named for whose marks the viewer is actually reading.
+    label: "علامات الطلبة",
+    labelByRole: {
+      admin: "علامات الطلبة",
+      secretary: "علامات الطلبة",
+      teacher: "علامات طلابي",
+      student: "علاماتي",
+      parent: "علامات الأبناء",
+    },
     to: "/app/record",
     icon: Award,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
     label: "الواجبات",
+    labelByRole: { student: "واجباتي", parent: "واجبات الأبناء" },
     to: "/app/assignments",
     icon: NotebookPen,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
     label: "السلوك والانضباط",
+    labelByRole: { student: "سلوكي", parent: "سلوك الأبناء" },
     to: "/app/behaviour",
     icon: ShieldAlert,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
 
   // Student services
   {
     label: "الصحة المدرسية",
+    labelByRole: { student: "ملفي الصحي", parent: "صحة الأبناء" },
     to: "/app/health",
     icon: HeartPulse,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "خدمات الطلاب",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
     label: "المكتبة",
+    labelByRole: { student: "مكتبتي", parent: "استعارات الأبناء" },
     to: "/app/library",
     icon: Library,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "خدمات الطلاب",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
     label: "النقل المدرسي",
+    labelByRole: { student: "نقلي المدرسي", parent: "نقل الأبناء" },
     to: "/app/transport",
     icon: Bus,
     roles: ["admin", "secretary", "student", "parent"],
     group: "خدمات الطلاب",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
 
   // Finance and communication
   {
     label: "الرسوم المالية",
+    labelByRole: { student: "رسومي", parent: "رسوم الأبناء" },
     to: "/app/fees",
     icon: Wallet,
     roles: ["admin", "secretary", "student", "parent"],
     group: "المالية والتواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
     label: "التواصل والإعلانات",
+    labelByRole: { student: "الإعلانات والرسائل", parent: "الإعلانات والرسائل" },
     to: "/app/communication",
     icon: MessagesSquare,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المالية والتواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
     label: "التقارير",
+    labelByRole: { teacher: "تقارير صفوفي" },
     to: "/app/reports",
     icon: BarChart3,
     roles: ["admin", "secretary", "teacher"],
@@ -174,7 +228,7 @@ export const navItems: NavItem[] = [
     group: "المالية والتواصل",
   },
   {
-    label: "الإعدادات",
+    label: "إعدادات المدرسة",
     to: "/app/settings",
     icon: Settings,
     roles: ["admin"],
@@ -182,14 +236,40 @@ export const navItems: NavItem[] = [
   },
 ];
 
-export const navGroups = [
-  "عام",
-  "الإدارة الأكاديمية",
-  "المتابعة اليومية",
-  "خدمات الطلاب",
-  "المالية والتواصل",
-];
+/** Sidebar section order, per role. */
+const GROUPS_BY_ROLE: Record<Role, string[]> = {
+  admin: ["عام", "الإدارة الأكاديمية", "المتابعة اليومية", "خدمات الطلاب", "المالية والتواصل"],
+  secretary: ["عام", "الإدارة الأكاديمية", "المتابعة اليومية", "خدمات الطلاب", "المالية والتواصل"],
+  teacher: ["عام", "الإدارة الأكاديمية", "المتابعة اليومية", "المالية والتواصل"],
+  student: ["عام", "دراستي", "خدماتي"],
+  parent: ["عام", "متابعة الأبناء", "خدمات الأبناء"],
+};
+
+export const navGroups = GROUPS_BY_ROLE.admin;
+
+export function groupsForRole(role: Role): string[] {
+  return GROUPS_BY_ROLE[role] ?? GROUPS_BY_ROLE.admin;
+}
+
+/** The label this role should see for an item. */
+export function labelFor(item: NavItem, role: Role): string {
+  return item.labelByRole?.[role] ?? item.label;
+}
+
+/** The sidebar section this role should find the item under. */
+export function groupFor(item: NavItem, role: Role): string {
+  return item.groupByRole?.[role] ?? item.group;
+}
 
 export function navForRole(role: Role) {
   return navItems.filter((i) => i.roles.includes(role));
+}
+
+/** Page title for a route, resolved for the current role. */
+export function pageTitleFor(pathname: string, role: Role): string | null {
+  // Longest match wins, so /app/students/x resolves to the students item.
+  const match = navItems
+    .filter((i) => pathname === i.to || pathname.startsWith(`${i.to}/`))
+    .sort((a, b) => b.to.length - a.to.length)[0];
+  return match ? labelFor(match, role) : null;
 }

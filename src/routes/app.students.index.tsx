@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
 import { DataTable, type Column } from "@/components/shared/data-table";
+import { BulkActions } from "@/components/shared/bulk-actions";
+import { useApp } from "@/lib/app-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,7 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { money, statusMeta } from "@/lib/roles";
+import { byRole, money, statusMeta } from "@/lib/roles";
 import { useSaveStudent, useStudentFilters, useStudents } from "@/lib/api/hooks";
 import type { StudentRow } from "@/lib/api/types";
 
@@ -51,6 +53,7 @@ function useDebounced<T>(value: T, delay = 350) {
 }
 
 function StudentsPage() {
+  const { role } = useApp();
   const [search, setSearch] = useState("");
   const [grade, setGrade] = useState("all");
   const [section, setSection] = useState("all");
@@ -167,7 +170,7 @@ function StudentsPage() {
   return (
     <>
       <PageHeader
-        title="إدارة الطلاب"
+        title={byRole(role, "إدارة الطلاب", { teacher: "طلابي" })}
         subtitle={`${query.data?.total ?? 0} طالباً في القائمة الحالية`}
         actions={<AddStudentDialog />}
       />
@@ -192,6 +195,25 @@ function StudentsPage() {
         exportDataset="students"
         exportFilters={apiFilters}
         exportTitle="قائمة الطلاب"
+        bulkDoctype="Student"
+        bulkActions={(selected, clear) => (
+          <BulkActions
+            doctype="Student"
+            selected={selected}
+            onDone={clear}
+            noun="طالباً"
+            fields={[
+              {
+                field: "enabled",
+                label: "الحالة",
+                options: [
+                  { value: 1, label: "تفعيل" },
+                  { value: 0, label: "تعطيل" },
+                ],
+              },
+            ]}
+          />
+        )}
         emptyTitle="لا توجد نتائج"
         emptyDescription="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر."
         toolbar={

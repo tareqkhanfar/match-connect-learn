@@ -31,6 +31,7 @@ import {
   type UploadedFile,
 } from "@/components/shared/file-upload";
 import { useApp } from "@/lib/app-context";
+import { byRole } from "@/lib/roles";
 import {
   useAssignments,
   useClasses,
@@ -79,7 +80,7 @@ function AssignmentsPage() {
   return (
     <>
       <PageHeader
-        title="الواجبات"
+        title={byRole(role, "الواجبات", { teacher: "واجبات صفوفي", student: "واجباتي", parent: "واجبات الأبناء" })}
         subtitle={`${assignments.length} واجباً`}
         actions={
           isStaff ? (

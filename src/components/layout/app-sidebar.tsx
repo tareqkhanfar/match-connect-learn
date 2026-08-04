@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronsLeft, GraduationCap, LogOut, X } from "lucide-react";
-import { navGroups, navForRole } from "@/lib/nav";
+import { groupFor, groupsForRole, labelFor, navForRole } from "@/lib/nav";
 import { useApp } from "@/lib/app-context";
 import { roleLabels } from "@/lib/roles";
 import { cn } from "@/lib/utils";
@@ -39,8 +39,8 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {navGroups.map((group) => {
-          const groupItems = items.filter((i) => i.group === group);
+        {groupsForRole(role).map((group) => {
+          const groupItems = items.filter((i) => groupFor(i, role) === group);
           if (!groupItems.length) return null;
           return (
             <div key={group}>
@@ -58,7 +58,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
                       <Link
                         to={item.to}
                         onClick={onCloseMobile}
-                        title={collapsed ? item.label : undefined}
+                        title={collapsed ? labelFor(item, role) : undefined}
                         className={cn(
                           "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                           active
@@ -68,7 +68,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
                         )}
                       >
                         <item.icon className="size-[18px] shrink-0" />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        {!collapsed && <span className="truncate">{labelFor(item, role)}</span>}
                       </Link>
                     </li>
                   );

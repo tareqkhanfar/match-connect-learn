@@ -35,7 +35,7 @@ import {
   type RouteRow,
   type TransportAssignmentRow,
 } from "@/lib/api/hooks";
-import { isBackOffice, money } from "@/lib/roles";
+import { byRole, isBackOffice, money } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/transport")({
   head: () => ({
@@ -62,7 +62,7 @@ function TransportPage() {
 
   return (
     <>
-      <PageHeader title="النقل المدرسي" subtitle="الخطوط والمحطات وإسناد الطلاب" />
+      <PageHeader title={byRole(role, "النقل المدرسي", { student: "نقلي المدرسي", parent: "نقل الأبناء" })} subtitle="الخطوط والمحطات وإسناد الطلاب" />
       <Tabs defaultValue="routes" dir="rtl">
         <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
           <TabsTrigger value="routes" className="rounded-lg">
