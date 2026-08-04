@@ -1979,3 +1979,707 @@ export function useDeleteExam() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["exam-schedule"] }),
   });
 }
+
+// --- Timetable generation ---------------------------------------------------
+
+export interface TimetablePlan {
+  id: string;
+  name: string;
+  student_group: string;
+  academic_year: string | null;
+  academic_term: string | null;
+  status: "Draft" | "Generated" | "Applied";
+  lessons: number;
+  generated_on?: string;
+}
+
+export interface PlanDetail extends TimetablePlan {
+  working_days: string[];
+  notes: string | null;
+  periods: Array<{
+    name: string;
+    order: number;
+    from_time: string;
+    to_time: string;
+    is_break: boolean;
+  }>;
+  subjects: Array<{
+    course: string;
+    periods_per_week: number;
+    instructor: string | null;
+    preferred_room: string | null;
+    max_per_day: number;
+  }>;
+}
+
+export function useTimetablePlans(enabled = true) {
+  return useQuery<TimetablePlan[]>({
+    queryKey: ["timetable-plans"],
+    queryFn: () => apiGet<TimetablePlan[]>("timetable.list_plans"),
+    enabled,
+  });
+}
+
+export function usePlan(plan: Opt<string>) {
+  return useQuery<PlanDetail>({
+    queryKey: ["timetable-plan", plan],
+    queryFn: () => apiGet<PlanDetail>("timetable.get_plan", { plan: plan! }),
+    enabled: Boolean(plan),
+  });
+}
+
+export function usePlanDefaults(studentGroup: Opt<string>) {
+  return useQuery<{
+    periods: PlanDetail["periods"];
+    working_days: string[];
+    subjects: PlanDetail["subjects"];
+    days: Array<{ code: string; label: string }>;
+  }>({
+    queryKey: ["plan-defaults", studentGroup],
+    queryFn: () =>
+      apiGet("timetable.plan_defaults", studentGroup ? { student_group: studentGroup } : {}),
+    enabled: Boolean(studentGroup),
+  });
+}
+
+export function useSavePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<PlanDetail>("timetable.save_plan", { payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timetable-plans"] });
+      qc.invalidateQueries({ queryKey: ["timetable-plan"] });
+    },
+  });
+}
+
+export function useDeletePlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (plan: string) => apiPost<{ id: string }>("timetable.delete_plan", { plan }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable-plans"] }),
+  });
+}
+
+export interface GeneratedTimetable {
+  plan: string;
+  teacherless: string[];
+  days: Array<{ code: string; label: string }>;
+  periods: Array<{ name: string; order: number; from_time: string; to_time: string }>;
+  lessons: Array<{
+    day: string;
+    day_label: string;
+    period: string;
+    period_order: number;
+    from_time: string;
+    to_time: string;
+    course: string;
+    instructor: string | null;
+    room: string | null;
+  }>;
+  placed: number;
+  demand: number;
+  capacity: number;
+  unplaced: Array<{ course: string; periods: number }>;
+  complete: boolean;
+}
+
+export function useGenerateTimetable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (plan: string) => apiPost<GeneratedTimetable>("timetable.generate", { plan }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable-plans"] }),
+  });
+}
+
+export function useApplyTimetable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { plan: string; from_date?: string; weeks?: number }) =>
+      apiPost<{ created: number; skipped: Array<{ date: string; course: string; reason: string }> }>(
+        "timetable.apply_plan",
+        vars,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timetable-plans"] });
+      qc.invalidateQueries({ queryKey: qk.timetable({}) });
+    },
+  });
+}
+
+// --- Certificates -----------------------------------------------------------
+
+export interface AvailableDocuments {
+  student: string | null;
+  student_name?: string;
+  documents: Array<{
+    kind: string;
+    label: string;
+    description: string;
+    available: boolean;
+    reason: string | null;
+  }>;
+}
+
+export function useAvailableDocuments(student: string | null | undefined) {
+  return useQuery<AvailableDocuments>({
+    queryKey: ["available-documents", student ?? null],
+    queryFn: () =>
+      apiGet<AvailableDocuments>("certificates.available_documents", student ? { student } : {}),
+  });
+}
+
+// --- Activities -------------------------------------------------------------
+
+export interface ActivityRow {
+  id: string;
+  title: string;
+  type: string;
+  type_label: string;
+  status: string;
+  status_label: string;
+  start_date: string;
+  end_date: string;
+  from_time: string;
+  to_time: string;
+  location: string | null;
+  capacity: number;
+  fee: number;
+  supervisor: string | null;
+  audience: string;
+  program: string | null;
+  student_group: string | null;
+  requires_consent: boolean;
+  registration_deadline: string;
+  description: string | null;
+  registered: number;
+  waitlisted: number;
+  seats_left: number | null;
+  full: boolean;
+  open: boolean;
+  upcoming: boolean;
+  my_enrolments: Array<{
+    id: string;
+    student: string;
+    student_name: string;
+    status: string;
+    status_label: string;
+    consent_status: string;
+    consent_label: string;
+  }>;
+}
+
+export function useActivities(
+  params: Opt<{ activity_type: string; status: string; search: string; page: number; page_size: number }> = {},
+) {
+  return useQuery<Paginated<ActivityRow>>({
+    queryKey: ["activities", params],
+    queryFn: () => apiGet<Paginated<ActivityRow>>("activities.list_activities", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useActivityOptions(enabled = true) {
+  return useQuery<{
+    types: Array<{ code: string; label: string }>;
+    statuses: Array<{ code: string; label: string }>;
+    programs: string[];
+    groups: Array<{ id: string; name: string }>;
+    supervisors: Array<{ id: string; name: string }>;
+  }>({
+    queryKey: ["activity-options"],
+    queryFn: () => apiGet("activities.form_options"),
+    enabled,
+  });
+}
+
+export function useSaveActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; title: string }>("activities.save_activity", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["activities"] }),
+  });
+}
+
+export function useDeleteActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (activity: string) =>
+      apiPost<{ id: string }>("activities.delete_activity", { activity }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["activities"] }),
+  });
+}
+
+export function useRegisterActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { activity: string; student?: string }) =>
+      apiPost<{ id: string; status: string; waitlisted: boolean }>("activities.register", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      qc.invalidateQueries({ queryKey: ["activity-participants"] });
+    },
+  });
+}
+
+export function useWithdrawActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enrolment: string) =>
+      apiPost<{ id: string; promoted: string | null }>("activities.withdraw", { enrolment }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      qc.invalidateQueries({ queryKey: ["activity-participants"] });
+    },
+  });
+}
+
+export function useGiveConsent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { enrolment: string; granted: number; notes?: string }) =>
+      apiPost<{ id: string; consent_status: string; status: string }>(
+        "activities.give_consent",
+        vars,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      qc.invalidateQueries({ queryKey: ["activity-participants"] });
+    },
+  });
+}
+
+export function useActivityParticipants(activity: Opt<string>) {
+  return useQuery<{
+    activity: { id: string; title: string; capacity: number; requires_consent: boolean; start_date: string };
+    rows: Array<{
+      id: string;
+      student: string;
+      student_name: string;
+      status: string;
+      status_label: string;
+      consent_status: string;
+      consent_label: string;
+      attended: boolean;
+      enrolled_on: string;
+      notes: string | null;
+    }>;
+    confirmed: number;
+    waitlisted: number;
+    awaiting_consent: number;
+  }>({
+    queryKey: ["activity-participants", activity],
+    queryFn: () => apiGet("activities.participants", { activity: activity! }),
+    enabled: Boolean(activity),
+  });
+}
+
+export function useMarkActivityAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entries: Array<{ id: string; attended: number }>) =>
+      apiPost<{ updated: number }>("activities.mark_attendance", { entries }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["activity-participants"] }),
+  });
+}
+
+// --- Teacher appraisal ------------------------------------------------------
+
+export interface ObservationRow {
+  id: string;
+  instructor: string;
+  instructor_name: string;
+  date: string;
+  type: string;
+  type_label: string;
+  status: string;
+  status_label: string;
+  course: string | null;
+  student_group: string | null;
+  percent: number;
+  rating: string | null;
+  observer: string | null;
+  has_response: boolean;
+}
+
+export function useObservations(
+  params: Opt<{ instructor: string; status: string; page: number; page_size: number }> = {},
+) {
+  return useQuery<Paginated<ObservationRow>>({
+    queryKey: ["observations", params],
+    queryFn: () => apiGet<Paginated<ObservationRow>>("appraisal.list_observations", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export interface ObservationDetail {
+  id: string;
+  instructor: string;
+  instructor_name: string;
+  date: string;
+  type: string;
+  type_label: string;
+  status: string;
+  status_label: string;
+  course: string | null;
+  student_group: string | null;
+  observer: string | null;
+  percent: number;
+  score: number;
+  rating: string | null;
+  strengths: string | null;
+  improvements: string | null;
+  action_plan: string | null;
+  teacher_response: string | null;
+  criteria: Array<{
+    criterion: string;
+    weight: number;
+    score: number;
+    max_score: number;
+    comment: string | null;
+  }>;
+}
+
+export function useObservation(observation: Opt<string>) {
+  return useQuery<ObservationDetail>({
+    queryKey: ["observation", observation],
+    queryFn: () => apiGet<ObservationDetail>("appraisal.get_observation", { observation: observation! }),
+    enabled: Boolean(observation),
+  });
+}
+
+export function useSaveObservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; percent: number; rating: string; status: string }>(
+        "appraisal.save_observation",
+        { payload },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["observations"] });
+      qc.invalidateQueries({ queryKey: ["observation"] });
+      qc.invalidateQueries({ queryKey: ["appraisal-overview"] });
+    },
+  });
+}
+
+export function useShareObservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (observation: string) =>
+      apiPost<{ id: string; status: string }>("appraisal.share_observation", { observation }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["observations"] });
+      qc.invalidateQueries({ queryKey: ["appraisal-overview"] });
+    },
+  });
+}
+
+export function useAcknowledgeObservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { observation: string; response?: string }) =>
+      apiPost<{ id: string; status: string }>("appraisal.acknowledge", vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["observations"] });
+      qc.invalidateQueries({ queryKey: ["observation"] });
+      qc.invalidateQueries({ queryKey: ["performance-file"] });
+    },
+  });
+}
+
+export function useDeleteObservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (observation: string) =>
+      apiPost<{ id: string }>("appraisal.delete_observation", { observation }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["observations"] }),
+  });
+}
+
+export interface PerformanceFile {
+  instructor: string;
+  name: string;
+  department: string | null;
+  summary: {
+    observations: number;
+    average_percent: number | null;
+    latest_rating: string | null;
+    trend: "up" | "down" | "flat" | null;
+    awaiting_response: number;
+  };
+  teaching: {
+    classes: number;
+    subjects: number;
+    students: number;
+    assignments: number;
+    marks_entered: number;
+    terms_submitted: number;
+  };
+  observations: Array<{
+    id: string;
+    date: string;
+    type_label: string;
+    status: string;
+    status_label: string;
+    percent: number;
+    rating: string | null;
+    course: string | null;
+    student_group: string | null;
+    strengths: string | null;
+    improvements: string | null;
+  }>;
+}
+
+export function usePerformanceFile(instructor?: Opt<string>) {
+  return useQuery<PerformanceFile>({
+    queryKey: ["performance-file", instructor ?? null],
+    queryFn: () =>
+      apiGet<PerformanceFile>("appraisal.performance_file", instructor ? { instructor } : {}),
+  });
+}
+
+export function useAppraisalOverview(enabled = true) {
+  return useQuery<{
+    rows: Array<{
+      instructor: string;
+      name: string;
+      department: string | null;
+      observations: number;
+      average: number | null;
+      latest: string | null;
+      latest_rating: string | null;
+      drafts: number;
+      awaiting_response: number;
+    }>;
+    summary: {
+      teachers: number;
+      observed: number;
+      never_observed: number;
+      school_average: number | null;
+    };
+    criteria_template: Array<{ criterion: string; weight: number; max_score: number }>;
+  }>({
+    queryKey: ["appraisal-overview"],
+    queryFn: () => apiGet("appraisal.appraisal_overview"),
+    enabled,
+  });
+}
+
+// --- Quizzes ----------------------------------------------------------------
+
+export interface QuizRow {
+  id: string;
+  title: string;
+  course: string;
+  student_group: string;
+  status: string;
+  status_label: string;
+  opens_on: string;
+  closes_on: string;
+  time_limit: number;
+  attempts_allowed: number;
+  total_marks: number;
+  pass_mark: number;
+  questions: number;
+  instructor: string | null;
+  open: boolean;
+  submissions: number;
+  my_attempts: Array<{
+    id: string;
+    status: string;
+    status_label: string;
+    score: number;
+    percentage: number;
+    passed: boolean;
+    attempt: number;
+  }>;
+  attempts_left: number;
+  best: number | null;
+}
+
+export function useQuizzes(
+  params: Opt<{ student_group: string; course: string; status: string; page: number; page_size: number }> = {},
+) {
+  return useQuery<Paginated<QuizRow>>({
+    queryKey: ["quizzes", params],
+    queryFn: () => apiGet<Paginated<QuizRow>>("quizzes.list_quizzes", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export interface QuizDetail {
+  id: string;
+  title: string;
+  course: string;
+  student_group: string;
+  status: string;
+  status_label: string;
+  opens_on: string;
+  closes_on: string;
+  time_limit: number;
+  attempts_allowed: number;
+  shuffle: boolean;
+  total_marks: number;
+  pass_mark: number;
+  show_answers_after: string;
+  instructions: string | null;
+  questions: Array<{
+    idx: number;
+    question_text: string;
+    question_type: string;
+    type_label: string;
+    marks: number;
+    option_a: string | null;
+    option_b: string | null;
+    option_c: string | null;
+    option_d: string | null;
+    correct_answer: string;
+    explanation: string | null;
+  }>;
+}
+
+export function useQuiz(quiz: Opt<string>) {
+  return useQuery<QuizDetail>({
+    queryKey: ["quiz", quiz],
+    queryFn: () => apiGet<QuizDetail>("quizzes.get_quiz", { quiz: quiz! }),
+    enabled: Boolean(quiz),
+  });
+}
+
+export function useSaveQuiz() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; title: string; questions: number; total_marks: number }>(
+        "quizzes.save_quiz",
+        { payload },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quizzes"] });
+      qc.invalidateQueries({ queryKey: ["quiz"] });
+    },
+  });
+}
+
+export function useDeleteQuiz() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (quiz: string) => apiPost<{ id: string }>("quizzes.delete_quiz", { quiz }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quizzes"] }),
+  });
+}
+
+/** The paper a student sits — never carries the correct answers. */
+export interface QuizPaper {
+  attempt: string;
+  quiz: string;
+  title: string;
+  instructions: string | null;
+  time_limit: number;
+  total_marks: number;
+  started_on: string;
+  attempt_number: number;
+  questions: Array<{
+    idx: number;
+    question_text: string;
+    question_type: string;
+    type_label: string;
+    marks: number;
+    options: Array<{ key: string; text: string }>;
+  }>;
+}
+
+export function useStartAttempt() {
+  return useMutation({
+    mutationFn: (quiz: string) => apiPost<QuizPaper>("quizzes.start_attempt", { quiz }),
+  });
+}
+
+export interface AttemptResult {
+  attempt: string;
+  score: number;
+  total: number;
+  percentage: number;
+  passed: boolean;
+  needs_review: boolean;
+  correct: number;
+  questions: number;
+  answers_revealed: boolean;
+  answers: Array<{
+    idx: number;
+    question: string;
+    given: string;
+    correct_answer: string;
+    is_correct: boolean;
+    marks: number;
+    possible: number;
+  }>;
+}
+
+export function useSubmitAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { attempt: string; answers: Array<{ idx: number; answer: string }> }) =>
+      apiPost<AttemptResult>("quizzes.submit_attempt", vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quizzes"] }),
+  });
+}
+
+export function useQuizResults(quiz: Opt<string>) {
+  return useQuery<{
+    quiz: {
+      id: string;
+      title: string;
+      course: string;
+      student_group: string;
+      total_marks: number;
+      pass_mark: number;
+      status: string;
+    };
+    summary: {
+      roster: number;
+      sat: number;
+      not_sat: number;
+      average: number | null;
+      passed: number;
+      needs_review: number;
+    };
+    attempts: Array<{
+      id: string;
+      student: string;
+      student_name: string;
+      attempt: number;
+      status: string;
+      status_label: string;
+      score: number;
+      total: number;
+      percentage: number;
+      passed: boolean;
+      needs_review: boolean;
+      submitted_on: string;
+      minutes: number;
+    }>;
+    not_sat: Array<{ student: string; student_name: string }>;
+    questions: Array<{ idx: number; text: string; correct: number; total: number; percent: number }>;
+  }>({
+    queryKey: ["quiz-results", quiz],
+    queryFn: () => apiGet("quizzes.quiz_results", { quiz: quiz! }),
+    enabled: Boolean(quiz),
+  });
+}
+
+export function useReviewAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { attempt: string; marks: Array<{ idx: number; marks_awarded: number }> }) =>
+      apiPost<{ attempt: string; score: number; percentage: number; passed: boolean }>(
+        "quizzes.review_attempt",
+        vars,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["quiz-results"] }),
+  });
+}

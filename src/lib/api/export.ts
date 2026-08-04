@@ -152,3 +152,51 @@ export async function downloadReportCard(student: string, academicTerm?: string)
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Endpoint name per certificate kind. */
+const CERTIFICATE_METHOD: Record<string, string> = {
+  enrolment: "enrolment_letter",
+  transcript: "transcript",
+  graduation: "graduation_certificate",
+  conduct: "conduct_certificate",
+};
+
+/**
+ * Download an official document as a PDF.
+ *
+ * These live under api/certificates rather than api/export, so the URL is
+ * built here instead of going through `endpoint()`.
+ */
+export async function downloadCertificate(kind: string, student: string): Promise<void> {
+  const method = CERTIFICATE_METHOD[kind];
+  if (!method) throw new ApiError(`Unknown document: ${kind}`, 400, "نوع وثيقة غير معروف");
+
+  const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+  const url = `${base}/api/method/match_k12.api.certificates.${method}?student=${encodeURIComponent(student)}`;
+
+  const res = await fetch(url, { credentials: "include" });
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.ok || contentType.includes("application/json")) {
+    let messageEn = `Could not issue the document (${res.status})`;
+    let messageAr = "";
+    try {
+      const payload = await res.json();
+      messageEn = payload?.message?.message_en || messageEn;
+      messageAr = payload?.message?.message_ar ?? "";
+    } catch {
+      /* keep default */
+    }
+    throw new ApiError(messageEn, res.status, messageAr);
+  }
+
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filenameFrom(res.headers.get("content-disposition")) ?? `${kind}-${student}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
