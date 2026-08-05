@@ -2683,3 +2683,412 @@ export function useReviewAttempt() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quiz-results"] }),
   });
 }
+
+// --- Alert rules and student alerts -----------------------------------------
+
+export interface AlertRuleRow {
+  id: string;
+  name: string;
+  trigger: string;
+  trigger_label: string;
+  group: string;
+  unit: string;
+  enabled: boolean;
+  severity: string;
+  severity_label: string;
+  operator: string;
+  threshold: number;
+  within_days: number;
+  applies_to: string;
+  program: string | null;
+  student_group: string | null;
+  title: string;
+  message: string;
+  emoji: string;
+  last_run: string;
+  last_matched: number;
+  open_alerts: number;
+}
+
+export function useAlertRules(enabled = true) {
+  return useQuery<AlertRuleRow[]>({
+    queryKey: ["alert-rules"],
+    queryFn: () => apiGet<AlertRuleRow[]>("alerts.list_rules"),
+    enabled,
+  });
+}
+
+export interface AlertRuleDetail extends Omit<AlertRuleRow, "open_alerts" | "last_run" | "last_matched" | "trigger_label" | "group" | "unit" | "severity_label"> {
+  notes: string | null;
+  actions: Array<{
+    action_type: string;
+    action_label: string;
+    notify_roles: string;
+    escalate_after_days: number;
+    block_pages: string | null;
+  }>;
+}
+
+export function useAlertRule(rule: string | null | undefined) {
+  return useQuery<AlertRuleDetail>({
+    queryKey: ["alert-rule", rule],
+    queryFn: () => apiGet<AlertRuleDetail>("alerts.get_rule", { rule: rule! }),
+    enabled: Boolean(rule),
+  });
+}
+
+export function useRuleOptions(enabled = true) {
+  return useQuery<{
+    triggers: Array<{ code: string; label: string; unit: string; group: string }>;
+    severities: Array<{ code: string; label: string; emoji: string }>;
+    levels: Array<{ code: string; label: string }>;
+    pages: Array<{ path: string; label: string }>;
+    operators: Array<{ code: string; label: string }>;
+    programs: string[];
+    groups: Array<{ id: string; name: string }>;
+  }>({
+    queryKey: ["rule-options"],
+    queryFn: () => apiGet("alerts.rule_options"),
+    enabled,
+  });
+}
+
+export function useSaveAlertRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; name: string }>("alerts.save_rule", { payload }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["alert-rules"] });
+      qc.invalidateQueries({ queryKey: ["alert-rule"] });
+    },
+  });
+}
+
+export function useDeleteAlertRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rule: string) => apiPost<{ id: string }>("alerts.delete_rule", { rule }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["alert-rules"] }),
+  });
+}
+
+/** How many students a rule would match, before it is saved. */
+export function usePreviewRule() {
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{
+        scope: number;
+        measured: number;
+        matched: number;
+        unit: string;
+        sample: Array<{ student: string; name: string; value: number }>;
+      }>("alerts.preview_rule", { payload }),
+  });
+}
+
+export function useRunRules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rule?: string) =>
+      apiPost<{ matched: number; raised: number; resolved: number; escalated: number }>(
+        "alerts.run_rules",
+        rule ? { rule } : {},
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export interface StudentAlert {
+  id: string;
+  student: string;
+  student_name: string;
+  rule: string | null;
+  rule_name: string | null;
+  trigger: string;
+  trigger_label: string;
+  status: string;
+  status_label: string;
+  severity: string;
+  severity_label: string;
+  severity_rank: number;
+  level: string;
+  level_label: string;
+  measured: number;
+  threshold: number;
+  unit: string;
+  title: string;
+  message: string;
+  emoji: string;
+  raised_on: string;
+  escalated_on: string;
+  resolved_on: string;
+  acknowledged: boolean;
+  blocks_access: boolean;
+}
+
+export function useAlerts(
+  params: Opt<{ student: string; status: string; severity: string; page: number; page_size: number }> = {},
+) {
+  return useQuery<Paginated<StudentAlert>>({
+    queryKey: ["student-alerts", params],
+    queryFn: () => apiGet<Paginated<StudentAlert>>("alerts.list_alerts", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAlertsOverview(enabled = true) {
+  return useQuery<{
+    summary: {
+      open: number;
+      blocked: number;
+      unacknowledged: number;
+      critical: number;
+      students: number;
+    };
+    by_severity: Array<{ severity: string; label: string; count: number; emoji: string }>;
+    by_trigger: Array<{ trigger: string; count: number }>;
+    alerts: StudentAlert[];
+  }>({
+    queryKey: ["alerts-overview"],
+    queryFn: () => apiGet("alerts.alerts_overview"),
+    enabled,
+  });
+}
+
+export function useStudentAlertFile(student: Opt<string>) {
+  return useQuery<{
+    student: string;
+    student_name: string;
+    summary: {
+      total: number;
+      open: number;
+      warnings: number;
+      blocked: boolean;
+      worst: number;
+      unacknowledged: number;
+    };
+    alerts: StudentAlert[];
+    blocked_pages: string[];
+  }>({
+    queryKey: ["student-alert-file", student ?? null],
+    queryFn: () => apiGet("alerts.student_file", student ? { student } : {}),
+  });
+}
+
+/** Which pages the viewer is blocked from, and why. */
+export function useMyBlocks() {
+  return useQuery<{
+    blocked: string[];
+    reasons: Array<{
+      alert: string;
+      student_name: string;
+      title: string;
+      message: string;
+      emoji: string;
+      severity: string;
+      pages: string[];
+    }>;
+  }>({
+    queryKey: ["my-blocks"],
+    queryFn: () => apiGet("alerts.my_blocks"),
+    staleTime: 60_000,
+  });
+}
+
+export function useAcknowledgeAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (alert: string) =>
+      apiPost<{ id: string; status: string }>("alerts.acknowledge_alert", { alert }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["student-alerts"] });
+      qc.invalidateQueries({ queryKey: ["student-alert-file"] });
+      qc.invalidateQueries({ queryKey: ["my-blocks"] });
+    },
+  });
+}
+
+export function useResolveAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { alert: string; notes?: string; dismiss?: boolean }) =>
+      apiPost<{ id: string; status: string }>("alerts.resolve_alert", {
+        alert: vars.alert,
+        ...(vars.notes ? { notes: vars.notes } : {}),
+        ...(vars.dismiss ? { dismiss: 1 } : {}),
+      }),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+// --- Subject resources ------------------------------------------------------
+
+export interface ResourceItem {
+  id: string;
+  title: string;
+  course: string;
+  student_group: string | null;
+  type: string;
+  type_label: string;
+  icon: string;
+  status: string;
+  description: string | null;
+  url: string | null;
+  instructor: string | null;
+  topic: string | null;
+  published_on: string;
+  views: number;
+  files: SubmissionFile[];
+}
+
+export function useResources(
+  params: Opt<{ course: string; resource_type: string; search: string }> = {},
+) {
+  return useQuery<{
+    subjects: Array<{ course: string; count: number; items: ResourceItem[] }>;
+    total: number;
+    types: Array<{ code: string; label: string; icon: string }>;
+  }>({
+    queryKey: ["resources", params],
+    queryFn: () => apiGet("resources_hub.list_resources", params),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useResourceOptions(enabled = true) {
+  return useQuery<{
+    courses: string[];
+    types: Array<{ code: string; label: string; icon: string }>;
+    groups: Array<{ id: string; name: string }>;
+  }>({
+    queryKey: ["resource-options"],
+    queryFn: () => apiGet("resources_hub.resource_options"),
+    enabled,
+  });
+}
+
+export function useSaveResource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; title: string }>("resources_hub.save_resource", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["resources"] }),
+  });
+}
+
+export function useDeleteResource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (resource: string) =>
+      apiPost<{ id: string }>("resources_hub.delete_resource", { resource }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["resources"] }),
+  });
+}
+
+export function useOpenResource() {
+  return useMutation({
+    mutationFn: (resource: string) =>
+      apiPost<{ id: string }>("resources_hub.open_resource", { resource }),
+  });
+}
+
+// --- Surveys ----------------------------------------------------------------
+
+export interface SurveyRow {
+  id: string;
+  title: string;
+  audience: string;
+  audience_label: string;
+  status: string;
+  status_label: string;
+  anonymous: boolean;
+  opens_on: string;
+  closes_on: string;
+  intro: string | null;
+  responses: number;
+  answered: boolean;
+  open: boolean;
+}
+
+export function useSurveys(status?: Opt<string>) {
+  return useQuery<SurveyRow[]>({
+    queryKey: ["surveys", status ?? null],
+    queryFn: () => apiGet<SurveyRow[]>("surveys.list_surveys", status ? { status } : {}),
+  });
+}
+
+export interface SurveyDetail {
+  id: string;
+  title: string;
+  audience_label: string;
+  anonymous: boolean;
+  intro: string | null;
+  closes_on: string;
+  questions: Array<{
+    idx: number;
+    question_text: string;
+    question_type: string;
+    type_label: string;
+    required: boolean;
+    options: string[];
+    scale_max: number;
+  }>;
+}
+
+export function useSurvey(survey: Opt<string>) {
+  return useQuery<SurveyDetail>({
+    queryKey: ["survey", survey],
+    queryFn: () => apiGet<SurveyDetail>("surveys.get_survey", { survey: survey! }),
+    enabled: Boolean(survey),
+  });
+}
+
+export function useSaveSurvey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; title: string; questions: number }>("surveys.save_survey", { payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["surveys"] }),
+  });
+}
+
+export function useDeleteSurvey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (survey: string) => apiPost<{ id: string }>("surveys.delete_survey", { survey }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["surveys"] }),
+  });
+}
+
+export function useSubmitSurvey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { survey: string; answers: Array<{ idx: number; answer: string }> }) =>
+      apiPost<{ id: string }>("surveys.submit_response", vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["surveys"] }),
+  });
+}
+
+export function useSurveyResults(survey: Opt<string>) {
+  return useQuery<{
+    survey: { id: string; title: string; audience_label?: string; anonymous: boolean; status?: string };
+    summary: { responses: number; by_role: Array<{ role: string; count: number }> };
+    questions: Array<{
+      idx: number;
+      question: string;
+      type: string;
+      type_label: string;
+      answered: number;
+      average?: number | null;
+      scale_max?: number;
+      distribution?: Array<{ value: number; count: number }>;
+      options?: Array<{ option: string; count: number; percent: number }>;
+      responses?: string[];
+    }>;
+  }>({
+    queryKey: ["survey-results", survey],
+    queryFn: () => apiGet("surveys.survey_results", { survey: survey! }),
+    enabled: Boolean(survey),
+  });
+}

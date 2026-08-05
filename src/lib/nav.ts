@@ -25,6 +25,8 @@ import {
   FileQuestion,
   CalendarCog,
   UserCheck,
+  BookMarked,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./roles";
@@ -177,6 +179,15 @@ export const navItems: NavItem[] = [
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
+    label: "مصادر المواد",
+    labelByRole: { teacher: "مصادر موادي", student: "مصادر دراستي", parent: "مصادر الأبناء" },
+    to: "/app/resources",
+    icon: BookMarked,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
+  },
+  {
     label: "الاختبارات الإلكترونية",
     labelByRole: { student: "اختباراتي", parent: "اختبارات الأبناء" },
     to: "/app/quizzes",
@@ -253,6 +264,14 @@ export const navItems: NavItem[] = [
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
+    label: "المحادثات",
+    to: "/app/chat",
+    icon: MessagesSquare,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المالية والتواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
+  },
+  {
     label: "التواصل والإعلانات",
     labelByRole: { student: "الإعلانات والرسائل", parent: "الإعلانات والرسائل" },
     to: "/app/communication",
@@ -283,6 +302,23 @@ export const navItems: NavItem[] = [
     icon: UserCheck,
     roles: ["admin", "secretary", "teacher"],
     group: "الإدارة الأكاديمية",
+  },
+  {
+    label: "التنبيهات والإنذارات",
+    labelByRole: { student: "تنبيهاتي", parent: "تنبيهات الأبناء" },
+    to: "/app/alerts",
+    icon: ShieldAlert,
+    roles: ["admin", "secretary", "student", "parent"],
+    group: "المالية والتواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
+  },
+  {
+    label: "الاستبيانات",
+    to: "/app/surveys",
+    icon: ClipboardList,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المالية والتواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
     label: "خطط التقييم",

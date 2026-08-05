@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
   BookOpen,
   Eye,
+  Maximize2,
   MessageCircle,
   Paperclip,
   Search,
@@ -39,6 +41,7 @@ const TARGET_META: Record<Target, { label: string; icon: typeof Users; hint: str
  * the composer.
  */
 export function ChatWidget() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>("list");
   const [thread, setThread] = useState<string | null>(null);
@@ -77,6 +80,10 @@ export function ChatWidget() {
               onOpen={openThread}
               onCompose={() => setPanel("compose")}
               onClose={() => setOpen(false)}
+              onExpand={() => {
+                setOpen(false);
+                void navigate({ to: "/app/chat" });
+              }}
             />
           )}
           {panel === "thread" && thread && (
@@ -137,10 +144,12 @@ function ConversationList({
   onOpen,
   onCompose,
   onClose,
+  onExpand,
 }: {
   onOpen: (thread: string) => void;
   onCompose: () => void;
   onClose: () => void;
+  onExpand: () => void;
 }) {
   const { data, isLoading } = useInbox(30);
   const [query, setQuery] = useState("");
@@ -163,12 +172,22 @@ function ConversationList({
         title="المحادثات"
         onClose={onClose}
         action={
-          <button
-            onClick={onCompose}
-            className="rounded-lg bg-brand-gradient px-2.5 py-1.5 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5 active:translate-y-0"
-          >
-            جديدة
-          </button>
+          <span className="flex items-center gap-1.5">
+            <button
+              onClick={onExpand}
+              title="فتح صفحة المحادثات الكاملة"
+              aria-label="فتح صفحة المحادثات الكاملة"
+              className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Maximize2 className="size-4" />
+            </button>
+            <button
+              onClick={onCompose}
+              className="rounded-lg bg-brand-gradient px-2.5 py-1.5 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5 active:translate-y-0"
+            >
+              جديدة
+            </button>
+          </span>
         }
       />
 

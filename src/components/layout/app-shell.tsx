@@ -2,6 +2,7 @@ import { Menu, Moon, Search, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { UserMenu } from "./user-menu";
 import { ChatWidget } from "./chat-widget";
+import { AccessGuard } from "@/components/shared/access-guard";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { useApp } from "@/lib/app-context";
@@ -66,7 +67,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-6 md:py-8">
           <div className="mx-auto w-full max-w-[1400px] animate-in fade-in duration-500">
-            {children}
+            {/* A rule may close a page to a student; say why rather than
+                showing an empty screen. */}
+            <AccessGuard>{children}</AccessGuard>
           </div>
         </main>
       </div>
