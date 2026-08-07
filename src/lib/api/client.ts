@@ -1,5 +1,5 @@
 /**
- * Thin client for the Match K12 backend (Frappe).
+ * Thin client for the Match Schools backend (Frappe).
  *
  * Every endpoint answers with the same flat envelope:
  *   { success, data, message_en, message_ar }
@@ -33,7 +33,7 @@ export class ApiError extends Error {
  */
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
-const METHOD_PREFIX = "match_k12.api";
+const METHOD_PREFIX = "match_schools.api";
 
 function endpointUrl(method: string) {
   // `method` is given as "module.function", e.g. "students.list_students".

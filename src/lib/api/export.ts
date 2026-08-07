@@ -30,7 +30,7 @@ export interface ExportRequest {
 const API_BASE = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
 
 function endpoint(method: string) {
-  return `${API_BASE}/api/method/match_k12.api.export.${method}`;
+  return `${API_BASE}/api/method/match_schools.api.export.${method}`;
 }
 
 /**
@@ -172,7 +172,7 @@ export async function downloadCertificate(kind: string, student: string): Promis
   if (!method) throw new ApiError(`Unknown document: ${kind}`, 400, "نوع وثيقة غير معروف");
 
   const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
-  const url = `${base}/api/method/match_k12.api.certificates.${method}?student=${encodeURIComponent(student)}`;
+  const url = `${base}/api/method/match_schools.api.certificates.${method}?student=${encodeURIComponent(student)}`;
 
   const res = await fetch(url, { credentials: "include" });
 

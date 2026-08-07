@@ -1,4 +1,4 @@
-/** React Query hooks wrapping the Match K12 API. */
+/** React Query hooks wrapping the Match Schools API. */
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 import { apiGet, apiPost } from "./client";

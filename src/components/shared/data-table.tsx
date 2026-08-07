@@ -159,7 +159,7 @@ export function DataTable<T>({
     );
     if (!storageKey || typeof window === "undefined") return initial;
     try {
-      const saved = window.localStorage.getItem(`k12-cols-${storageKey}`);
+      const saved = window.localStorage.getItem(`ms-cols-${storageKey}`);
       if (saved) return new Set(JSON.parse(saved) as string[]);
     } catch {
       /* fall back to defaults */
@@ -169,7 +169,7 @@ export function DataTable<T>({
 
   useEffect(() => {
     if (!storageKey || typeof window === "undefined") return;
-    window.localStorage.setItem(`k12-cols-${storageKey}`, JSON.stringify([...hidden]));
+    window.localStorage.setItem(`ms-cols-${storageKey}`, JSON.stringify([...hidden]));
   }, [hidden, storageKey]);
 
   const visibleColumns = useMemo(

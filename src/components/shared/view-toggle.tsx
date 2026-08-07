@@ -13,12 +13,12 @@ export type ViewMode = "cards" | "table";
 export function useViewMode(storageKey: string, initial: ViewMode = "cards") {
   const [mode, setMode] = useState<ViewMode>(() => {
     if (typeof window === "undefined") return initial;
-    const saved = window.localStorage.getItem(`k12-view-${storageKey}`);
+    const saved = window.localStorage.getItem(`ms-view-${storageKey}`);
     return saved === "cards" || saved === "table" ? saved : initial;
   });
 
   useEffect(() => {
-    window.localStorage.setItem(`k12-view-${storageKey}`, mode);
+    window.localStorage.setItem(`ms-view-${storageKey}`, mode);
   }, [storageKey, mode]);
 
   return [mode, setMode] as const;

@@ -1,4 +1,4 @@
-/** Types mirroring the Match K12 backend payloads. */
+/** Types mirroring the Match Schools backend payloads. */
 
 export type Role = "admin" | "secretary" | "teacher" | "student" | "parent";
 export type PaymentStatus = "paid" | "partial" | "late";

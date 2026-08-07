@@ -29,7 +29,7 @@ import type { ParentDashboard as ParentDashboardData } from "@/lib/api/types";
 import { money } from "@/lib/roles";
 
 /** Remembers which child the parent was last looking at. */
-const SELECTED_KEY = "k12.parent.selectedChild";
+const SELECTED_KEY = "ms.parent.selectedChild";
 
 export function ParentDashboard() {
   const { data, isLoading, error, refetch } = useDashboard();
