@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertCircle, CheckCircle2, Download, Plus, Wallet } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Plus, Receipt, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyBlock, ErrorState, Skeleton, TableSkeleton } from "@/components/shared/states";
+import { QuickInvoiceDialog } from "@/components/shared/quick-invoice-dialog";
 import { useApp } from "@/lib/app-context";
 import {
   useFeeCollection,
@@ -66,6 +67,7 @@ function FeesPage() {
   // Raising invoices and taking payments is a back-office job.
   const canBill = isBackOffice(role);
   const [invoicing, setInvoicing] = useState(false);
+  const [quickInvoice, setQuickInvoice] = useState(false);
   const [paying, setPaying] = useState<{ id: string; student: string; outstanding: number } | null>(
     null,
   );
@@ -172,13 +174,22 @@ function FeesPage() {
         }
         actions={
           canBill ? (
-            <button
-              onClick={() => setInvoicing(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <Plus className="size-4" />
-              فاتورة جديدة
-            </button>
+            <>
+              <button
+                onClick={() => setQuickInvoice(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <Receipt className="size-4" />
+                فاتورة من هيكل الرسوم
+              </button>
+              <button
+                onClick={() => setInvoicing(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-all hover:-translate-y-0.5 hover:bg-secondary active:translate-y-0"
+              >
+                <Plus className="size-4" />
+                فاتورة يدوية
+              </button>
+            </>
           ) : null
         }
       />
@@ -310,6 +321,7 @@ function FeesPage() {
         />
       </div>
       {invoicing && <InvoiceDialog onClose={() => setInvoicing(false)} />}
+      {quickInvoice && <QuickInvoiceDialog onClose={() => setQuickInvoice(false)} />}
       {paying && <PaymentDialog fee={paying} onClose={() => setPaying(null)} />}
     </>
   );

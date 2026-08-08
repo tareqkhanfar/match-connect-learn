@@ -3297,3 +3297,79 @@ export function usePrintFormats(doctype: string) {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+/* --------------------------------------------------------------- billing */
+
+export interface FeeStructureOption {
+  id: string;
+  program: string | null;
+  academicYear: string | null;
+  academicTerm: string | null;
+  total: number;
+  /** Matches the student's own programme and year. */
+  suggested: boolean;
+}
+
+export function useStructureOptions(student: string | null | undefined) {
+  return useQuery<{
+    structures: FeeStructureOption[];
+    studentProgram: string | null;
+    studentAcademicYear: string | null;
+    companies: string[];
+    defaultCompany: string | null;
+  }>({
+    queryKey: ["structure-options", student],
+    queryFn: () =>
+      apiGet("billing.structure_options", student ? { student } : {}),
+    enabled: Boolean(student),
+  });
+}
+
+export interface StructurePreview {
+  id: string;
+  program: string | null;
+  academicYear: string | null;
+  total: number;
+  components: Array<{
+    category: string;
+    item: string | null;
+    description: string | null;
+    amount: number;
+  }>;
+}
+
+export function useStructurePreview(feeStructure: string | null | undefined) {
+  return useQuery<StructurePreview>({
+    queryKey: ["structure-preview", feeStructure],
+    queryFn: () =>
+      apiGet<StructurePreview>("billing.structure_preview", {
+        fee_structure: feeStructure!,
+      }),
+    enabled: Boolean(feeStructure),
+  });
+}
+
+export function useInvoiceStudent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student: string;
+      fee_structure?: string;
+      posting_date?: string;
+      due_date?: string;
+      submit?: number;
+    }) =>
+      apiPost<{
+        id: string;
+        student: string;
+        customer: string;
+        total: number;
+        outstanding: number;
+        status: string;
+      }>("billing.invoice_student", vars as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["fees"] });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+  });
+}
