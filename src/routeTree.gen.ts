@@ -43,6 +43,7 @@ import { Route as AppTeachersRouteImport } from './routes/app.teachers'
 import { Route as AppTermRouteImport } from './routes/app.term'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppTimetableBuilderRouteImport } from './routes/app.timetable-builder'
+import { Route as AppTimetableGridRouteImport } from './routes/app.timetable-grid'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
 import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
@@ -217,6 +218,11 @@ const AppTimetableBuilderRoute = AppTimetableBuilderRouteImport.update({
   path: '/timetable-builder',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTimetableGridRoute = AppTimetableGridRouteImport.update({
+  id: '/timetable-grid',
+  path: '/timetable-grid',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTransportRoute = AppTransportRouteImport.update({
   id: '/transport',
   path: '/transport',
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
+  '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByTo {
   '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
+  '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
   '/app': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
@@ -345,6 +353,7 @@ export interface FileRoutesById {
   '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
+  '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
@@ -386,6 +395,7 @@ export interface FileRouteTypes {
     | '/app/term'
     | '/app/timetable'
     | '/app/timetable-builder'
+    | '/app/timetable-grid'
     | '/app/transport'
     | '/app/'
     | '/app/students/$studentId'
@@ -424,6 +434,7 @@ export interface FileRouteTypes {
     | '/app/term'
     | '/app/timetable'
     | '/app/timetable-builder'
+    | '/app/timetable-grid'
     | '/app/transport'
     | '/app'
     | '/app/students/$studentId'
@@ -463,6 +474,7 @@ export interface FileRouteTypes {
     | '/app/term'
     | '/app/timetable'
     | '/app/timetable-builder'
+    | '/app/timetable-grid'
     | '/app/transport'
     | '/app/'
     | '/app/students/$studentId'
@@ -714,6 +726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTimetableBuilderRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/timetable-grid': {
+      id: '/app/timetable-grid'
+      path: '/timetable-grid'
+      fullPath: '/app/timetable-grid'
+      preLoaderRoute: typeof AppTimetableGridRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/transport': {
       id: '/app/transport'
       path: '/transport'
@@ -770,6 +789,7 @@ interface AppRouteChildren {
   AppTermRoute: typeof AppTermRoute
   AppTimetableRoute: typeof AppTimetableRoute
   AppTimetableBuilderRoute: typeof AppTimetableBuilderRoute
+  AppTimetableGridRoute: typeof AppTimetableGridRoute
   AppTransportRoute: typeof AppTransportRoute
   AppIndexRoute: typeof AppIndexRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
@@ -808,6 +828,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTermRoute: AppTermRoute,
   AppTimetableRoute: AppTimetableRoute,
   AppTimetableBuilderRoute: AppTimetableBuilderRoute,
+  AppTimetableGridRoute: AppTimetableGridRoute,
   AppTransportRoute: AppTransportRoute,
   AppIndexRoute: AppIndexRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,

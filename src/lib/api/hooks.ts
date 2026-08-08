@@ -3557,3 +3557,127 @@ export function useCancelEnrollment() {
     onSuccess: () => invalidateEnrollments(qc),
   });
 }
+
+/* -------------------------------------------------------- timetable grid */
+
+export interface GridPeriod {
+  order: number;
+  name: string;
+  from: string;
+  to: string;
+  isBreak: boolean;
+}
+
+export interface GridSlot {
+  id?: string;
+  day: string;
+  period: number;
+  from?: string;
+  to?: string;
+  course: string | null;
+  instructor: string | null;
+  instructorName?: string | null;
+  room: string | null;
+  studentGroup?: string | null;
+}
+
+export interface GridOptions {
+  days: Array<{ value: string; label: string }>;
+  periods: GridPeriod[];
+  groups: Array<{
+    name: string;
+    student_group_name: string;
+    program: string | null;
+    academic_year: string | null;
+  }>;
+  instructors: Array<{ name: string; instructor_name: string }>;
+  rooms: Array<{ name: string; room_name: string | null }>;
+  courses: string[];
+  defaultAcademicYear: string | null;
+  defaultAcademicTerm: string | null;
+}
+
+export function useGridOptions() {
+  return useQuery<GridOptions>({
+    queryKey: ["grid-options"],
+    queryFn: () => apiGet<GridOptions>("timetable_grid.grid_options"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export interface PatternResult {
+  slots: GridSlot[];
+  periods: GridPeriod[];
+  days: Array<{ value: string; label: string }>;
+  studentGroup: string | null;
+  instructor: string | null;
+}
+
+export function usePattern(params: { student_group?: string; instructor?: string }) {
+  const enabled = Boolean(params.student_group || params.instructor);
+  return useQuery<PatternResult>({
+    queryKey: ["timetable-pattern", params],
+    queryFn: () =>
+      apiGet<PatternResult>("timetable_grid.get_pattern", {
+        ...(params.student_group ? { student_group: params.student_group } : {}),
+        ...(params.instructor ? { instructor: params.instructor } : {}),
+      }),
+    enabled,
+  });
+}
+
+export interface ConflictItem {
+  kind: string;
+  label: string;
+  detail: string;
+  with?: string | null;
+}
+
+export interface ConflictReport {
+  conflicts: Record<string, ConflictItem[]>;
+  summary: {
+    total: number;
+    lessons: number;
+    byKind: Array<{ kind: string; label: string; count: number }>;
+  };
+}
+
+export function useCheckSlots() {
+  return useMutation({
+    mutationFn: (vars: { student_group: string; slots: GridSlot[] }) =>
+      apiPost<ConflictReport>(
+        "timetable_grid.check_slots",
+        vars as unknown as Record<string, unknown>,
+      ),
+  });
+}
+
+export function useSavePattern() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student_group: string; slots: GridSlot[] }) =>
+      apiPost<{ studentGroup: string; slots: number }>(
+        "timetable_grid.save_pattern",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["timetable-pattern"] });
+      void qc.invalidateQueries({ queryKey: ["timetable"] });
+    },
+  });
+}
+
+export function useGenerateLessons() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student_group: string; from_date?: string; to_date?: string }) =>
+      apiPost<{
+        created: number;
+        removed: number;
+        from: string;
+        to: string;
+        skipped: Array<{ date: string; course: string; reason: string }>;
+      }>("timetable_grid.generate_lessons", vars as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable"] }),
+  });
+}

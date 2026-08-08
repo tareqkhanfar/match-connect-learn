@@ -18,12 +18,19 @@ export interface ApiEnvelope<T> {
 export class ApiError extends Error {
   status: number;
   messageAr: string;
+  /**
+   * The envelope's `data` when a failure carries structured detail — a list of
+   * timetable conflicts, for instance. Without this the screen can only show
+   * the message and not what to fix.
+   */
+  data: unknown;
 
-  constructor(message: string, status: number, messageAr = "") {
+  constructor(message: string, status: number, messageAr = "", data: unknown = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.messageAr = messageAr;
+    this.data = data;
   }
 }
 
@@ -74,6 +81,7 @@ async function parseResponse<T>(res: Response, method: string): Promise<T> {
       envelope.message_en || `Request to ${method} failed`,
       res.status,
       envelope.message_ar,
+      envelope.data,
     );
   }
 
