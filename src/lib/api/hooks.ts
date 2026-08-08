@@ -3144,7 +3144,12 @@ export interface ApplicantDetail extends ApplicantRow {
   pincode: string | null;
   country: string | null;
   city: string | null;
-  guardians: Array<{ guardian: string; name: string | null; relation: string | null }>;
+  guardians: Array<{
+    guardian: string;
+    name: string | null;
+    relation: string | null;
+    relationLabel: string | null;
+  }>;
   siblings: Sibling[];
   address: {
     line1: string | null;
@@ -3204,6 +3209,7 @@ export interface AdmissionOptions {
   studentAdmissions: string[];
   countries: string[];
   bloodGroups: string[];
+  relations: Array<{ value: string; label: string }>;
   guardians: Array<{ name: string; guardian_name: string }>;
   defaultAcademicYear: string | null;
   statuses: Array<{ value: string; label: string; tone: string }>;

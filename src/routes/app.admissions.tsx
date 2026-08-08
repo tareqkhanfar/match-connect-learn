@@ -591,16 +591,21 @@ function ApplicantDialog({
                         }))}
                         placeholder="اختر ولي الأمر"
                       />
-                      <Input
+                      {/* A Select on the doctype, not free text — a typed
+                          value would be refused on save. */}
+                      <SearchableSelect
                         value={g.relation}
-                        placeholder="صلة القرابة"
-                        onChange={(e) =>
+                        onChange={(v) =>
                           setGuardians((list) =>
-                            list.map((x, idx) =>
-                              idx === i ? { ...x, relation: e.target.value } : x,
-                            ),
+                            list.map((x, idx) => (idx === i ? { ...x, relation: v } : x)),
                           )
                         }
+                        options={(o?.relations ?? []).map((r) => ({
+                          value: r.value,
+                          label: r.label,
+                        }))}
+                        placeholder="صلة القرابة"
+                        clearable
                       />
                       <button
                         onClick={() => setGuardians((list) => list.filter((_, idx) => idx !== i))}
@@ -884,8 +889,11 @@ function ApplicantDetailDialog({
                       className="rounded-xl bg-secondary/60 px-3 py-2 text-sm"
                     >
                       {g.name || g.guardian}
-                      {g.relation ? (
-                        <span className="text-muted-foreground"> — {g.relation}</span>
+                      {g.relationLabel || g.relation ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          — {g.relationLabel || g.relation}
+                        </span>
                       ) : null}
                     </li>
                   ))}
