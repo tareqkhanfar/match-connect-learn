@@ -25,6 +25,7 @@ export function CredentialsDialog({
   applicant,
   credentials,
   guardians = [],
+  printFormat,
   onClose,
 }: {
   title?: string;
@@ -32,6 +33,8 @@ export function CredentialsDialog({
   applicant?: string;
   credentials: Credentials | null;
   guardians?: Credentials[];
+  /** Blank uses the doctype default set in the ERPNext desk. */
+  printFormat?: string;
   onClose: () => void;
 }) {
   const [printing, setPrinting] = useState(false);
@@ -49,6 +52,7 @@ export function CredentialsDialog({
         ...(applicant ? { applicant } : {}),
         ...(credentials ? { credentials } : {}),
         ...(guardians.length ? { guardians } : {}),
+        ...(printFormat ? { printFormat } : {}),
       });
       toast.success("تم تجهيز إشعار التسجيل");
     } catch (err) {

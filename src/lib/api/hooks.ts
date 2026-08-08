@@ -3124,9 +3124,28 @@ export interface Credentials {
   isNew?: boolean;
 }
 
+export interface Sibling {
+  name: string | null;
+  birthDate: string;
+  gender: string | null;
+  sameSchool: boolean;
+}
+
 export interface ApplicantDetail extends ApplicantRow {
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  bloodGroup: string | null;
+  studentCategory: string | null;
+  studentAdmission: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  state: string | null;
+  pincode: string | null;
+  country: string | null;
+  city: string | null;
   guardians: Array<{ guardian: string; name: string | null; relation: string | null }>;
-  siblings: Array<{ name: string | null; birthDate: string; studying: number }>;
+  siblings: Sibling[];
   address: {
     line1: string | null;
     line2: string | null;
@@ -3168,7 +3187,7 @@ export function useApplicants(params: {
   });
 }
 
-export function useApplicant(applicant: Opt<string>) {
+export function useApplicant(applicant: string | null | undefined) {
   return useQuery<ApplicantDetail>({
     queryKey: ["applicant", applicant],
     queryFn: () => apiGet<ApplicantDetail>("admissions.get_applicant", { applicant: applicant! }),
@@ -3182,6 +3201,10 @@ export interface AdmissionOptions {
   academicTerms: Array<{ name: string; academic_year: string }>;
   genders: string[];
   studentCategories: string[];
+  studentAdmissions: string[];
+  countries: string[];
+  bloodGroups: string[];
+  guardians: Array<{ name: string; guardian_name: string }>;
   defaultAcademicYear: string | null;
   statuses: Array<{ value: string; label: string; tone: string }>;
 }
@@ -3253,5 +3276,18 @@ export function useDeleteApplicant() {
 export function useResetPassword() {
   return useMutation({
     mutationFn: (user: string) => apiPost<Credentials>("credentials.reset_password", { user }),
+  });
+}
+
+/** Print formats the ERPNext desk offers for a doctype. */
+export function usePrintFormats(doctype: string) {
+  return useQuery<{ formats: string[]; default: string; letterheads: string[] }>({
+    queryKey: ["print-formats", doctype],
+    queryFn: () =>
+      apiGet<{ formats: string[]; default: string; letterheads: string[] }>(
+        "registration_print.print_formats",
+        { doctype },
+      ),
+    staleTime: 5 * 60 * 1000,
   });
 }

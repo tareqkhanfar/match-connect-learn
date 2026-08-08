@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -29,12 +29,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { downloadRegistrationSlip } from "@/lib/api/export";
+import { errorMessage } from "@/lib/api/error-message";
 import {
   useAdmissionOptions,
   useAdmitApplicant,
   useApplicant,
   useApplicants,
   useDeleteApplicant,
+  usePrintFormats,
   useSaveApplicant,
   useTransitionApplicant,
   type AdmitResult,
@@ -71,7 +73,9 @@ const TABS = [
 ] as const;
 
 function AdmissionsPage() {
-  const [status, setStatus] = useState<string>("Applied");
+  // "All" rather than "Applied": a school whose applications are all decided
+  // would otherwise open the screen to an empty list and read it as broken.
+  const [status, setStatus] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<ApplicantRow | null>(null);
@@ -98,7 +102,7 @@ function AdmissionsPage() {
       await remove.mutateAsync(row.id);
       toast.success("تم حذف الطلب");
     } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحذف");
+      toast.error(errorMessage(err, "تعذّر الحذف"));
     }
   }
 
@@ -163,9 +167,23 @@ function AdmissionsPage() {
       ) : query.isLoading ? (
         <TableSkeleton rows={5} />
       ) : (data?.items.length ?? 0) === 0 ? (
+        // Distinguish "nothing here yet" from "nothing matches this filter",
+        // which look identical but call for opposite actions.
         <EmptyBlock
-          title="لا توجد طلبات"
-          description="أنشئ طلب التحاق جديداً لبدء عملية التسجيل."
+          title={
+            search
+              ? "لا توجد نتائج مطابقة"
+              : status === "All"
+                ? "لا توجد طلبات"
+                : `لا توجد طلبات ${TABS.find(([k]) => k === status)?.[1] ?? ""}`
+          }
+          description={
+            search
+              ? "جرّب اسماً آخر أو رقم هوية مختلفاً."
+              : status === "All"
+                ? "أنشئ طلب التحاق جديداً لبدء عملية التسجيل."
+                : "غيّر التبويب لعرض بقية الطلبات، أو أنشئ طلباً جديداً."
+          }
           icon={<ClipboardList className="size-6" />}
         />
       ) : (
@@ -279,6 +297,11 @@ function AdmissionsPage() {
 
 /* ------------------------------------------------------------------ form */
 
+/**
+ * The registration form, carrying every field the Student Applicant doctype
+ * has. Grouped into the same tabs the desk uses, so a registrar filling this
+ * in never has to finish the record in ERPNext afterwards.
+ */
 function ApplicantDialog({
   applicant,
   onClose,
@@ -287,36 +310,87 @@ function ApplicantDialog({
   onClose: () => void;
 }) {
   const options = useAdmissionOptions();
+  const detail = useApplicant(applicant?.id ?? null);
   const save = useSaveApplicant();
 
-  const [form, setForm] = useState({
-    firstName: applicant?.name?.split(" ")[0] ?? "",
-    lastName: applicant?.name?.split(" ").slice(1).join(" ") ?? "",
-    idNumber: applicant?.idNumber ?? "",
-    program: applicant?.program ?? "",
-    academicYear: applicant?.academicYear ?? "",
-    email: applicant?.email ?? "",
-    mobile: applicant?.mobile ?? "",
-    birthDate: applicant?.birthDate ?? "",
-    gender: applicant?.gender ?? "",
-    nationality: applicant?.nationality ?? "",
-  });
+  const [tab, setTab] = useState<"basic" | "personal" | "relations" | "address">("basic");
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [guardians, setGuardians] = useState<
+    Array<{ guardian: string; relation: string }>
+  >([]);
+  const [siblings, setSiblings] = useState<
+    Array<{ name: string; birthDate: string; gender: string; sameSchool: boolean }>
+  >([]);
+  const [loaded, setLoaded] = useState(false);
 
-  function set<K extends keyof typeof form>(key: K, value: string) {
+  // Populate once the existing record arrives (or immediately when creating).
+  useEffect(() => {
+    if (loaded) return;
+    if (applicant && !detail.data) return;
+
+    const d = detail.data;
+    setForm({
+      firstName: d?.firstName ?? applicant?.name?.split(" ")[0] ?? "",
+      middleName: d?.middleName ?? "",
+      lastName: d?.lastName ?? "",
+      idNumber: d?.idNumber ?? applicant?.idNumber ?? "",
+      program: d?.program ?? "",
+      academicYear: d?.academicYear ?? "",
+      academicTerm: d?.academicTerm ?? "",
+      studentAdmission: d?.studentAdmission ?? "",
+      studentCategory: d?.studentCategory ?? "",
+      email: d?.email ?? "",
+      mobile: d?.mobile ?? "",
+      birthDate: d?.birthDate ?? "",
+      gender: d?.gender ?? "",
+      bloodGroup: d?.bloodGroup ?? "",
+      nationality: d?.nationality ?? "",
+      addressLine1: d?.addressLine1 ?? "",
+      addressLine2: d?.addressLine2 ?? "",
+      city: d?.city ?? "",
+      state: d?.state ?? "",
+      pincode: d?.pincode ?? "",
+      country: d?.country ?? "",
+    });
+    setGuardians(
+      (d?.guardians ?? []).map((g) => ({ guardian: g.guardian, relation: g.relation ?? "" })),
+    );
+    setSiblings(
+      (d?.siblings ?? []).map((s) => ({
+        name: s.name ?? "",
+        birthDate: s.birthDate ?? "",
+        gender: s.gender ?? "",
+        sameSchool: s.sameSchool,
+      })),
+    );
+    setLoaded(true);
+  }, [applicant, detail.data, loaded]);
+
+  function set(key: string, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   async function submit() {
-    if (!form.firstName.trim()) {
+    if (!form["firstName"]?.trim()) {
       toast.error("الاسم الأول مطلوب");
+      setTab("basic");
       return;
     }
-    if (!form.idNumber.trim()) {
+    if (!form["idNumber"]?.trim()) {
       toast.error("رقم الهوية مطلوب");
+      setTab("basic");
       return;
     }
-    if (!form.program) {
+    if (!form["program"]) {
       toast.error("البرنامج مطلوب");
+      setTab("basic");
+      return;
+    }
+    // Caught here as well as on the server, so it reads as a field problem
+    // rather than a failed save after the whole form was filled in.
+    if (form["birthDate"] && form["birthDate"] >= new Date().toISOString().slice(0, 10)) {
+      toast.error("تاريخ الميلاد يجب أن يكون قبل تاريخ اليوم");
+      setTab("personal");
       return;
     }
 
@@ -324,14 +398,28 @@ function ApplicantDialog({
       await save.mutateAsync({
         ...(applicant ? { id: applicant.id } : {}),
         ...form,
-        academicYear: form.academicYear || options.data?.defaultAcademicYear || "",
+        academicYear: form["academicYear"] || options.data?.defaultAcademicYear || "",
+        guardians: guardians.filter((g) => g.guardian),
+        siblings: siblings.filter((s) => s.name.trim()),
       });
       toast.success(applicant ? "تم تحديث الطلب" : "تم إنشاء الطلب");
       onClose();
     } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر الحفظ");
+      toast.error(errorMessage(err, "تعذّر الحفظ"));
     }
   }
+
+  const o = options.data;
+  const terms = (o?.academicTerms ?? []).filter(
+    (t) => !form["academicYear"] || t.academic_year === form["academicYear"],
+  );
+
+  const TAB_LIST = [
+    ["basic", "بيانات الطلب"],
+    ["personal", "البيانات الشخصية"],
+    ["relations", "الأهل والإخوة"],
+    ["address", "العنوان"],
+  ] as const;
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -340,86 +428,317 @@ function ApplicantDialog({
           <DialogTitle>{applicant ? "تعديل الطلب" : "طلب التحاق جديد"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>الاسم الأول *</Label>
-            <Input value={form.firstName} onChange={(e) => set("firstName", e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>اسم العائلة</Label>
-            <Input value={form.lastName} onChange={(e) => set("lastName", e.target.value)} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>رقم الهوية *</Label>
-            <Input
-              value={form.idNumber}
-              onChange={(e) => set("idNumber", e.target.value)}
-              className="num"
-              inputMode="numeric"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>تاريخ الميلاد</Label>
-            <Input
-              type="date"
-              value={form.birthDate}
-              onChange={(e) => set("birthDate", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>البرنامج / الصف *</Label>
-            <SearchableSelect
-              value={form.program}
-              onChange={(v) => set("program", v)}
-              options={(options.data?.programs ?? []).map((p) => ({ value: p, label: p }))}
-              placeholder="اختر البرنامج"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>العام الدراسي</Label>
-            <SearchableSelect
-              value={form.academicYear || (options.data?.defaultAcademicYear ?? "")}
-              onChange={(v) => set("academicYear", v)}
-              options={(options.data?.academicYears ?? []).map((y) => ({ value: y, label: y }))}
-              placeholder="اختر العام"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>الجنس</Label>
-            <SearchableSelect
-              value={form.gender}
-              onChange={(v) => set("gender", v)}
-              options={(options.data?.genders ?? []).map((g) => ({ value: g, label: g }))}
-              placeholder="اختر"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>الجنسية</Label>
-            <Input value={form.nationality} onChange={(e) => set("nationality", e.target.value)} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>البريد الإلكتروني</Label>
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
-              dir="ltr"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>رقم الجوال</Label>
-            <Input
-              value={form.mobile}
-              onChange={(e) => set("mobile", e.target.value)}
-              className="num"
-              inputMode="tel"
-            />
-          </div>
+        <div className="inline-flex flex-wrap items-center gap-1 rounded-xl bg-secondary p-1">
+          {TAB_LIST.map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+                tab === key ? "bg-card shadow-soft" : "text-muted-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {tab === "basic" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="الاسم الأول *">
+              <Input value={form["firstName"] ?? ""} onChange={(e) => set("firstName", e.target.value)} />
+            </Field>
+            <Field label="اسم الأب">
+              <Input value={form["middleName"] ?? ""} onChange={(e) => set("middleName", e.target.value)} />
+            </Field>
+            <Field label="اسم العائلة">
+              <Input value={form["lastName"] ?? ""} onChange={(e) => set("lastName", e.target.value)} />
+            </Field>
+            <Field label="رقم الهوية *">
+              <Input
+                value={form["idNumber"] ?? ""}
+                onChange={(e) => set("idNumber", e.target.value)}
+                className="num"
+                inputMode="numeric"
+              />
+            </Field>
+            <Field label="البرنامج / الصف *">
+              <SearchableSelect
+                value={form["program"] ?? ""}
+                onChange={(v) => set("program", v)}
+                options={(o?.programs ?? []).map((p) => ({ value: p, label: p }))}
+                placeholder="اختر البرنامج"
+              />
+            </Field>
+            <Field label="العام الدراسي">
+              <SearchableSelect
+                value={form["academicYear"] || (o?.defaultAcademicYear ?? "")}
+                onChange={(v) => set("academicYear", v)}
+                options={(o?.academicYears ?? []).map((y) => ({ value: y, label: y }))}
+                placeholder="اختر العام"
+              />
+            </Field>
+            <Field label="الفصل الدراسي">
+              <SearchableSelect
+                value={form["academicTerm"] ?? ""}
+                onChange={(v) => set("academicTerm", v)}
+                options={terms.map((t) => ({ value: t.name, label: t.name }))}
+                placeholder="اختر الفصل"
+                clearable
+              />
+            </Field>
+            <Field label="فئة الطالب">
+              <SearchableSelect
+                value={form["studentCategory"] ?? ""}
+                onChange={(v) => set("studentCategory", v)}
+                options={(o?.studentCategories ?? []).map((c) => ({ value: c, label: c }))}
+                placeholder="اختر الفئة"
+                clearable
+              />
+            </Field>
+            <Field label="خطة القبول">
+              <SearchableSelect
+                value={form["studentAdmission"] ?? ""}
+                onChange={(v) => set("studentAdmission", v)}
+                options={(o?.studentAdmissions ?? []).map((a) => ({ value: a, label: a }))}
+                placeholder="اختر خطة القبول"
+                clearable
+              />
+            </Field>
+          </div>
+        )}
+
+        {tab === "personal" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="تاريخ الميلاد">
+              <Input
+                type="date"
+                value={form["birthDate"] ?? ""}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => set("birthDate", e.target.value)}
+              />
+            </Field>
+            <Field label="الجنس">
+              <SearchableSelect
+                value={form["gender"] ?? ""}
+                onChange={(v) => set("gender", v)}
+                options={(o?.genders ?? []).map((g) => ({ value: g, label: g }))}
+                placeholder="اختر"
+                clearable
+              />
+            </Field>
+            <Field label="فصيلة الدم">
+              <SearchableSelect
+                value={form["bloodGroup"] ?? ""}
+                onChange={(v) => set("bloodGroup", v)}
+                options={(o?.bloodGroups ?? []).map((b) => ({ value: b, label: b }))}
+                placeholder="اختر"
+                clearable
+              />
+            </Field>
+            <Field label="الجنسية">
+              <Input value={form["nationality"] ?? ""} onChange={(e) => set("nationality", e.target.value)} />
+            </Field>
+            <Field label="البريد الإلكتروني">
+              <Input
+                type="email"
+                dir="ltr"
+                value={form["email"] ?? ""}
+                onChange={(e) => set("email", e.target.value)}
+              />
+            </Field>
+            <Field label="رقم الجوال">
+              <Input
+                value={form["mobile"] ?? ""}
+                onChange={(e) => set("mobile", e.target.value)}
+                className="num"
+                inputMode="tel"
+              />
+            </Field>
+          </div>
+        )}
+
+        {tab === "relations" && (
+          <div className="space-y-5">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-bold">أولياء الأمور</p>
+                <button
+                  onClick={() => setGuardians((g) => [...g, { guardian: "", relation: "" }])}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                >
+                  <Plus className="size-3.5" />
+                  إضافة
+                </button>
+              </div>
+              {guardians.length === 0 ? (
+                <p className="rounded-xl bg-secondary/50 p-3 text-xs text-muted-foreground">
+                  لم يُضف أي ولي أمر بعد.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {guardians.map((g, i) => (
+                    <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                      <SearchableSelect
+                        value={g.guardian}
+                        onChange={(v) =>
+                          setGuardians((list) =>
+                            list.map((x, idx) => (idx === i ? { ...x, guardian: v } : x)),
+                          )
+                        }
+                        options={(o?.guardians ?? []).map((x) => ({
+                          value: x.name,
+                          label: `${x.guardian_name} (${x.name})`,
+                        }))}
+                        placeholder="اختر ولي الأمر"
+                      />
+                      <Input
+                        value={g.relation}
+                        placeholder="صلة القرابة"
+                        onChange={(e) =>
+                          setGuardians((list) =>
+                            list.map((x, idx) =>
+                              idx === i ? { ...x, relation: e.target.value } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <button
+                        onClick={() => setGuardians((list) => list.filter((_, idx) => idx !== i))}
+                        aria-label="حذف"
+                        className="rounded-lg bg-secondary px-2.5 text-destructive hover:bg-destructive-soft"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-bold">الإخوة والأخوات</p>
+                <button
+                  onClick={() =>
+                    setSiblings((s) => [
+                      ...s,
+                      { name: "", birthDate: "", gender: "", sameSchool: false },
+                    ])
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                >
+                  <Plus className="size-3.5" />
+                  إضافة
+                </button>
+              </div>
+              {siblings.length === 0 ? (
+                <p className="rounded-xl bg-secondary/50 p-3 text-xs text-muted-foreground">
+                  لا يوجد إخوة مسجلون.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {siblings.map((s, i) => (
+                    <div
+                      key={i}
+                      className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-center gap-2"
+                    >
+                      <Input
+                        value={s.name}
+                        placeholder="الاسم"
+                        onChange={(e) =>
+                          setSiblings((l) =>
+                            l.map((x, idx) => (idx === i ? { ...x, name: e.target.value } : x)),
+                          )
+                        }
+                      />
+                      <Input
+                        type="date"
+                        value={s.birthDate}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) =>
+                          setSiblings((l) =>
+                            l.map((x, idx) => (idx === i ? { ...x, birthDate: e.target.value } : x)),
+                          )
+                        }
+                      />
+                      <SearchableSelect
+                        value={s.gender}
+                        onChange={(v) =>
+                          setSiblings((l) =>
+                            l.map((x, idx) => (idx === i ? { ...x, gender: v } : x)),
+                          )
+                        }
+                        options={(o?.genders ?? []).map((g) => ({ value: g, label: g }))}
+                        placeholder="الجنس"
+                        clearable
+                      />
+                      <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={s.sameSchool}
+                          onChange={(e) =>
+                            setSiblings((l) =>
+                              l.map((x, idx) =>
+                                idx === i ? { ...x, sameSchool: e.target.checked } : x,
+                              ),
+                            )
+                          }
+                        />
+                        بنفس المدرسة
+                      </label>
+                      <button
+                        onClick={() => setSiblings((l) => l.filter((_, idx) => idx !== i))}
+                        aria-label="حذف"
+                        className="rounded-lg bg-secondary px-2.5 py-2 text-destructive hover:bg-destructive-soft"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === "address" && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="العنوان — سطر 1">
+              <Input
+                value={form["addressLine1"] ?? ""}
+                onChange={(e) => set("addressLine1", e.target.value)}
+              />
+            </Field>
+            <Field label="العنوان — سطر 2">
+              <Input
+                value={form["addressLine2"] ?? ""}
+                onChange={(e) => set("addressLine2", e.target.value)}
+              />
+            </Field>
+            <Field label="المدينة">
+              <Input value={form["city"] ?? ""} onChange={(e) => set("city", e.target.value)} />
+            </Field>
+            <Field label="المحافظة">
+              <Input value={form["state"] ?? ""} onChange={(e) => set("state", e.target.value)} />
+            </Field>
+            <Field label="الرمز البريدي">
+              <Input
+                value={form["pincode"] ?? ""}
+                onChange={(e) => set("pincode", e.target.value)}
+                className="num"
+              />
+            </Field>
+            <Field label="الدولة">
+              <SearchableSelect
+                value={form["country"] ?? ""}
+                onChange={(v) => set("country", v)}
+                options={(o?.countries ?? []).map((c) => ({ value: c, label: c }))}
+                placeholder="اختر الدولة"
+                clearable
+              />
+            </Field>
+          </div>
+        )}
 
         <DialogFooter className="gap-2">
           <button
@@ -441,6 +760,16 @@ function ApplicantDialog({
   );
 }
 
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+
 /* ---------------------------------------------------------------- detail */
 
 function ApplicantDetailDialog({
@@ -457,8 +786,11 @@ function ApplicantDetailDialog({
   const admit = useAdmitApplicant();
   const confirm = useConfirm();
   const [printing, setPrinting] = useState(false);
+  const [printFormat, setPrintFormat] = useState("");
 
   const d = query.data;
+  // The formats ERPNext offers for whichever doctype we would print.
+  const formats = usePrintFormats(d?.student ? "Student" : "Student Applicant");
 
   async function transition(to: string, label: string) {
     const ok = await confirm({
@@ -472,7 +804,7 @@ function ApplicantDetailDialog({
       await move.mutateAsync({ applicant, to_status: to });
       toast.success(`تم ${label} الطلب`);
     } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر تنفيذ الإجراء");
+      toast.error(errorMessage(err, "تعذّر تنفيذ الإجراء"));
     }
   }
 
@@ -489,19 +821,22 @@ function ApplicantDetailDialog({
       toast.success("تم التسجيل وإصدار بيانات الدخول");
       onAdmitted(result);
     } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر التسجيل");
+      toast.error(errorMessage(err, "تعذّر التسجيل"));
     }
   }
 
   async function printSlip() {
     setPrinting(true);
     try {
-      await downloadRegistrationSlip(
-        d?.student ? { student: d.student } : { applicant },
-      );
+      await downloadRegistrationSlip({
+        ...(d?.student ? { student: d.student } : { applicant }),
+        // Blank means "use whatever the desk has set as the default", which is
+        // what keeps this identical to printing from ERPNext.
+        ...(printFormat ? { printFormat } : {}),
+      });
       toast.success("تم تجهيز إشعار التسجيل");
     } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّرت الطباعة");
+      toast.error(errorMessage(err, "تعذّرت الطباعة"));
     } finally {
       setPrinting(false);
     }
@@ -615,13 +950,28 @@ function ApplicantDetailDialog({
               إعادة فتح
             </button>
           )}
+          {(formats.data?.formats.length ?? 0) > 1 && (
+            <div className="min-w-[190px]">
+              <SearchableSelect
+                value={printFormat}
+                onChange={setPrintFormat}
+                options={(formats.data?.formats ?? []).map((f) => ({
+                  value: f === formats.data?.default ? "" : f,
+                  label: f === formats.data?.default ? `${f} (افتراضي)` : f,
+                }))}
+                placeholder="قالب الطباعة"
+                clearable
+                clearLabel="القالب الافتراضي"
+              />
+            </div>
+          )}
           <button
             onClick={printSlip}
             disabled={printing}
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold disabled:opacity-60"
           >
             <Printer className="size-4" />
-            طباعة
+            {printing ? "جارٍ التجهيز…" : "طباعة"}
           </button>
           <button
             onClick={onClose}

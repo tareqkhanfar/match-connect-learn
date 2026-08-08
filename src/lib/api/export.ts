@@ -214,6 +214,8 @@ export async function downloadRegistrationSlip(args: {
   applicant?: string;
   credentials?: unknown;
   guardians?: unknown;
+  printFormat?: string;
+  letterhead?: string;
 }): Promise<void> {
   const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
   const url = `${base}/api/method/match_schools.api.registration_print.registration_slip`;
@@ -223,7 +225,38 @@ export async function downloadRegistrationSlip(args: {
   if (args.applicant) body.set("applicant", args.applicant);
   if (args.credentials) body.set("credentials", JSON.stringify(args.credentials));
   if (args.guardians) body.set("guardians", JSON.stringify(args.guardians));
+  if (args.printFormat) body.set("print_format", args.printFormat);
+  if (args.letterhead) body.set("letterhead", args.letterhead);
 
+  await postForPdf(url, body, `registration-${args.student ?? args.applicant}.pdf`);
+}
+
+/**
+ * Print any supported document using the ERPNext print format.
+ *
+ * Layout comes from the desk: omit `printFormat` and the doctype's default is
+ * used, so editing a Print Format in ERPNext changes what this prints.
+ */
+export async function downloadDocumentPrint(args: {
+  doctype: string;
+  name: string;
+  printFormat?: string;
+  letterhead?: string;
+}): Promise<void> {
+  const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+  const url = `${base}/api/method/match_schools.api.registration_print.print_document`;
+
+  const body = new URLSearchParams();
+  body.set("doctype", args.doctype);
+  body.set("name", args.name);
+  if (args.printFormat) body.set("print_format", args.printFormat);
+  if (args.letterhead) body.set("letterhead", args.letterhead);
+
+  await postForPdf(url, body, `${args.doctype}-${args.name}.pdf`);
+}
+
+/** POST a form body and save the PDF that comes back. */
+async function postForPdf(url: string, body: URLSearchParams, fallbackName: string) {
   const res = await fetch(url, {
     method: "POST",
     credentials: "include",
@@ -239,7 +272,7 @@ export async function downloadRegistrationSlip(args: {
 
   const contentType = res.headers.get("content-type") ?? "";
   if (!res.ok || contentType.includes("application/json")) {
-    let messageEn = `Could not print the slip (${res.status})`;
+    let messageEn = `Could not produce the document (${res.status})`;
     let messageAr = "";
     try {
       const payload = await res.json();
@@ -255,9 +288,7 @@ export async function downloadRegistrationSlip(args: {
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = objectUrl;
-  link.download =
-    filenameFrom(res.headers.get("content-disposition")) ??
-    `registration-${args.student ?? args.applicant}.pdf`;
+  link.download = filenameFrom(res.headers.get("content-disposition")) ?? fallbackName;
   document.body.appendChild(link);
   link.click();
   link.remove();
