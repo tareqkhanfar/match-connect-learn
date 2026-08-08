@@ -4,6 +4,7 @@ import { ChildSwitcher } from "./child-switcher";
 import { UserMenu } from "./user-menu";
 import { ChatWidget } from "./chat-widget";
 import { AccessGuard } from "@/components/shared/access-guard";
+import { ForcePasswordChange } from "@/components/shared/force-password-change";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { useApp } from "@/lib/app-context";
@@ -78,6 +79,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </div>
 
+      {/* Blocks the app while the user is still on the issued password. */}
+      <ForcePasswordChange />
       <ChatWidget />
     </div>
   );

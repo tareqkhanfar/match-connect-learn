@@ -162,7 +162,26 @@ export function ProgressBar({
   );
 }
 
-export function Avatar({ name, className }: { name: string; className?: string }) {
+export function Avatar({
+  name,
+  src,
+  className,
+}: {
+  name: string;
+  /** Photo to show instead of initials, when one has been uploaded. */
+  src?: string | null;
+  className?: string;
+}) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={cn("size-9 shrink-0 rounded-xl object-cover", className)}
+      />
+    );
+  }
+
   const initials = name
     .replace("أ. ", "")
     .split(" ")

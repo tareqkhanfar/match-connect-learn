@@ -97,7 +97,7 @@ function StudentsPage() {
           params={{ studentId: s.id }}
           className="flex items-center gap-3"
         >
-          <Avatar name={s.name} />
+          <Avatar name={s.name} src={s.image} />
           <div className="min-w-0">
             <p className="truncate font-semibold hover:text-primary">{s.name}</p>
             <p className="num text-xs text-muted-foreground">{s.id}</p>

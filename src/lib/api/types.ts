@@ -15,6 +15,11 @@ export interface SessionScope {
 }
 
 export interface Session {
+  /**
+   * True while the user is still on the password the school issued. The app
+   * shows a blocking prompt until it is changed.
+   */
+  mustChangePassword?: boolean;
   user: string;
   email: string;
   role: Role;

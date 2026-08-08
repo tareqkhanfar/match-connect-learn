@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarDays, MapPin, Phone, Printer, User, Wallet } from "lucide-react";
 import { Avatar, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
+import { StudentPhoto } from "@/components/shared/student-photo";
+import { useApp } from "@/lib/app-context";
+import { isBackOffice } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/states";
 import { useStudent } from "@/lib/api/hooks";
@@ -32,6 +35,7 @@ const ATTENDANCE_LABELS: Record<string, string> = {
 
 function StudentProfilePage() {
   const { studentId } = Route.useParams();
+  const { role } = useApp();
   const { data, isLoading, error, refetch } = useStudent(studentId);
 
   if (isLoading) return <DashboardSkeleton />;
@@ -73,7 +77,13 @@ function StudentProfilePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
         <div className="space-y-5">
           <div className="card-surface p-5 text-center">
-            <Avatar name={profile.name} className="mx-auto size-20 rounded-3xl text-xl" />
+            <StudentPhoto
+              student={profile.id}
+              name={profile.name}
+              image={profile.image ?? null}
+              canEdit={isBackOffice(role)}
+              onChange={() => refetch()}
+            />
             <p className="mt-3 text-lg font-bold">{profile.name}</p>
             <p className="num text-xs text-muted-foreground">{profile.id}</p>
             <div className="mt-3 flex justify-center gap-2">

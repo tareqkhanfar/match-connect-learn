@@ -294,3 +294,42 @@ async function postForPdf(url: string, body: URLSearchParams, fallbackName: stri
   link.remove();
   URL.revokeObjectURL(objectUrl);
 }
+
+/**
+ * Upload a student's profile photo.
+ *
+ * Multipart rather than JSON, because the file is binary; the server stores it
+ * as a public file so it can be rendered in an `<img>`.
+ */
+export async function uploadStudentPhoto(student: string, file: File): Promise<string> {
+  const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+  const body = new FormData();
+  body.append("student", student);
+  body.append("file", file);
+
+  const res = await fetch(
+    `${base}/api/method/match_schools.api.students.upload_student_photo`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "X-Frappe-CSRF-Token":
+          (typeof window !== "undefined" &&
+            (window as unknown as { csrf_token?: string }).csrf_token) ||
+          "",
+      },
+      body,
+    },
+  );
+
+  const payload = await res.json().catch(() => null);
+  const envelope = payload?.message;
+  if (!res.ok || !envelope?.success) {
+    throw new ApiError(
+      envelope?.message_en || `Upload failed (${res.status})`,
+      res.status,
+      envelope?.message_ar ?? "",
+    );
+  }
+  return envelope.data.image as string;
+}
