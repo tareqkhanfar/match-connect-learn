@@ -122,15 +122,19 @@ function LoginPage() {
 
           <div className="mt-7 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Label htmlFor="email">اسم المستخدم أو البريد الإلكتروني</Label>
               <Input
                 id="email"
-                type="email"
+                // Deliberately not type="email": accounts issued by the school
+                // log in with a username like st1260342, and the browser's own
+                // validation would reject it before the request is ever sent.
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="username"
-                placeholder="name@school.ps"
+                placeholder="st1260342 أو name@school.ps"
                 className="h-11 rounded-xl"
+                dir="ltr"
                 required
               />
             </div>
