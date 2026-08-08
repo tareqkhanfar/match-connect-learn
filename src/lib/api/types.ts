@@ -1,7 +1,9 @@
 /** Types mirroring the Match Schools backend payloads. */
 
 export type Role = "admin" | "secretary" | "teacher" | "student" | "parent";
-export type PaymentStatus = "paid" | "partial" | "late";
+// "draft" is an invoice that has not been posted yet: visible to the office
+// as work in progress, never counted as money owed.
+export type PaymentStatus = "paid" | "partial" | "late" | "draft";
 
 export interface SessionScope {
   student: string | null;

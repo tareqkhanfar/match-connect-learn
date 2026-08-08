@@ -18,12 +18,13 @@ export function isBackOffice(role: Role) {
 }
 
 /** Payment status labels/styles, shared by the fee views. */
-export type PaymentStatus = "paid" | "partial" | "late";
+export type PaymentStatus = "paid" | "partial" | "late" | "draft";
 
 export const statusMeta: Record<PaymentStatus, { label: string; cls: string }> = {
   paid: { label: "مدفوع", cls: "bg-success-soft text-success border-success/30" },
   partial: { label: "جزئي", cls: "bg-warning-soft text-warm-foreground border-warning/40" },
   late: { label: "متأخر", cls: "bg-destructive-soft text-destructive border-destructive/30" },
+  draft: { label: "مسودة", cls: "bg-secondary text-muted-foreground border-border" },
 };
 
 /** Currency formatting used across the finance screens. */

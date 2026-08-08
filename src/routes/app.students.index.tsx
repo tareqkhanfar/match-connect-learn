@@ -161,7 +161,7 @@ function StudentsPage() {
         <Pill
           tone={s.status === "paid" ? "success" : s.status === "partial" ? "warning" : "danger"}
         >
-          {statusMeta[s.status].label}
+          {statusMeta[s.status]?.label ?? s.status}
         </Pill>
       ),
     },

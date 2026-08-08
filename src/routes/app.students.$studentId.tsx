@@ -170,7 +170,7 @@ function StudentProfilePage() {
                       : "danger"
                 }
               >
-                {statusMeta[fees.status].label}
+                {statusMeta[fees.status]?.label ?? fees.status}
               </Pill>
             </div>
           </div>
@@ -302,7 +302,7 @@ function StudentProfilePage() {
                                       : "danger"
                                 }
                               >
-                                {statusMeta[f.status].label}
+                                {statusMeta[f.status]?.label ?? f.status}
                               </Pill>
                             </td>
                           </tr>

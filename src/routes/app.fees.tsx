@@ -127,9 +127,19 @@ function FeesPage() {
       label: "الحالة",
       render: (f) => (
         <Pill
-          tone={f.status === "paid" ? "success" : f.status === "partial" ? "warning" : "danger"}
+          tone={
+            f.status === "paid"
+              ? "success"
+              : f.status === "partial"
+                ? "warning"
+                : f.status === "draft"
+                  ? "muted"
+                  : "danger"
+          }
         >
-          {statusMeta[f.status].label}
+          {/* Fall back to the raw value: an unrecognised status must never
+              take down the whole finance screen. */}
+          {statusMeta[f.status]?.label ?? f.status_label ?? f.status}
         </Pill>
       ),
     },
