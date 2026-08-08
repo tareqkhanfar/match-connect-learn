@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useApp } from "@/lib/app-context";
 import {
   ArrowRight,
   Award,
@@ -28,19 +29,25 @@ import { useChildOverview, useDashboard } from "@/lib/api/hooks";
 import type { ParentDashboard as ParentDashboardData } from "@/lib/api/types";
 import { money } from "@/lib/roles";
 
-/** Remembers which child the parent was last looking at. */
-const SELECTED_KEY = "ms.parent.selectedChild";
-
 export function ParentDashboard() {
   const { data, isLoading, error, refetch } = useDashboard();
-  const [selected, setSelected] = useState<string | null>(() =>
-    typeof window === "undefined" ? null : localStorage.getItem(SELECTED_KEY),
-  );
+  // The dashboard keeps its "all children, then drill in" shape, but the
+  // choice itself lives in the header — otherwise the two disagree about who
+  // is being viewed.
+  const { activeChild, setActiveChild } = useApp();
+  const [selected, setSelectedState] = useState<string | null>(null);
 
+  function setSelected(id: string | null) {
+    setSelectedState(id);
+    // Opening a child's card makes them the active child everywhere.
+    if (id) setActiveChild(id);
+  }
+
+  // Following the header keeps the drill-in view on the right child when the
+  // parent switches from another screen.
   useEffect(() => {
-    if (selected) localStorage.setItem(SELECTED_KEY, selected);
-    else localStorage.removeItem(SELECTED_KEY);
-  }, [selected]);
+    if (selected && activeChild && selected !== activeChild) setSelectedState(activeChild);
+  }, [activeChild, selected]);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;

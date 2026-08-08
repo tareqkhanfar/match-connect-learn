@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { isBackOffice } from "@/lib/roles";
 import {
   useAcknowledgeAlert,
@@ -332,9 +333,10 @@ function AlertRow({
 /* ------------------------------------------------------- student / parent */
 
 function FamilyAlertsView() {
-  const { role, session } = useApp();
-  const children = session?.scope.children ?? [];
-  const [student, setStudent] = useState(session?.scope.student ?? children[0]?.id ?? "");
+  const { role } = useApp();
+  // Which child is being viewed is decided once, in the header, so every
+  // screen shows the same person.
+  const student = useViewedStudent();
 
   const query = useAlerts(student ? { student } : {});
   const acknowledge = useAcknowledgeAlert();
@@ -374,17 +376,6 @@ function FamilyAlertsView() {
           <p className="mt-2 text-sm leading-relaxed">
             يرجى مراجعة إدارة المدرسة لمعالجة الأمر واستعادة الوصول الكامل.
           </p>
-        </div>
-      )}
-
-      {role === "parent" && children.length > 1 && (
-        <div className="card-surface mb-5 p-4 md:max-w-md">
-          <Label className="mb-1.5 block text-xs">الابن</Label>
-          <SearchableSelect
-            options={children.map((c) => ({ value: c.id, label: c.name }))}
-            value={student}
-            onChange={setStudent}
-          />
         </div>
       )}
 

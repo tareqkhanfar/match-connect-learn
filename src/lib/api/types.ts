@@ -418,6 +418,13 @@ export interface FeeRow {
 }
 
 export interface FeeList extends Paginated<FeeRow> {
+  /** Values worth filtering by, computed from the invoices that exist. */
+  filter_options?: {
+    programs: string[];
+    academicYears: string[];
+    academicTerms: string[];
+    statuses: Array<{ value: string; label: string }>;
+  } | null;
   summary: {
     total: number;
     collected: number;

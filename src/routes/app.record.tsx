@@ -27,6 +27,7 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { StudentPicker } from "@/components/shared/student-picker";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import {
   useAcademicRecord,
   useClasses,
@@ -232,10 +233,10 @@ function StaffRecordView() {
 
 /** A student reading their own record, or a parent reading a child's. */
 function PersonalRecordView() {
-  const { role, session } = useApp();
-  const children = session?.scope.children ?? [];
-  const own = session?.scope.student ?? children[0]?.id ?? "";
-  const [student, setStudent] = useState(own);
+  const { role } = useApp();
+  // The header switcher decides which child is shown, so this screen agrees
+  // with every other one.
+  const student = useViewedStudent();
   const [printing, setPrinting] = useState(false);
 
   const query = useAcademicRecord(student || undefined);
@@ -276,19 +277,6 @@ function PersonalRecordView() {
         }
       />
 
-      {/* A parent with more than one child chooses between them. */}
-      {role === "parent" && children.length > 1 && (
-        <div className="card-surface mb-5 p-4">
-          <Label className="mb-1.5 block text-xs">الابن</Label>
-          <SearchableSelect
-            options={children.map((c) => ({ value: c.id, label: c.name, code: c.id }))}
-            value={student}
-            onChange={setStudent}
-            placeholder="اختر الابن"
-            className="md:w-[320px]"
-          />
-        </div>
-      )}
 
       {!student ? (
         <EmptyBlock title="لا يوجد سجل لعرضه" icon={<GraduationCap className="size-6" />} />

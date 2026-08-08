@@ -21,6 +21,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import {
+  TableFilters,
+  type FilterDef,
+  type FilterValues,
+} from "@/components/shared/table-filters";
 import { downloadExport, type ExportDataset } from "@/lib/api/export";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +88,14 @@ interface Props<T> {
   /** Rendered in the bulk bar; receives the selection and a way to clear it. */
   bulkActions?: ((selected: string[], clear: () => void) => ReactNode) | undefined;
 
+  /**
+   * Filters this table offers. Declared by the screen because only it knows
+   * which fields the server actually filters on.
+   */
+  filters?: FilterDef[] | undefined;
+  filterValues?: FilterValues | undefined;
+  onFiltersChange?: ((values: FilterValues) => void) | undefined;
+
   /** Extra controls rendered in the toolbar. */
   toolbar?: ReactNode | undefined;
   emptyTitle?: string | undefined;
@@ -116,6 +129,9 @@ export function DataTable<T>({
   exportTitle,
   bulkDoctype,
   bulkActions,
+  filters,
+  filterValues,
+  onFiltersChange,
   toolbar,
   emptyTitle = "لا توجد بيانات",
   emptyDescription,
@@ -222,6 +238,16 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
+      {/* Filters sit above the toolbar: they change what the table contains,
+          while the toolbar acts on what is already shown. */}
+      {filters && filters.length > 0 && onFiltersChange && (
+        <TableFilters
+          filters={filters}
+          values={filterValues ?? {}}
+          onChange={onFiltersChange}
+        />
+      )}
+
       {/* While rows are selected the bulk bar replaces the toolbar, so the
           available actions are unambiguous. */}
       {selectable && selected.size > 0 && (

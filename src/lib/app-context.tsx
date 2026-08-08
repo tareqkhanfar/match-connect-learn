@@ -23,15 +23,31 @@ interface AppState {
   toggleTheme: () => void;
   /** False until the session lookup has settled. */
   ready: boolean;
+
+  /**
+   * The child a parent is currently looking at.
+   *
+   * A guardian with several children would otherwise see whichever one each
+   * screen happened to pick. Choosing once, here, makes every screen agree.
+   * Null for every other persona, and for a parent with a single child it is
+   * simply that child.
+   */
+  activeChild: string | null;
+  setActiveChild: (student: string | null) => void;
+  /** The children this guardian may switch between. */
+  children_: Array<{ id: string; name: string }>;
 }
 
 const AppContext = createContext<AppState | null>(null);
 
 const THEME_KEY = "match-edu-theme";
 
+const ACTIVE_CHILD_KEY = "match-edu-active-child";
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [activeChild, setActiveChildState] = useState<string | null>(null);
 
   const sessionQuery = useSession();
   const loginMutation = useLogin();
@@ -45,6 +61,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
+
+  const kids = useMemo(
+    () => sessionQuery.data?.scope?.children ?? [],
+    [sessionQuery.data],
+  );
+
+  // Restore the last choice, but only if that child is still attached to this
+  // guardian — a stale id would silently scope every screen to nothing.
+  useEffect(() => {
+    if (!kids.length) {
+      setActiveChildState(null);
+      return;
+    }
+    const stored = window.localStorage.getItem(ACTIVE_CHILD_KEY);
+    const valid = stored && kids.some((k) => k.id === stored) ? stored : kids[0]!.id;
+    setActiveChildState(valid);
+  }, [kids]);
+
+  const setActiveChild = useCallback((student: string | null) => {
+    setActiveChildState(student);
+    if (student) window.localStorage.setItem(ACTIVE_CHILD_KEY, student);
+    else window.localStorage.removeItem(ACTIVE_CHILD_KEY);
+  }, []);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -90,6 +129,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       theme,
       toggleTheme,
       ready: !sessionQuery.isLoading,
+      activeChild,
+      setActiveChild,
+      children_: kids,
     }),
     [
       session,
@@ -100,6 +142,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       theme,
       toggleTheme,
       sessionQuery.isLoading,
+      activeChild,
+      setActiveChild,
+      kids,
     ],
   );
 

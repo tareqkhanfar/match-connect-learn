@@ -24,6 +24,11 @@ import {
 } from "@/components/ui/select";
 import { EmptyBlock, ErrorState, Skeleton, TableSkeleton } from "@/components/shared/states";
 import { QuickInvoiceDialog } from "@/components/shared/quick-invoice-dialog";
+import {
+  activeFilters,
+  type FilterDef,
+  type FilterValues,
+} from "@/components/shared/table-filters";
 import { useApp } from "@/lib/app-context";
 import {
   useFeeCollection,
@@ -73,15 +78,43 @@ function FeesPage() {
   );
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
   const perPage = 15;
 
   const feesQuery = useFees({
     status: status === "all" ? undefined : status,
+    ...activeFilters(filterValues),
     page,
     page_size: perPage,
   });
   // The collection chart is admin-only on the backend.
   const collectionQuery = useFeeCollection(6, isAdmin);
+
+  const opts = feesQuery.data?.filter_options;
+  const feeFilters: FilterDef[] = opts
+    ? [
+        {
+          kind: "select",
+          field: "program",
+          label: "الصف / البرنامج",
+          options: opts.programs.map((p) => ({ value: p, label: p })),
+        },
+        {
+          kind: "select",
+          field: "academic_year",
+          label: "العام الدراسي",
+          options: opts.academicYears.map((y) => ({ value: y, label: y })),
+        },
+        {
+          kind: "select",
+          field: "academic_term",
+          label: "الفصل الدراسي",
+          options: opts.academicTerms.map((t) => ({ value: t, label: t })),
+        },
+        { kind: "dateRange", field: "date", label: "تاريخ الفاتورة" },
+        { kind: "dateRange", field: "due", label: "تاريخ الاستحقاق" },
+      ]
+    : [];
 
   const items = feesQuery.data?.items ?? [];
   const total = feesQuery.data?.total ?? 0;
@@ -304,6 +337,12 @@ function FeesPage() {
           pageSize={perPage}
           total={total}
           onPageChange={setPage}
+          filters={feeFilters}
+          filterValues={filterValues}
+          onFiltersChange={(v) => {
+            setFilterValues(v);
+            setPage(1);
+          }}
           exportDataset="fees"
           exportFilters={apiFilters}
           exportTitle="الرسوم المالية"

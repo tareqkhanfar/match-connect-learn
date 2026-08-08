@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice, money } from "@/lib/roles";
 import {
   useActivities,
@@ -242,8 +243,9 @@ function ActivityCard({
   const consent = useGiveConsent();
   const confirm = useConfirm();
 
-  const children = session?.scope.children ?? [];
-  const [child, setChild] = useState(children[0]?.id ?? "");
+  // The child comes from the header switcher, so registering an activity
+  // always applies to whoever the parent is currently viewing.
+  const child = useViewedStudent();
 
   async function join() {
     try {
@@ -416,14 +418,6 @@ function ActivityCard({
           </>
         ) : (
           <div className="w-full space-y-2">
-            {role === "parent" && children.length > 1 && (
-              <SearchableSelect
-                options={children.map((c) => ({ value: c.id, label: c.name }))}
-                value={child}
-                onChange={setChild}
-                placeholder="اختر الابن"
-              />
-            )}
             <button
               onClick={join}
               disabled={!a.open || register.isPending}

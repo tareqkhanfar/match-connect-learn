@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Award, Download, FileText, GraduationCap, Lock, ScrollText, ShieldCheck } from "lucide-react";
 import { PageHeader, SectionCard } from "@/components/shared/ui-kit";
 import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
 import { StudentPicker } from "@/components/shared/student-picker";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice } from "@/lib/roles";
 import { useAvailableDocuments } from "@/lib/api/hooks";
 import { downloadCertificate } from "@/lib/api/export";
@@ -36,9 +37,13 @@ function CertificatesPage() {
   const staff = isBackOffice(role);
 
   const children = session?.scope.children ?? [];
-  const [student, setStudent] = useState(
-    staff ? "" : (session?.scope.student ?? children[0]?.id ?? ""),
-  );
+  const viewed = useViewedStudent();
+  const [student, setStudent] = useState(staff ? "" : viewed);
+
+  // Follow the header switcher when the parent changes child.
+  useEffect(() => {
+    if (!staff && viewed) setStudent(viewed);
+  }, [staff, viewed]);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const query = useAvailableDocuments(student || null);

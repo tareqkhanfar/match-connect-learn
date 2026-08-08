@@ -510,11 +510,24 @@ export function useGradeSubmission() {
 
 // --- Fees ------------------------------------------------------------------
 
+export interface FeeFilterOptions {
+  programs: string[];
+  academicYears: string[];
+  academicTerms: string[];
+  statuses: Array<{ value: string; label: string }>;
+}
+
 export function useFees(
   params: Opt<{
     student: string;
     program: string;
     status: string;
+    academic_year: string;
+    academic_term: string;
+    date_from: string;
+    date_to: string;
+    due_from: string;
+    due_to: string;
     page: number;
     page_size: number;
   }> = {},
