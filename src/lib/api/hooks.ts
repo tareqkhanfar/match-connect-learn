@@ -3349,27 +3349,93 @@ export function useStructurePreview(feeStructure: string | null | undefined) {
   });
 }
 
+export interface InvoiceLine {
+  idx?: number;
+  item: string;
+  description: string | null;
+  qty: number;
+  rate?: number;
+  amount: number;
+}
+
+export interface StudentInvoice {
+  id: string;
+  student: string;
+  customer: string;
+  programEnrollment: string | null;
+  program: string | null;
+  academicYear: string | null;
+  academicTerm: string | null;
+  postingDate: string;
+  dueDate: string;
+  total: number;
+  outstanding: number;
+  docstatus: number;
+  isDraft: boolean;
+  status: string;
+  items: InvoiceLine[];
+}
+
+function invalidateBilling(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["fees"] });
+  void qc.invalidateQueries({ queryKey: ["invoices"] });
+  void qc.invalidateQueries({ queryKey: ["invoice"] });
+}
+
 export function useInvoiceStudent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: {
       student: string;
       fee_structure?: string;
+      invoice?: string;
+      program_enrollment?: string;
+      components?: Array<{ item: string; amount: number; description?: string; qty?: number }>;
       posting_date?: string;
       due_date?: string;
+      remarks?: string;
       submit?: number;
     }) =>
-      apiPost<{
-        id: string;
-        student: string;
-        customer: string;
-        total: number;
-        outstanding: number;
-        status: string;
-      }>("billing.invoice_student", vars as unknown as Record<string, unknown>),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["fees"] });
-      void qc.invalidateQueries({ queryKey: ["invoices"] });
-    },
+      apiPost<StudentInvoice>(
+        "billing.invoice_student",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => invalidateBilling(qc),
+  });
+}
+
+export function useSubmitInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (invoice: string) =>
+      apiPost<StudentInvoice>("billing.submit_invoice", { invoice }),
+    onSuccess: () => invalidateBilling(qc),
+  });
+}
+
+export function useCancelInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (invoice: string) =>
+      apiPost<StudentInvoice | { id: string; deleted: boolean }>("billing.cancel_invoice", {
+        invoice,
+      }),
+    onSuccess: () => invalidateBilling(qc),
+  });
+}
+
+export function useStudentEnrollments(student: string | null | undefined) {
+  return useQuery<
+    Array<{
+      id: string;
+      program: string | null;
+      academicYear: string | null;
+      academicTerm: string | null;
+      enrolledOn: string;
+    }>
+  >({
+    queryKey: ["student-enrollments", student],
+    queryFn: () => apiGet("billing.student_enrollments", { student: student! }),
+    enabled: Boolean(student),
   });
 }
