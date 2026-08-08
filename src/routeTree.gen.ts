@@ -23,6 +23,7 @@ import { Route as AppCertificatesRouteImport } from './routes/app.certificates'
 import { Route as AppChatRouteImport } from './routes/app.chat'
 import { Route as AppClassesRouteImport } from './routes/app.classes'
 import { Route as AppCommunicationRouteImport } from './routes/app.communication'
+import { Route as AppEnrollmentRouteImport } from './routes/app.enrollment'
 import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
@@ -114,6 +115,11 @@ const AppClassesRoute = AppClassesRouteImport.update({
 const AppCommunicationRoute = AppCommunicationRouteImport.update({
   id: '/communication',
   path: '/communication',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEnrollmentRoute = AppEnrollmentRouteImport.update({
+  id: '/enrollment',
+  path: '/enrollment',
   getParentRoute: () => AppRoute,
 } as any)
 const AppExamsRoute = AppExamsRouteImport.update({
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
+  '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
   '/app/gradebook': typeof AppGradebookRoute
@@ -278,6 +285,7 @@ export interface FileRoutesByTo {
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
+  '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
   '/app/gradebook': typeof AppGradebookRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
+  '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
   '/app/gradebook': typeof AppGradebookRoute
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/classes'
     | '/app/communication'
+    | '/app/enrollment'
     | '/app/exams'
     | '/app/fees'
     | '/app/gradebook'
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/classes'
     | '/app/communication'
+    | '/app/enrollment'
     | '/app/exams'
     | '/app/fees'
     | '/app/gradebook'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/classes'
     | '/app/communication'
+    | '/app/enrollment'
     | '/app/exams'
     | '/app/fees'
     | '/app/gradebook'
@@ -560,6 +572,13 @@ declare module '@tanstack/react-router' {
       path: '/communication'
       fullPath: '/app/communication'
       preLoaderRoute: typeof AppCommunicationRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/enrollment': {
+      id: '/app/enrollment'
+      path: '/enrollment'
+      fullPath: '/app/enrollment'
+      preLoaderRoute: typeof AppEnrollmentRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/exams': {
@@ -731,6 +750,7 @@ interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppClassesRoute: typeof AppClassesRoute
   AppCommunicationRoute: typeof AppCommunicationRoute
+  AppEnrollmentRoute: typeof AppEnrollmentRoute
   AppExamsRoute: typeof AppExamsRoute
   AppFeesRoute: typeof AppFeesRoute
   AppGradebookRoute: typeof AppGradebookRoute
@@ -768,6 +788,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppClassesRoute: AppClassesRoute,
   AppCommunicationRoute: AppCommunicationRoute,
+  AppEnrollmentRoute: AppEnrollmentRoute,
   AppExamsRoute: AppExamsRoute,
   AppFeesRoute: AppFeesRoute,
   AppGradebookRoute: AppGradebookRoute,

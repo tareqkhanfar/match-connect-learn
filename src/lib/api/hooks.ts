@@ -3452,3 +3452,108 @@ export function useStudentEnrollments(student: string | null | undefined) {
     enabled: Boolean(student),
   });
 }
+
+/* ------------------------------------------------------------ enrollment */
+
+export interface EnrollmentRow {
+  id: string;
+  student: string;
+  studentName: string | null;
+  program: string | null;
+  academicYear: string | null;
+  academicTerm: string | null;
+  batch: string | null;
+  category: string | null;
+  enrolledOn: string;
+  docstatus: number;
+  status: string;
+}
+
+export function useEnrollments(params: {
+  student?: string;
+  program?: string;
+  academic_year?: string;
+  batch?: string;
+  search?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  return useQuery<Paginated<EnrollmentRow>>({
+    queryKey: ["enrollments", params],
+    queryFn: () =>
+      apiGet<Paginated<EnrollmentRow>>("enrollment.list_enrollments", {
+        ...Object.fromEntries(Object.entries(params).filter(([, v]) => v)),
+        page: String(params.page ?? 1),
+        page_size: String(params.page_size ?? 25),
+      }),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export interface EnrollmentOptions {
+  programs: string[];
+  academicYears: string[];
+  academicTerms: Array<{ name: string; academic_year: string }>;
+  batches: string[];
+  categories: string[];
+  defaultAcademicYear: string | null;
+  courses: Array<{ course: string; required: number }>;
+}
+
+export function useEnrollmentOptions(program?: string) {
+  return useQuery<EnrollmentOptions>({
+    queryKey: ["enrollment-options", program ?? null],
+    queryFn: () =>
+      apiGet<EnrollmentOptions>("enrollment.form_options", program ? { program } : {}),
+  });
+}
+
+export interface EnrollmentDetail extends EnrollmentRow {
+  courses: string[];
+  courseEnrollments: Array<{ name: string; course: string; enrollment_date: string }>;
+  invoices: Array<{ name: string; grand_total: number; outstanding_amount: number }>;
+}
+
+export function useEnrollmentDetail(enrollment: string | null | undefined) {
+  return useQuery<EnrollmentDetail>({
+    queryKey: ["enrollment", enrollment],
+    queryFn: () =>
+      apiGet<EnrollmentDetail>("enrollment.enrollment_detail", { enrollment: enrollment! }),
+    enabled: Boolean(enrollment),
+  });
+}
+
+function invalidateEnrollments(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["enrollments"] });
+  void qc.invalidateQueries({ queryKey: ["enrollment"] });
+  void qc.invalidateQueries({ queryKey: ["students"] });
+}
+
+export function useSaveEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<EnrollmentRow>("enrollment.save_enrollment", { payload }),
+    onSuccess: () => invalidateEnrollments(qc),
+  });
+}
+
+export function useSubmitEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enrollment: string) =>
+      apiPost<EnrollmentRow>("enrollment.submit_enrollment", { enrollment }),
+    onSuccess: () => invalidateEnrollments(qc),
+  });
+}
+
+export function useCancelEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (enrollment: string) =>
+      apiPost<EnrollmentRow | { id: string; deleted: boolean }>("enrollment.cancel_enrollment", {
+        enrollment,
+      }),
+    onSuccess: () => invalidateEnrollments(qc),
+  });
+}

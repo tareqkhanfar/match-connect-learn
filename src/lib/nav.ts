@@ -72,6 +72,13 @@ export const navItems: NavItem[] = [
     group: "الإدارة الأكاديمية",
   },
   {
+    label: "التسجيل الدراسي",
+    to: "/app/enrollment",
+    icon: BookOpenCheck,
+    roles: ["admin", "secretary"],
+    group: "الإدارة الأكاديمية",
+  },
+  {
     label: "الطلاب",
     labelByRole: { teacher: "طلابي" },
     to: "/app/students",
