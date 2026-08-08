@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppActivitiesRouteImport } from './routes/app.activities'
+import { Route as AppAdmissionsRouteImport } from './routes/app.admissions'
 import { Route as AppAlertsRouteImport } from './routes/app.alerts'
 import { Route as AppAppraisalRouteImport } from './routes/app.appraisal'
 import { Route as AppAssignmentsRouteImport } from './routes/app.assignments'
@@ -63,6 +64,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppActivitiesRoute = AppActivitiesRouteImport.update({
   id: '/activities',
   path: '/activities',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdmissionsRoute = AppAdmissionsRouteImport.update({
+  id: '/admissions',
+  path: '/admissions',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAlertsRoute = AppAlertsRouteImport.update({
@@ -225,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/app/activities': typeof AppActivitiesRoute
+  '/app/admissions': typeof AppAdmissionsRoute
   '/app/alerts': typeof AppAlertsRoute
   '/app/appraisal': typeof AppAppraisalRoute
   '/app/assignments': typeof AppAssignmentsRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app/activities': typeof AppActivitiesRoute
+  '/app/admissions': typeof AppAdmissionsRoute
   '/app/alerts': typeof AppAlertsRoute
   '/app/appraisal': typeof AppAppraisalRoute
   '/app/assignments': typeof AppAssignmentsRoute
@@ -299,6 +307,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/app/activities': typeof AppActivitiesRoute
+  '/app/admissions': typeof AppAdmissionsRoute
   '/app/alerts': typeof AppAlertsRoute
   '/app/appraisal': typeof AppAppraisalRoute
   '/app/assignments': typeof AppAssignmentsRoute
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/app/activities'
+    | '/app/admissions'
     | '/app/alerts'
     | '/app/appraisal'
     | '/app/assignments'
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/app/activities'
+    | '/app/admissions'
     | '/app/alerts'
     | '/app/appraisal'
     | '/app/assignments'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/app/activities'
+    | '/app/admissions'
     | '/app/alerts'
     | '/app/appraisal'
     | '/app/assignments'
@@ -478,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/activities'
       fullPath: '/app/activities'
       preLoaderRoute: typeof AppActivitiesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/admissions': {
+      id: '/app/admissions'
+      path: '/admissions'
+      fullPath: '/app/admissions'
+      preLoaderRoute: typeof AppAdmissionsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/alerts': {
@@ -702,6 +721,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppActivitiesRoute: typeof AppActivitiesRoute
+  AppAdmissionsRoute: typeof AppAdmissionsRoute
   AppAlertsRoute: typeof AppAlertsRoute
   AppAppraisalRoute: typeof AppAppraisalRoute
   AppAssignmentsRoute: typeof AppAssignmentsRoute
@@ -738,6 +758,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppActivitiesRoute: AppActivitiesRoute,
+  AppAdmissionsRoute: AppAdmissionsRoute,
   AppAlertsRoute: AppAlertsRoute,
   AppAppraisalRoute: AppAppraisalRoute,
   AppAssignmentsRoute: AppAssignmentsRoute,

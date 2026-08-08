@@ -27,6 +27,7 @@ import {
   UserCheck,
   BookMarked,
   ClipboardList,
+  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./roles";
@@ -63,6 +64,13 @@ export const navItems: NavItem[] = [
   },
 
   // Academic administration
+  {
+    label: "طلبات الالتحاق",
+    to: "/app/admissions",
+    icon: UserPlus,
+    roles: ["admin", "secretary"],
+    group: "الإدارة الأكاديمية",
+  },
   {
     label: "الطلاب",
     labelByRole: { teacher: "طلابي" },

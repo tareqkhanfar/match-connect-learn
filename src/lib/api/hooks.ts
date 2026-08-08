@@ -3092,3 +3092,166 @@ export function useSurveyResults(survey: Opt<string>) {
     enabled: Boolean(survey),
   });
 }
+
+/* ------------------------------------------------------------ admissions */
+
+export interface ApplicantRow {
+  id: string;
+  name: string;
+  idNumber: string | null;
+  status: "Applied" | "Approved" | "Rejected" | "Admitted";
+  statusLabel: string;
+  statusTone: string;
+  appliedOn: string;
+  program: string | null;
+  academicYear: string | null;
+  academicTerm: string | null;
+  email: string | null;
+  mobile: string | null;
+  birthDate: string;
+  gender: string | null;
+  nationality: string | null;
+  image: string | null;
+}
+
+export interface Credentials {
+  user: string;
+  username: string;
+  /** Readable only in the response that created the account. */
+  password: string | null;
+  name: string | null;
+  guardian?: string;
+  isNew?: boolean;
+}
+
+export interface ApplicantDetail extends ApplicantRow {
+  guardians: Array<{ guardian: string; name: string | null; relation: string | null }>;
+  siblings: Array<{ name: string | null; birthDate: string; studying: number }>;
+  address: {
+    line1: string | null;
+    line2: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+  };
+  student: string | null;
+  credentials: Credentials | null;
+  allowedMoves: string[];
+}
+
+export interface ApplicantList {
+  items: ApplicantRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  counts: Record<string, number>;
+}
+
+export function useApplicants(params: {
+  search?: string;
+  status?: string;
+  program?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  return useQuery<ApplicantList>({
+    queryKey: ["applicants", params],
+    queryFn: () =>
+      apiGet<ApplicantList>("admissions.list_applicants", {
+        ...(params.search ? { search: params.search } : {}),
+        ...(params.status ? { status: params.status } : {}),
+        ...(params.program ? { program: params.program } : {}),
+        page: String(params.page ?? 1),
+        page_size: String(params.page_size ?? 20),
+      }),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useApplicant(applicant: Opt<string>) {
+  return useQuery<ApplicantDetail>({
+    queryKey: ["applicant", applicant],
+    queryFn: () => apiGet<ApplicantDetail>("admissions.get_applicant", { applicant: applicant! }),
+    enabled: Boolean(applicant),
+  });
+}
+
+export interface AdmissionOptions {
+  programs: string[];
+  academicYears: string[];
+  academicTerms: Array<{ name: string; academic_year: string }>;
+  genders: string[];
+  studentCategories: string[];
+  defaultAcademicYear: string | null;
+  statuses: Array<{ value: string; label: string; tone: string }>;
+}
+
+export function useAdmissionOptions() {
+  return useQuery<AdmissionOptions>({
+    queryKey: ["admission-options"],
+    queryFn: () => apiGet<AdmissionOptions>("admissions.form_options"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSaveApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ id: string; status: string }>("admissions.save_applicant", { payload }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["applicants"] });
+      void qc.invalidateQueries({ queryKey: ["applicant"] });
+    },
+  });
+}
+
+export function useTransitionApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { applicant: string; to_status: string; reason?: string }) =>
+      apiPost<{ id: string; status: string; statusLabel: string }>(
+        "admissions.transition",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["applicants"] });
+      void qc.invalidateQueries({ queryKey: ["applicant"] });
+    },
+  });
+}
+
+export interface AdmitResult {
+  student: string;
+  studentName: string;
+  status: string;
+  credentials: Credentials;
+  guardians: Credentials[];
+}
+
+export function useAdmitApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (applicant: string) => apiPost<AdmitResult>("admissions.admit", { applicant }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["applicants"] });
+      void qc.invalidateQueries({ queryKey: ["applicant"] });
+      void qc.invalidateQueries({ queryKey: ["students"] });
+    },
+  });
+}
+
+export function useDeleteApplicant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (applicant: string) =>
+      apiPost<{ id: string }>("admissions.delete_applicant", { applicant }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["applicants"] }),
+  });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (user: string) => apiPost<Credentials>("credentials.reset_password", { user }),
+  });
+}

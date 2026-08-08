@@ -200,3 +200,66 @@ export async function downloadCertificate(kind: string, student: string): Promis
   link.remove();
   URL.revokeObjectURL(objectUrl);
 }
+
+/**
+ * Download the registration slip, including the credentials just issued.
+ *
+ * Sent as a POST: the password is in the body rather than the query string,
+ * so it does not end up in access logs or browser history. The server cannot
+ * look these up — they are readable only in the response that created them —
+ * so whatever the caller received is what gets printed.
+ */
+export async function downloadRegistrationSlip(args: {
+  student?: string;
+  applicant?: string;
+  credentials?: unknown;
+  guardians?: unknown;
+}): Promise<void> {
+  const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+  const url = `${base}/api/method/match_schools.api.registration_print.registration_slip`;
+
+  const body = new URLSearchParams();
+  if (args.student) body.set("student", args.student);
+  if (args.applicant) body.set("applicant", args.applicant);
+  if (args.credentials) body.set("credentials", JSON.stringify(args.credentials));
+  if (args.guardians) body.set("guardians", JSON.stringify(args.guardians));
+
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Frappe-CSRF-Token":
+        (typeof window !== "undefined" &&
+          (window as unknown as { csrf_token?: string }).csrf_token) ||
+        "",
+    },
+    body,
+  });
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.ok || contentType.includes("application/json")) {
+    let messageEn = `Could not print the slip (${res.status})`;
+    let messageAr = "";
+    try {
+      const payload = await res.json();
+      messageEn = payload?.message?.message_en || messageEn;
+      messageAr = payload?.message?.message_ar ?? "";
+    } catch {
+      /* keep default */
+    }
+    throw new ApiError(messageEn, res.status, messageAr);
+  }
+
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download =
+    filenameFrom(res.headers.get("content-disposition")) ??
+    `registration-${args.student ?? args.applicant}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
