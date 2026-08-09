@@ -330,3 +330,81 @@ tbody tr:hover {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Login backdrop --------------------------------------------------------
+   Slow drifting colour fields behind the login panel. Blurred far past the
+   point of being recognisable shapes, so they read as depth and light rather
+   than as decoration competing with the sign-in form.
+
+   The global prefers-reduced-motion rule above already freezes these. */
+
+.login-orb {
+  position: absolute;
+  display: block;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+.login-orb-1 {
+  width: 32rem;
+  height: 32rem;
+  top: -8rem;
+  right: -6rem;
+  background: color-mix(in oklab, var(--color-primary) 70%, transparent);
+  animation: login-drift-1 26s ease-in-out infinite;
+}
+
+.login-orb-2 {
+  width: 26rem;
+  height: 26rem;
+  bottom: -6rem;
+  left: -4rem;
+  background: color-mix(in oklab, var(--color-accent) 65%, transparent);
+  animation: login-drift-2 32s ease-in-out infinite;
+}
+
+.login-orb-3 {
+  width: 20rem;
+  height: 20rem;
+  top: 38%;
+  left: 30%;
+  background: color-mix(in oklab, var(--color-warm) 45%, transparent);
+  opacity: 0.32;
+  animation: login-drift-3 38s ease-in-out infinite;
+}
+
+@keyframes login-drift-1 {
+  0%,
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-3rem, 2.5rem, 0) scale(1.12); }
+}
+
+@keyframes login-drift-2 {
+  0%,
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2.5rem, -2rem, 0) scale(1.08); }
+}
+
+@keyframes login-drift-3 {
+  0%,
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-2rem, -3rem, 0) scale(0.92); }
+}
+
+/* Notebook-paper grid, barely there. */
+.login-grid {
+  background-image:
+    linear-gradient(
+      color-mix(in oklab, var(--color-sidebar-foreground) 7%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--color-sidebar-foreground) 7%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 40%, black 20%, transparent 78%);
+}
