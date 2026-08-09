@@ -289,10 +289,36 @@ export function useSubjects() {
   });
 }
 
-export function useTeachers(search?: string) {
+export function useTeachers(
+  params: {
+    search?: string;
+    department?: string;
+    status?: string;
+    gender?: string;
+    student_group?: string;
+  } = {},
+) {
   return useQuery<TeacherRow[]>({
-    queryKey: qk.teachers(search),
-    queryFn: () => apiGet<TeacherRow[]>("academics.list_teachers", { search }),
+    queryKey: ["teachers", params],
+    queryFn: () =>
+      apiGet<TeacherRow[]>(
+        "academics.list_teachers",
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>,
+      ),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useTeacherFilterOptions() {
+  return useQuery<{
+    departments: string[];
+    statuses: string[];
+    genders: string[];
+    groups: Array<{ name: string; student_group_name: string }>;
+  }>({
+    queryKey: ["teacher-filter-options"],
+    queryFn: () => apiGet("academics.teacher_filter_options"),
+    staleTime: 5 * 60 * 1000,
   });
 }
 

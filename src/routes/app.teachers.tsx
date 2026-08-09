@@ -7,7 +7,18 @@ import { DataTable, type Column } from "@/components/shared/data-table";
 import { ViewToggle, useViewMode } from "@/components/shared/view-toggle";
 import { Input } from "@/components/ui/input";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
-import { useDeleteTeacher, useDepartments, useSaveTeacher, useTeachers } from "@/lib/api/hooks";
+import {
+  useDeleteTeacher,
+  useDepartments,
+  useSaveTeacher,
+  useTeacherFilterOptions,
+  useTeachers,
+} from "@/lib/api/hooks";
+import {
+  activeFilters,
+  type FilterDef,
+  type FilterValues,
+} from "@/components/shared/table-filters";
 import type { TeacherRow } from "@/lib/api/types";
 import { useApp } from "@/lib/app-context";
 import { useConfirm } from "@/components/shared/confirm";
@@ -42,8 +53,12 @@ export const Route = createFileRoute("/app/teachers")({
 function TeachersPage() {
   const confirm = useConfirm();
   const [q, setQ] = useState("");
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
   const { role } = useApp();
-  const { data, isLoading, error, refetch } = useTeachers();
+  // Structural filters run on the server; the free-text box stays on the
+  // client so typing is instant on a list this size.
+  const { data, isLoading, error, refetch } = useTeachers(activeFilters(filterValues));
+  const filterOptions = useTeacherFilterOptions();
   const deleteTeacher = useDeleteTeacher();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<TeacherRow | null>(null);
@@ -133,6 +148,41 @@ function TeachersPage() {
     }
   }
 
+  const teacherFilters: FilterDef[] = filterOptions.data
+    ? [
+        {
+          kind: "select",
+          field: "department",
+          label: "القسم",
+          options: filterOptions.data.departments.map((d) => ({ value: d, label: d })),
+        },
+        {
+          kind: "select",
+          field: "status",
+          label: "الحالة",
+          options: filterOptions.data.statuses.map((x) => ({ value: x, label: x })),
+        },
+        {
+          kind: "select",
+          field: "gender",
+          label: "الجنس",
+          options: filterOptions.data.genders.map((g) => ({
+            value: g,
+            label: g === "Male" ? "ذكر" : g === "Female" ? "أنثى" : g,
+          })),
+        },
+        {
+          kind: "select",
+          field: "student_group",
+          label: "يدرّس الشعبة",
+          options: filterOptions.data.groups.map((g) => ({
+            value: g.name,
+            label: g.student_group_name || g.name,
+          })),
+        },
+      ]
+    : [];
+
   const teachers = data ?? [];
   // Filter on the client: the list is small and this keeps typing instant.
   const list = teachers.filter(
@@ -172,6 +222,9 @@ function TeachersPage() {
           search={q}
           onSearchChange={setQ}
           searchPlaceholder="ابحث بالاسم أو القسم..."
+          filters={teacherFilters}
+          filterValues={filterValues}
+          onFiltersChange={setFilterValues}
           exportDataset="teachers"
           exportTitle="قائمة المعلمين"
           emptyTitle="لا يوجد معلمون"
