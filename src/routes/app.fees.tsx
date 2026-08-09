@@ -30,6 +30,7 @@ import {
   type FilterValues,
 } from "@/components/shared/table-filters";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import {
   useFeeCollection,
   useFeePayments,
@@ -81,8 +82,11 @@ function FeesPage() {
   const [filterValues, setFilterValues] = useState<FilterValues>({});
   const perPage = 15;
 
+  // A guardian sees the child chosen in the header, not every child at once.
+  const viewed = useViewedStudent();
   const feesQuery = useFees({
     status: status === "all" ? undefined : status,
+    ...(viewed ? { student: viewed } : {}),
     ...activeFilters(filterValues),
     page,
     page_size: perPage,

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useConfirm } from "@/components/shared/confirm";
 import {
   useBehaviour,
@@ -95,7 +96,10 @@ function BehaviourPage() {
 
   const debouncedSearch = useDebounced(search);
 
+  const viewed = useViewedStudent();
   const filters = {
+    // Scoped to the child picked in the header for a family.
+    ...(viewed ? { student: viewed } : {}),
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(type !== "all" ? { record_type: type } : {}),
     ...(category !== "all" ? { category } : {}),

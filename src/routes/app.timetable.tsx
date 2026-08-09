@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole } from "@/lib/roles";
 import { useClasses, useTimetable } from "@/lib/api/hooks";
 
@@ -66,7 +67,14 @@ function TimetablePage() {
     }
   }, [picksClass, classesQuery.data, groupId]);
 
-  const timetableQuery = useTimetable(picksClass && groupId ? { student_group: groupId } : {});
+  const viewed = useViewedStudent();
+  const timetableQuery = useTimetable(
+    picksClass && groupId
+      ? { student_group: groupId }
+      : viewed
+        ? { student: viewed }
+        : {},
+  );
 
   const days = timetableQuery.data?.days ?? {};
 

@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice } from "@/lib/roles";
 import {
   useClasses,
@@ -64,7 +65,8 @@ function QuizzesPage() {
 /* -------------------------------------------------------------------- staff */
 
 function StaffQuizView() {
-  const query = useQuizzes({ page_size: 50 });
+  const viewed = useViewedStudent();
+  const query = useQuizzes({ page_size: 50, ...(viewed ? { student: viewed } : {}) });
   const remove = useDeleteQuiz();
   const confirm = useConfirm();
 

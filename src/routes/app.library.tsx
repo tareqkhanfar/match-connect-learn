@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useConfirm } from "@/components/shared/confirm";
 import {
   useBooks,
@@ -509,7 +510,10 @@ function LoansTab({ canManage }: { canManage: boolean }) {
   const [pageSize, setPageSize] = useState(20);
   const debounced = useDebounced(search);
 
+  // A family sees the loans of the child chosen in the header.
+  const viewed = useViewedStudent();
   const filters = {
+    ...(viewed ? { student: viewed } : {}),
     ...(debounced ? { search: debounced } : {}),
     ...(status !== "all" ? { status } : {}),
   };

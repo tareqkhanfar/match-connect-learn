@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import {
   useAttendanceReport,
   useAttendanceSheet,
@@ -80,9 +81,8 @@ function AttendancePage() {
 
 /** Read-only attendance for a student or their parent. */
 function MyAttendanceView() {
-  const { session } = useApp();
-  const students = session?.scope.students ?? [];
-  const [student, setStudent] = useState(session?.scope.student ?? students[0] ?? "");
+  // The child comes from the header, so every screen agrees on who is shown.
+  const student = useViewedStudent();
 
   const report = useAttendanceReport(student ? { student } : {});
   const summary = report.data?.summary;
@@ -92,22 +92,6 @@ function MyAttendanceView() {
     <>
       <PageHeader title="الحضور والغياب" subtitle="سجل الحضور الخاص بك" />
 
-      {students.length > 1 && (
-        <div className="card-surface mb-5 p-4">
-          <Select value={student} onValueChange={setStudent}>
-            <SelectTrigger className="h-10 rounded-xl md:w-[280px]">
-              <SelectValue placeholder="اختر الابن" />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="أيام الحضور" value={summary?.present ?? 0} icon={Check} tone="accent" />

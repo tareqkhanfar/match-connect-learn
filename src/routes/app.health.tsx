@@ -22,6 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useConfirm } from "@/components/shared/confirm";
 import {
   useDeleteHealthVisit,
@@ -74,10 +75,16 @@ function HealthPage() {
   const confirm = useConfirm();
   const { role, session } = useApp();
   const canEdit = isBackOffice(role);
-  // Students and parents land straight on their own record.
-  const ownStudent = session?.scope.student ?? session?.scope.students?.[0] ?? "";
+  // Students and parents land straight on their own record — for a guardian
+  // that is whichever child is chosen in the header, not simply the first.
+  const ownStudent = useViewedStudent();
 
   const [selected, setSelected] = useState(ownStudent);
+
+  // Follow the header when the guardian switches child.
+  useEffect(() => {
+    if (ownStudent) setSelected(ownStudent);
+  }, [ownStudent]);
   const [studentSearch, setStudentSearch] = useState("");
   const debouncedSearch = useDebounced(studentSearch);
 

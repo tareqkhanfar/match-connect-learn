@@ -31,6 +31,7 @@ import {
   type UploadedFile,
 } from "@/components/shared/file-upload";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole } from "@/lib/roles";
 import {
   useAssignments,
@@ -70,7 +71,11 @@ function AssignmentsPage() {
   const isStaff = role === "admin" || role === "secretary" || role === "teacher";
   const isStudent = role === "student";
 
-  const { data, isLoading, error, refetch } = useAssignments();
+  // A family sees the child chosen in the header.
+  const viewed = useViewedStudent();
+  const { data, isLoading, error, refetch } = useAssignments(
+    viewed ? { student: viewed } : {},
+  );
   const assignments = data ?? [];
 
   const [gradingFor, setGradingFor] = useState<string | null>(null);

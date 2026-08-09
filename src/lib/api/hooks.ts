@@ -403,7 +403,7 @@ export function useAttendanceReport(
 // --- Assignments -----------------------------------------------------------
 
 export function useAssignments(
-  params: Opt<{ student_group: string; course: string; status: string }> = {},
+  params: Opt<{ student_group: string; course: string; status: string; student: string }> = {},
 ) {
   return useQuery<AssignmentRow[]>({
     queryKey: qk.assignments(params),
@@ -1978,6 +1978,7 @@ export function useExamSchedule(
     exam_type: string;
     from_date: string;
     to_date: string;
+    student: string;
   }> = {},
 ) {
   return useQuery<ExamSchedule>({
@@ -2541,7 +2542,14 @@ export interface QuizRow {
 }
 
 export function useQuizzes(
-  params: Opt<{ student_group: string; course: string; status: string; page: number; page_size: number }> = {},
+  params: Opt<{
+    student_group: string;
+    course: string;
+    status: string;
+    student: string;
+    page: number;
+    page_size: number;
+  }> = {},
 ) {
   return useQuery<Paginated<QuizRow>>({
     queryKey: ["quizzes", params],
@@ -2982,7 +2990,12 @@ export interface ResourceItem {
 }
 
 export function useResources(
-  params: Opt<{ course: string; resource_type: string; search: string }> = {},
+  params: Opt<{
+    course: string;
+    resource_type: string;
+    search: string;
+    student: string;
+  }> = {},
 ) {
   return useQuery<{
     subjects: Array<{ course: string; count: number; items: ResourceItem[] }>;

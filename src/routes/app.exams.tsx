@@ -27,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice } from "@/lib/roles";
 import {
   useDeleteExam,
@@ -77,9 +78,11 @@ function ExamsPage() {
   const [editing, setEditing] = useState<ExamSitting | null>(null);
   const [creating, setCreating] = useState(false);
 
+  const viewed = useViewedStudent();
   const query = useExamSchedule({
     ...(type ? { exam_type: type } : {}),
     ...(group ? { student_group: group } : {}),
+    ...(viewed ? { student: viewed } : {}),
   });
   const remove = useDeleteExam();
   const confirm = useConfirm();
