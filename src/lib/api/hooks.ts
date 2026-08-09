@@ -267,7 +267,15 @@ export function useSaveStudent() {
 
 // --- Academics -------------------------------------------------------------
 
-export function useClasses(params: Opt<{ program: string; academic_year: string }> = {}) {
+export function useClasses(
+  params: Opt<{
+    program: string;
+    academic_year: string;
+    academic_term: string;
+    batch: string;
+    search: string;
+  }> = {},
+) {
   return useQuery<ClassRow[]>({
     queryKey: qk.classes(params),
     queryFn: () => apiGet<ClassRow[]>("academics.list_classes", params),
@@ -282,10 +290,49 @@ export function useClassStudents(group: string | undefined) {
   });
 }
 
-export function useSubjects() {
+export function useSubjects(
+  params: { search?: string; department?: string; program?: string } = {},
+) {
   return useQuery<SubjectRow[]>({
-    queryKey: qk.subjects,
-    queryFn: () => apiGet<SubjectRow[]>("academics.list_subjects"),
+    queryKey: ["subjects", params],
+    queryFn: () =>
+      apiGet<SubjectRow[]>(
+        "academics.list_subjects",
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>,
+      ),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useClassFilterOptions() {
+  return useQuery<{
+    programs: string[];
+    academicYears: string[];
+    academicTerms: string[];
+    batches: string[];
+  }>({
+    queryKey: ["class-filter-options"],
+    queryFn: () => apiGet("academics.class_filter_options"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSubjectFilterOptions() {
+  return useQuery<{ departments: string[]; programs: string[] }>({
+    queryKey: ["subject-filter-options"],
+    queryFn: () => apiGet("academics.subject_filter_options"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useGuardianFilterOptions() {
+  return useQuery<{
+    occupations: string[];
+    loginStates: Array<{ value: string; label: string }>;
+  }>({
+    queryKey: ["guardian-filter-options"],
+    queryFn: () => apiGet("students.guardian_filter_options"),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -1641,7 +1688,15 @@ export interface GuardianRow {
   children_count: number;
 }
 
-export function useGuardians(params: Opt<{ search: string; page: number; page_size: number }> = {}) {
+export function useGuardians(
+  params: Opt<{
+    search: string;
+    occupation: string;
+    has_login: string;
+    page: number;
+    page_size: number;
+  }> = {},
+) {
   return useQuery<Paginated<GuardianRow>>({
     queryKey: ["guardians", params],
     queryFn: () => apiGet<Paginated<GuardianRow>>("students.list_guardians", params),
@@ -3846,5 +3901,95 @@ export function useCoverReport(params: { from_date?: string; to_date?: string } 
         "lesson_changes.cover_report",
         Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>,
       ),
+  });
+}
+
+
+// --- Account security -------------------------------------------------------
+
+export type SignInEntry = {
+  id: string;
+  operation: string;
+  success: boolean;
+  status: string;
+  ip: string;
+  at: string;
+};
+
+export type DeviceInfo = {
+  browser: string;
+  os: string;
+  isMobile: boolean;
+  label: string;
+  labelAr: string;
+};
+
+export type ActiveSession = {
+  ref: string;
+  isCurrent: boolean;
+  ip: string;
+  lastActive: string | null;
+  device: DeviceInfo;
+};
+
+export function useSessionStatus() {
+  return useQuery<{
+    serverTime: string;
+    expirySeconds: number;
+    remainingSeconds: number;
+    lastActivity: string | null;
+  }>({
+    queryKey: ["session-status"],
+    queryFn: () => apiGet("security.session_status"),
+    // Re-anchor to the server clock periodically; the countdown ticks locally.
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSignInHistory() {
+  return useQuery<{
+    history: SignInEntry[];
+    lastSignIn: SignInEntry | null;
+    currentSignIn: SignInEntry | null;
+    failedAttempts: number;
+  }>({
+    queryKey: ["sign-in-history"],
+    queryFn: () => apiGet("security.sign_in_history"),
+  });
+}
+
+export function useActiveSessions() {
+  return useQuery<{
+    sessions: ActiveSession[];
+    total: number;
+    expirySeconds: number;
+  }>({
+    queryKey: ["active-sessions"],
+    queryFn: () => apiGet("security.active_sessions"),
+  });
+}
+
+export function useRevokeOtherSessions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiPost<{ revoked: number }>("security.revoke_other_sessions", {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["active-sessions"] });
+      qc.invalidateQueries({ queryKey: ["sign-in-history"] });
+    },
+  });
+}
+
+export function useFailedLoginReport(days = 7) {
+  return useQuery<{
+    entries: Array<{ user: string; ip: string; attempts: number; lastAttempt: string }>;
+    totalAttempts: number;
+    distinctAccounts: number;
+    distinctIps: number;
+    days: number;
+  }>({
+    queryKey: ["failed-login-report", days],
+    queryFn: () => apiGet("security.failed_login_report", { days: String(days) }),
   });
 }

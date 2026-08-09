@@ -1,4 +1,5 @@
 import {
+  ShieldCheck,
   LayoutDashboard,
   Users,
   GraduationCap,
@@ -363,6 +364,16 @@ export const navItems: NavItem[] = [
     icon: Settings,
     roles: ["admin"],
     group: "المالية والتواصل",
+  },
+  {
+    // Every persona manages their own account security, so this is the one
+    // entry that is not restricted by role.
+    label: "أمان الحساب",
+    to: "/app/security",
+    icon: ShieldCheck,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المالية والتواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
 ];
 

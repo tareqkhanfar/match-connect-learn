@@ -37,6 +37,7 @@ import { Route as AppRecordRouteImport } from './routes/app.record'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppResourcesRouteImport } from './routes/app.resources'
 import { Route as AppSchemesRouteImport } from './routes/app.schemes'
+import { Route as AppSecurityRouteImport } from './routes/app.security'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppSurveysRouteImport } from './routes/app.surveys'
@@ -189,6 +190,11 @@ const AppSchemesRoute = AppSchemesRouteImport.update({
   path: '/schemes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSecurityRoute = AppSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -273,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/app/reports': typeof AppReportsRoute
   '/app/resources': typeof AppResourcesRoute
   '/app/schemes': typeof AppSchemesRoute
+  '/app/security': typeof AppSecurityRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/surveys': typeof AppSurveysRoute
@@ -313,6 +320,7 @@ export interface FileRoutesByTo {
   '/app/reports': typeof AppReportsRoute
   '/app/resources': typeof AppResourcesRoute
   '/app/schemes': typeof AppSchemesRoute
+  '/app/security': typeof AppSecurityRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/surveys': typeof AppSurveysRoute
@@ -355,6 +363,7 @@ export interface FileRoutesById {
   '/app/reports': typeof AppReportsRoute
   '/app/resources': typeof AppResourcesRoute
   '/app/schemes': typeof AppSchemesRoute
+  '/app/security': typeof AppSecurityRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/surveys': typeof AppSurveysRoute
@@ -398,6 +407,7 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/resources'
     | '/app/schemes'
+    | '/app/security'
     | '/app/settings'
     | '/app/subjects'
     | '/app/surveys'
@@ -438,6 +448,7 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/resources'
     | '/app/schemes'
+    | '/app/security'
     | '/app/settings'
     | '/app/subjects'
     | '/app/surveys'
@@ -479,6 +490,7 @@ export interface FileRouteTypes {
     | '/app/reports'
     | '/app/resources'
     | '/app/schemes'
+    | '/app/security'
     | '/app/settings'
     | '/app/subjects'
     | '/app/surveys'
@@ -696,6 +708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSchemesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/security': {
+      id: '/app/security'
+      path: '/security'
+      fullPath: '/app/security'
+      preLoaderRoute: typeof AppSecurityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/settings': {
       id: '/app/settings'
       path: '/settings'
@@ -802,6 +821,7 @@ interface AppRouteChildren {
   AppReportsRoute: typeof AppReportsRoute
   AppResourcesRoute: typeof AppResourcesRoute
   AppSchemesRoute: typeof AppSchemesRoute
+  AppSecurityRoute: typeof AppSecurityRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppSurveysRoute: typeof AppSurveysRoute
@@ -842,6 +862,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppReportsRoute: AppReportsRoute,
   AppResourcesRoute: AppResourcesRoute,
   AppSchemesRoute: AppSchemesRoute,
+  AppSecurityRoute: AppSecurityRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppSurveysRoute: AppSurveysRoute,

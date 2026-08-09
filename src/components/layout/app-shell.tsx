@@ -1,5 +1,6 @@
 import { Menu, Moon, Search, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
+import { HeaderStatus } from "./header-status";
 import { ChildSwitcher } from "./child-switcher";
 import { UserMenu } from "./user-menu";
 import { ChatWidget } from "./chat-widget";
@@ -52,6 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="col-start-3 flex items-center gap-2">
               {/* A guardian picks the child once, here, and every screen
                   follows that choice. */}
+              <HeaderStatus />
               <ChildSwitcher />
               <button
                 onClick={toggleTheme}
