@@ -3681,3 +3681,131 @@ export function useGenerateLessons() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable"] }),
   });
 }
+
+/* --------------------------------------------------------- day exceptions */
+
+export interface DayLesson {
+  id: string;
+  date: string;
+  studentGroup: string | null;
+  course: string | null;
+  instructor: string | null;
+  instructorName: string | null;
+  room: string | null;
+  from: string;
+  to: string;
+  cancelled: boolean;
+  change: {
+    id: string;
+    type: string;
+    typeLabel: string;
+    originalInstructor: string | null;
+    originalInstructorName: string | null;
+    originalRoom: string | null;
+    reason: string | null;
+    reasonLabel: string | null;
+    notes: string | null;
+  } | null;
+}
+
+export function useDayLessons(params: {
+  date: string;
+  student_group?: string;
+  instructor?: string;
+}) {
+  return useQuery<{
+    date: string;
+    lessons: DayLesson[];
+    changeTypes: Array<{ value: string; label: string }>;
+    reasons: Array<{ value: string; label: string }>;
+  }>({
+    queryKey: ["day-lessons", params],
+    queryFn: () =>
+      apiGet("lesson_changes.day_lessons", {
+        date: params.date,
+        ...(params.student_group ? { student_group: params.student_group } : {}),
+        ...(params.instructor ? { instructor: params.instructor } : {}),
+      }),
+    enabled: Boolean(params.date),
+  });
+}
+
+export function useAvailableInstructors(courseSchedule: string | null) {
+  return useQuery<{
+    available: Array<{ id: string; name: string }>;
+    busy: Array<{ id: string; name: string; reason?: string }>;
+  }>({
+    queryKey: ["available-instructors", courseSchedule],
+    queryFn: () =>
+      apiGet("lesson_changes.available_instructors", {
+        course_schedule: courseSchedule!,
+      }),
+    enabled: Boolean(courseSchedule),
+  });
+}
+
+function invalidateDay(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["day-lessons"] });
+  void qc.invalidateQueries({ queryKey: ["cover-report"] });
+  void qc.invalidateQueries({ queryKey: ["timetable"] });
+}
+
+export function useRecordChange() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      course_schedule: string;
+      change_type: string;
+      instructor?: string;
+      room?: string;
+      reason?: string;
+      notes?: string;
+    }) => apiPost("lesson_changes.record_change", vars as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateDay(qc),
+  });
+}
+
+export function useUndoChange() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (change: string) => apiPost("lesson_changes.undo_change", { change }),
+    onSuccess: () => invalidateDay(qc),
+  });
+}
+
+export function useSwapLessons() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { first: string; second: string; reason?: string }) =>
+      apiPost("lesson_changes.swap_lessons", vars as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateDay(qc),
+  });
+}
+
+export interface CoverReport {
+  entries: Array<{
+    id: string;
+    date: string;
+    type: string;
+    typeLabel: string;
+    covered: string | null;
+    coveredFor: string | null;
+    studentGroup: string | null;
+    course: string | null;
+    reason: string | null;
+  }>;
+  byCovering: Array<{ instructor: string; periods: number }>;
+  byAbsent: Array<{ instructor: string; periods: number }>;
+  total: number;
+}
+
+export function useCoverReport(params: { from_date?: string; to_date?: string } = {}) {
+  return useQuery<CoverReport>({
+    queryKey: ["cover-report", params],
+    queryFn: () =>
+      apiGet<CoverReport>(
+        "lesson_changes.cover_report",
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>,
+      ),
+  });
+}

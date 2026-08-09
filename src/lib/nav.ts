@@ -24,6 +24,7 @@ import {
   Ticket,
   FileQuestion,
   CalendarCog,
+  CalendarClock,
   UserCheck,
   BookMarked,
   ClipboardList,
@@ -302,6 +303,13 @@ export const navItems: NavItem[] = [
     icon: BarChart3,
     roles: ["admin", "secretary", "teacher"],
     group: "المالية والتواصل",
+  },
+  {
+    label: "جدول اليوم والمناوبات",
+    to: "/app/day-schedule",
+    icon: CalendarClock,
+    roles: ["admin", "secretary"],
+    group: "المتابعة اليومية",
   },
   {
     label: "بناء الجدول الدراسي",
