@@ -19,11 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import {
+  activeFilters,
+  type FilterDef,
+  type FilterValues,
+} from "@/components/shared/table-filters";
+
+import {
   useGuardians,
   useLinkGuardian,
   useSaveGuardian,
   useUnlinkGuardian,
   type GuardianRow,
+  useGuardianFilterOptions,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/guardians")({
@@ -55,7 +62,14 @@ function GuardiansPage() {
   const [creating, setCreating] = useState(false);
   const [linking, setLinking] = useState<GuardianRow | null>(null);
 
-  const query = useGuardians({ search, page, page_size: pageSize });
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const query = useGuardians({
+    search,
+    page,
+    page_size: pageSize,
+    ...activeFilters(filterValues),
+  });
+  const filterOptions = useGuardianFilterOptions();
   const unlink = useUnlinkGuardian();
 
   async function removeLink(guardian: string, student: string, name: string) {
@@ -145,6 +159,23 @@ function GuardiansPage() {
     },
   ];
 
+  const guardianFilters: FilterDef[] = filterOptions.data
+    ? [
+        {
+          kind: "select",
+          field: "occupation",
+          label: "المهنة",
+          options: (filterOptions.data.occupations ?? []).map((x) => ({ value: x, label: x })),
+        },
+        {
+          kind: "select",
+          field: "has_login",
+          label: "حساب الدخول",
+          options: filterOptions.data.loginStates ?? [],
+        },
+      ]
+    : [];
+
   return (
     <>
       <PageHeader
@@ -166,6 +197,12 @@ function GuardiansPage() {
         rows={query.data?.items ?? []}
         rowKey={(g) => g.id}
         storageKey="guardians"
+        filters={guardianFilters}
+        filterValues={filterValues}
+        onFiltersChange={(v) => {
+          setFilterValues(v);
+          setPage(1);
+        }}
         isLoading={query.isLoading}
         isFetching={query.isFetching}
         error={query.error}

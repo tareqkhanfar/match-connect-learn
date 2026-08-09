@@ -9,7 +9,18 @@ import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/state
 import { useApp } from "@/lib/app-context";
 import { useConfirm } from "@/components/shared/confirm";
 import { byRole } from "@/lib/roles";
-import { useDeleteSubject, useSaveSubject, useStudentFilters, useSubjects } from "@/lib/api/hooks";
+import {
+  useDeleteSubject,
+  useSaveSubject,
+  useStudentFilters,
+  useSubjectFilterOptions,
+  useSubjects,
+} from "@/lib/api/hooks";
+import {
+  activeFilters,
+  type FilterDef,
+  type FilterValues,
+} from "@/components/shared/table-filters";
 import type { SubjectRow } from "@/lib/api/types";
 import {
   Dialog,
@@ -49,7 +60,9 @@ const ACCENTS = [
 function SubjectsPage() {
   const confirm = useConfirm();
   const { role } = useApp();
-  const { data, isLoading, error, refetch } = useSubjects();
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const { data, isLoading, error, refetch } = useSubjects(activeFilters(filterValues));
+  const filterOptions = useSubjectFilterOptions();
   const deleteSubject = useDeleteSubject();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SubjectRow | null>(null);
@@ -125,6 +138,24 @@ function SubjectsPage() {
   const withTeacher = subjects.filter((s) => s.teacher).length;
   const gradesCovered = new Set(subjects.flatMap((s) => s.grades)).size;
 
+  const subjectFilters: FilterDef[] = filterOptions.data
+    ? [
+        {
+          kind: "select",
+          field: "program",
+          label: "الصف",
+          options: (filterOptions.data.programs ?? []).map((x) => ({ value: x, label: x })),
+        },
+        {
+          kind: "select",
+          field: "department",
+          label: "القسم",
+          options: (filterOptions.data.departments ?? []).map((x) => ({ value: x, label: x })),
+        },
+        { kind: "text", field: "search", label: "بحث", placeholder: "اسم المادة أو رمزها..." },
+      ]
+    : [];
+
   return (
     <>
       <PageHeader
@@ -159,6 +190,9 @@ function SubjectsPage() {
             rows={subjects}
             rowKey={(s) => s.id}
             storageKey="subjects"
+            filters={subjectFilters}
+            filterValues={filterValues}
+            onFiltersChange={setFilterValues}
             isLoading={isLoading}
             error={error}
             onRetry={() => refetch()}

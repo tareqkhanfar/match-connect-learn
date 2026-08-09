@@ -12,7 +12,13 @@ import {
   useSaveClass,
   useStudentFilters,
   useTeachers,
+  useClassFilterOptions,
 } from "@/lib/api/hooks";
+import {
+  activeFilters,
+  type FilterDef,
+  type FilterValues,
+} from "@/components/shared/table-filters";
 import type { ClassRow } from "@/lib/api/types";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import {
@@ -50,7 +56,9 @@ export const Route = createFileRoute("/app/classes")({
 function ClassesPage() {
   const confirm = useConfirm();
   const { role } = useApp();
-  const { data, isLoading, error, refetch } = useClasses();
+  const [filterValues, setFilterValues] = useState<FilterValues>({});
+  const { data, isLoading, error, refetch } = useClasses(activeFilters(filterValues));
+  const filterOptions = useClassFilterOptions();
   const deleteClass = useDeleteClass();
   const [editing, setEditing] = useState<ClassRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -120,6 +128,27 @@ function ClassesPage() {
       : []),
   ];
 
+  const opts = (xs: string[] | undefined) => (xs ?? []).map((x) => ({ value: x, label: x }));
+  const classFilters: FilterDef[] = filterOptions.data
+    ? [
+        { kind: "select", field: "program", label: "الصف", options: opts(filterOptions.data.programs) },
+        { kind: "select", field: "batch", label: "الشعبة", options: opts(filterOptions.data.batches) },
+        {
+          kind: "select",
+          field: "academic_year",
+          label: "العام الدراسي",
+          options: opts(filterOptions.data.academicYears),
+        },
+        {
+          kind: "select",
+          field: "academic_term",
+          label: "الفصل الدراسي",
+          options: opts(filterOptions.data.academicTerms),
+        },
+        { kind: "text", field: "search", label: "بحث", placeholder: "اسم الشعبة..." },
+      ]
+    : [];
+
   return (
     <>
       <PageHeader
@@ -152,8 +181,12 @@ function ClassesPage() {
           <TableSkeleton rows={6} />
         ) : classes.length === 0 ? (
           <EmptyBlock
-            title="لا توجد شُعب"
-            description="لم يتم إنشاء أي شعبة لهذا العام الدراسي."
+            title="لا توجد شُعب مطابقة"
+            description={
+              Object.keys(activeFilters(filterValues)).length > 0
+                ? "لا توجد شعبة مطابقة للفلاتر المحددة."
+                : "لم يتم إنشاء أي شعبة لهذا العام الدراسي."
+            }
             icon={<School className="size-6" />}
           />
         ) : (
@@ -214,19 +247,23 @@ function ClassesPage() {
         )}
       </div>
 
-      {!isLoading && !error && classes.length > 0 && (
-        <div className="mt-6">
-          <DataTable
-            columns={columns}
-            rows={classes}
-            rowKey={(c) => c.name}
-            storageKey="classes"
-            exportDataset="classes"
-            exportTitle="الصفوف والشُعب"
-            emptyTitle="لا توجد شُعب"
-          />
-        </div>
-      )}
+      <div className="mt-6">
+        <DataTable
+          columns={columns}
+          rows={classes}
+          rowKey={(c) => c.name}
+          storageKey="classes"
+          isLoading={isLoading}
+          error={error}
+          onRetry={() => refetch()}
+          filters={classFilters}
+          filterValues={filterValues}
+          onFiltersChange={setFilterValues}
+          exportDataset="classes"
+          exportTitle="الصفوف والشُعب"
+          emptyTitle="لا توجد شُعب"
+        />
+      </div>
 
       {(creating || editing) && (
         <ClassDialog
