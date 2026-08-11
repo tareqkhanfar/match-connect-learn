@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Award, Download, FileText, GraduationCap, Lock, ScrollText, ShieldCheck } from "lucide-react";
+import {
+  Printer, Award, Download, FileText, GraduationCap, Lock, ScrollText, ShieldCheck } from "lucide-react";
 import { PageHeader, SectionCard } from "@/components/shared/ui-kit";
 import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
+import { Label } from "@/components/ui/label";
 import { StudentPicker } from "@/components/shared/student-picker";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice } from "@/lib/roles";
-import { useAvailableDocuments } from "@/lib/api/hooks";
-import { downloadCertificate } from "@/lib/api/export";
+import { useAvailableDocuments, useQuarters } from "@/lib/api/hooks";
+import { downloadCertificate, downloadQuarterCard } from "@/lib/api/export";
 
 export const Route = createFileRoute("/app/certificates")({
   head: () => ({
@@ -45,6 +47,21 @@ function CertificatesPage() {
     if (!staff && viewed) setStudent(viewed);
   }, [staff, viewed]);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [quarter, setQuarter] = useState("");
+  const quarters = useQuarters().data?.quarters ?? [];
+
+  async function downloadQuarter() {
+    if (!student || !quarter) return;
+    setDownloading("quarter");
+    try {
+      await downloadQuarterCard(student, quarter);
+      toast.success("تم تنزيل شهادة الشهرين");
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر إصدار الشهادة");
+    } finally {
+      setDownloading(null);
+    }
+  }
 
   const query = useAvailableDocuments(student || null);
 
@@ -98,6 +115,43 @@ function CertificatesPage() {
       ) : query.error ? (
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : (
+        <>
+        {/* The two-month certificate needs a quarter chosen, so it sits in its
+            own card rather than among the one-click documents. */}
+        {quarters.length > 0 && (
+          <SectionCard
+            title="شهادة الشهرين"
+            description="نتائج ربع دراسي واحد — تُصدر قبل نهاية الفصل."
+            className="mb-5"
+          >
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[12rem] space-y-1.5">
+                <Label>الربع الدراسي</Label>
+                <select
+                  value={quarter}
+                  onChange={(e) => setQuarter(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">اختر الربع</option>
+                  {quarters.map((q) => (
+                    <option key={q.name} value={q.name}>
+                      {q.name} — {q.totalMarks} علامة
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={downloadQuarter}
+                disabled={!quarter || downloading === "quarter"}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground disabled:opacity-50"
+              >
+                <Printer className="size-4" />
+                {downloading === "quarter" ? "جارٍ الإصدار…" : "تنزيل شهادة الشهرين"}
+              </button>
+            </div>
+          </SectionCard>
+        )}
+
         <SectionCard
           title={query.data?.student_name ?? "الوثائق المتاحة"}
           description="اضغط على أي وثيقة لتنزيلها بصيغة PDF"
@@ -151,6 +205,7 @@ function CertificatesPage() {
             للتأكد من صحة الوثيقة.
           </p>
         </SectionCard>
+        </>
       )}
     </>
   );

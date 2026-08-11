@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { GraduationCap, Mail, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const Route = createFileRoute("/app/teachers")({
+export const Route = createFileRoute("/app/teachers/")({
   head: () => ({
     meta: [
       { title: "إدارة المعلمين — Match Education" },
@@ -51,6 +51,7 @@ export const Route = createFileRoute("/app/teachers")({
 });
 
 function TeachersPage() {
+
   const confirm = useConfirm();
   const [q, setQ] = useState("");
   const [filterValues, setFilterValues] = useState<FilterValues>({});
@@ -66,7 +67,24 @@ function TeachersPage() {
   const [view, setView] = useViewMode("teachers");
 
   const columns: Column<TeacherRow>[] = [
-    { fieldname: "instructor_name", label: "الاسم", sortable: true },
+    {
+      fieldname: "instructor_name",
+      label: "الاسم",
+      sortable: true,
+      render: (t) => (
+        <Link
+          to="/app/teachers/$instructorId"
+          params={{ instructorId: t.id }}
+          className="flex items-center gap-3"
+        >
+          <Avatar name={t.instructor_name} src={t.image} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">{t.instructor_name}</p>
+            <p className="truncate text-xs text-muted-foreground">{t.department ?? "—"}</p>
+          </div>
+        </Link>
+      ),
+    },
     { fieldname: "department", label: "القسم", render: (t) => t.department ?? "—" },
     {
       fieldname: "classes_count",
@@ -261,10 +279,14 @@ function TeachersPage() {
             >
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
                 <Avatar name={t.instructor_name} className="size-12 rounded-2xl text-sm" />
-                <div className="min-w-0">
-                  <p className="truncate font-bold">{t.instructor_name}</p>
+                <Link
+                  to="/app/teachers/$instructorId"
+                  params={{ instructorId: t.id }}
+                  className="min-w-0"
+                >
+                  <p className="truncate font-bold hover:text-primary">{t.instructor_name}</p>
                   <p className="truncate text-xs text-muted-foreground">{t.department ?? "—"}</p>
-                </div>
+                </Link>
                 {t.status && (
                   <Pill tone={t.status === "Active" ? "success" : "muted"}>
                     {t.status === "Active" ? "نشِط" : t.status}

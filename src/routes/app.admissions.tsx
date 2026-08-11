@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Attachments } from "@/components/shared/attachments";
+import { PendingAttachments, uploadPending } from "@/components/shared/pending-attachments";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -313,7 +315,9 @@ function ApplicantDialog({
   const detail = useApplicant(applicant?.id ?? null);
   const save = useSaveApplicant();
 
-  const [tab, setTab] = useState<"basic" | "personal" | "relations" | "address">("basic");
+  const [tab, setTab] = useState<
+    "basic" | "personal" | "relations" | "address" | "documents"
+  >("basic");
   const [form, setForm] = useState<Record<string, string>>({});
   const [guardians, setGuardians] = useState<
     Array<{ guardian: string; relation: string }>
@@ -322,6 +326,7 @@ function ApplicantDialog({
     Array<{ name: string; birthDate: string; gender: string; sameSchool: boolean }>
   >([]);
   const [loaded, setLoaded] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   // Populate once the existing record arrives (or immediately when creating).
   useEffect(() => {
@@ -395,7 +400,7 @@ function ApplicantDialog({
     }
 
     try {
-      await save.mutateAsync({
+      const saved = await save.mutateAsync({
         ...(applicant ? { id: applicant.id } : {}),
         ...form,
         academicYear: form["academicYear"] || options.data?.defaultAcademicYear || "",
@@ -403,6 +408,16 @@ function ApplicantDialog({
         siblings: siblings.filter((s) => s.name.trim()),
       });
       toast.success(applicant ? "تم تحديث الطلب" : "تم إنشاء الطلب");
+
+      // Files chosen before the application had an id are uploaded now that
+      // it has one. Reported separately so a failed upload does not read as a
+      // failed save.
+      if (pendingFiles.length > 0 && saved?.id) {
+        const uploaded = await uploadPending("Student Applicant", saved.id, pendingFiles);
+        if (uploaded > 0) toast.success(`تم رفع ${uploaded} من المرفقات`);
+        setPendingFiles([]);
+      }
+
       onClose();
     } catch (err) {
       toast.error(errorMessage(err, "تعذّر الحفظ"));
@@ -419,6 +434,7 @@ function ApplicantDialog({
     ["personal", "البيانات الشخصية"],
     ["relations", "الأهل والإخوة"],
     ["address", "العنوان"],
+    ["documents", "المرفقات"],
   ] as const;
 
   return (
@@ -705,6 +721,24 @@ function ApplicantDialog({
             </div>
           </div>
         )}
+
+        {tab === "documents" &&
+          (applicant?.id ? (
+            <Attachments
+              doctype="Student Applicant"
+              name={applicant.id}
+              title="مرفقات الطلب"
+              description="شهادة الميلاد، صورة الهوية، الشهادات السابقة، التقارير الطبية. تنتقل تلقائياً إلى ملف الطالب عند قبول الطلب."
+              compact
+            />
+          ) : (
+            <PendingAttachments
+              files={pendingFiles}
+              onChange={setPendingFiles}
+              title="مرفقات الطلب"
+              description="اختر الملفات الآن وسيتم رفعها فور حفظ الطلب، ثم تنتقل إلى ملف الطالب عند القبول."
+            />
+          ))}
 
         {tab === "address" && (
           <div className="grid gap-4 sm:grid-cols-2">

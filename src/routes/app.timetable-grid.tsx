@@ -37,6 +37,12 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/timetable-grid")({
+  // Other screens link here with a section preselected — the teacher profile
+  // does it from the weekly-load table — so the group arrives in the URL.
+  validateSearch: (search: Record<string, unknown>): { group?: string } => {
+    const group = search["group"];
+    return typeof group === "string" && group ? { group } : {};
+  },
   head: () => ({
     meta: [
       { title: "بناء الجدول الدراسي — Match Education" },
@@ -53,8 +59,9 @@ export const Route = createFileRoute("/app/timetable-grid")({
 const cellKey = (day: string, period: number) => `${day}#${period}`;
 
 function TimetableGridPage() {
+  const { group: groupFromUrl } = Route.useSearch();
   const [mode, setMode] = useState<"class" | "teacher">("class");
-  const [group, setGroup] = useState("");
+  const [group, setGroup] = useState(groupFromUrl ?? "");
   const [instructor, setInstructor] = useState("");
 
   const options = useGridOptions();

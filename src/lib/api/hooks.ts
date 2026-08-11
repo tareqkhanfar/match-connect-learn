@@ -659,10 +659,14 @@ export function useDeleteAnnouncement() {
   });
 }
 
-export function useInbox(limit = 50) {
+export function useInbox(limit = 50, student?: string) {
   return useQuery<MessageRow[]>({
-    queryKey: [...qk.inbox, limit],
-    queryFn: () => apiGet<MessageRow[]>("communication.inbox", { limit }),
+    queryKey: [...qk.inbox, limit, student ?? "all"],
+    queryFn: () =>
+      apiGet<MessageRow[]>("communication.inbox", {
+        limit,
+        ...(student ? { student } : {}),
+      }),
   });
 }
 
@@ -1314,6 +1318,10 @@ export interface EntrySheet {
   rows: EntrySheetRow[];
   entered: number;
   total: number;
+  /** Marks students can already see. */
+  publishedCount: number;
+  /** Marks saved but not yet released to students. */
+  draftCount: number;
 }
 
 export function useEntrySheet(
@@ -1366,8 +1374,17 @@ export interface SubjectGrade extends GradeBand {
       percentage: number;
       is_bonus: boolean;
       remarks: string | null;
+      /** Average for this assessment across the student's own sections.
+       *  null when fewer than two students were marked — one mark is not an
+       *  average, and showing it would read as "exactly average". */
+      class_average: number | null;
     }
   >;
+  /** This subject's average across the student's own section, and across every
+   *  section of the grade. null when too few students were marked to average. */
+  section_average?: number | null;
+  grade_average?: number | null;
+  section_name?: string | null;
 }
 
 export interface TermGrades {
@@ -1891,6 +1908,12 @@ export interface TermOverviewRow {
     status_label: string;
     instructor: string | null;
     submitted_on: string;
+    /** Set when the administration reopened this subject for an appeal. */
+    reopened_on: string;
+    reopened_by: string | null;
+    reopen_reason: string | null;
+    /** Marks edited since that reopening. */
+    changed_count: number;
   }>;
 }
 
@@ -3991,5 +4014,823 @@ export function useFailedLoginReport(days = 7) {
   }>({
     queryKey: ["failed-login-report", days],
     queryFn: () => apiGet("security.failed_login_report", { days: String(days) }),
+  });
+}
+
+// --- Dossiers ---------------------------------------------------------------
+// One request that carries everything the school knows about a person, so the
+// profile screens do not fan out into a dozen calls.
+
+export type StudentDossier = {
+  profile: {
+    id: string; name: string; gender: string; image: string | null;
+    birthDate: string; age: number | null; email: string | null;
+    phone: string | null; joined: string; address: string; city: string | null;
+    nationality: string | null; bloodGroup: string | null; active: boolean;
+    hasLogin: boolean; grade: string | null; section: string | null;
+    academicYear: string | null;
+  };
+  enrollments: Array<{
+    id: string; program: string; academicYear: string; academicTerm: string | null;
+    batch: string | null; date: string; submitted: boolean;
+  }>;
+  guardians: Array<{
+    id: string; name: string; relation: string | null; phone: string | null;
+    email: string | null; occupation: string | null; hasLogin: boolean;
+  }>;
+  attendance: {
+    present: number; absent: number; late: number; total: number; rate: number;
+    recent: Array<{ id: string; date: string; status: string; group: string | null; lesson: string | null }>;
+  };
+  grades: {
+    average: number | null;
+    results: Array<{
+      id: string; course: string; plan: string | null; academicYear: string | null;
+      academicTerm: string | null; score: number; maxScore: number;
+      percentage: number | null; grade: string | null; group: string | null;
+    }>;
+    gradebook: Array<{
+      id: string; course: string; component: string; type: string | null;
+      score: number; maxScore: number; percentage: number; academicTerm: string | null;
+    }>;
+  };
+  courses: Array<{ id: string; course: string; program: string | null; enrollment: string | null; date: string }>;
+  behaviour: {
+    positivePoints: number; negativePoints: number; net: number;
+    records: Array<{
+      id: string; date: string; type: string | null; points: number;
+      category: string | null; description: string | null; action: string | null;
+      parentNotified: boolean; reportedBy: string | null;
+    }>;
+  };
+  health: {
+    record: {
+      id: string; bloodGroup: string | null; heightCm: number | null;
+      weightKg: number | null; conditions: string | null; allergies: string | null;
+      medications: string | null; specialNeeds: string | null;
+      immunisations: string | null; lastCheckup: string;
+      emergencyContact: string | null; emergencyPhone: string | null;
+      physician: string | null; physicianPhone: string | null; notes: string | null;
+    } | null;
+    visits: Array<{
+      id: string; date: string; type: string | null; complaint: string | null;
+      treatment: string | null; outcome: string | null; parentNotified: boolean;
+    }>;
+  };
+  assignments: {
+    submitted: number; graded: number; averagePercent: number | null;
+    items: Array<{
+      id: string; assignment: string; title: string | null; status: string | null;
+      submittedOn: string; score: number; maxScore: number; feedback: string | null;
+    }>;
+  };
+  quizzes: Array<{
+    id: string; quiz: string; title: string | null; attempt: number;
+    status: string | null; submittedOn: string; score: number; total: number;
+    percentage: number; passed: boolean;
+  }>;
+  billing: {
+    billed: number; paid: number; outstanding: number;
+    invoices: Array<{
+      id: string; date: string; dueDate: string; total: number;
+      outstanding: number; status: string | null; draft: boolean;
+      overdueDays: number; enrollment: string | null;
+    }>;
+  };
+  services: {
+    library: Array<{ id: string; book: string; status: string | null; issued: string; due: string; returned: string; overdue: boolean }>;
+    transport: Array<{ id: string; route: string | null; stop: string | null; active: boolean; from: string; to: string }>;
+    activities: Array<{ id: string; activity: string; status: string | null; consent: string | null; enrolledOn: string; attended: boolean }>;
+  };
+  alerts: Array<{
+    id: string; rule: string | null; title: string | null; status: string | null;
+    severity: string | null; raisedOn: string; resolvedOn: string;
+  }>;
+  /** Dated lessons. Kept as an array so an older bundle keeps working. */
+  timetable: Array<{
+    id: string; course: string; date: string; from: string; to: string;
+    instructor: string | null; room: string | null; group: string | null;
+  }>;
+  /** The same lessons collapsed onto a weekly grid. */
+  timetableGrid: {
+    days: Array<{ value: string; label: string }>;
+    periods: string[];
+    cells: Array<{
+      day: string; from: string; to: string; course: string;
+      instructor: string | null; room: string | null; group: string | null;
+    }>;
+    lessons: Array<{
+      id: string; course: string; date: string; from: string; to: string;
+      instructor: string | null; room: string | null; group: string | null;
+    }>;
+  };
+};
+
+export type TeacherDossier = {
+  profile: {
+    id: string; name: string; employee: string | null; department: string | null;
+    status: string | null; image: string | null; gender: string;
+    designation: string | null; email: string | null; phone: string | null;
+    joined: string; birthDate: string; hasLogin: boolean;
+  };
+  summary: { groups: number; students: number; lessons: number; periodsPerWeek: number };
+  groups: Array<{
+    id: string; name: string; program: string | null; batch: string | null;
+    academicYear: string | null; students: number; active: boolean;
+  }>;
+  lessons: Array<{ id: string; course: string; date: string; from: string; to: string; room: string | null; group: string | null }>;
+  loads: Array<{
+    id: string; course: string; periodsPerWeek: number; maxPerDay: number;
+    room: string | null; section: string | null; planName: string | null; plan: string;
+  }>;
+  observations: Array<{ id: string; date: string; observer: string | null; rating: string | null; summary: string | null; status: string | null }>;
+  assignments: Array<{ id: string; title: string; course: string | null; dueDate: string; status: string | null }>;
+};
+
+export function useStudentDossier(student: string | undefined) {
+  return useQuery<StudentDossier>({
+    queryKey: ["student-dossier", student],
+    queryFn: () => apiGet<StudentDossier>("dossier.student_dossier", { student: student! }),
+    enabled: !!student,
+  });
+}
+
+export function useTeacherDossier(instructor: string | undefined) {
+  return useQuery<TeacherDossier>({
+    queryKey: ["teacher-dossier", instructor],
+    queryFn: () => apiGet<TeacherDossier>("dossier.teacher_dossier", { instructor: instructor! }),
+    enabled: !!instructor,
+  });
+}
+
+// --- Section assignment -----------------------------------------------------
+
+export type SectionStudent = {
+  row: string;
+  id: string;
+  name: string;
+  rollNumber: number | null;
+  active: boolean;
+};
+
+export type SectionInfo = {
+  id: string;
+  name: string;
+  batch: string | null;
+  academicYear: string | null;
+  academicTerm: string | null;
+  capacity: number | null;
+  count: number;
+  spaceLeft: number | null;
+  students: SectionStudent[];
+};
+
+export type ProgramSections = {
+  program: string;
+  academicYear: string | null;
+  sections: SectionInfo[];
+  unassigned: Array<{ id: string; name: string; batch: string | null }>;
+  totals: { sections: number; placed: number; unassigned: number };
+};
+
+export function useProgramSections(program?: string, academicYear?: string) {
+  return useQuery<ProgramSections>({
+    queryKey: ["program-sections", program, academicYear],
+    queryFn: () =>
+      apiGet<ProgramSections>("sections.program_sections", {
+        program: program!,
+        ...(academicYear ? { academic_year: academicYear } : {}),
+      }),
+    enabled: !!program,
+  });
+}
+
+export function useSectionOptions() {
+  return useQuery<{
+    programs: string[];
+    academicYears: string[];
+    academicTerms: string[];
+    batches: string[];
+  }>({
+    queryKey: ["section-options"],
+    queryFn: () => apiGet("sections.section_options"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Every mutation invalidates the same view, so the board always redraws. */
+function useSectionMutation<V>(method: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: V) => apiPost<{ message_ar?: string }>(method, vars as Record<string, unknown>),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["program-sections"] });
+      qc.invalidateQueries({ queryKey: ["classes"] });
+    },
+  });
+}
+
+export const useAssignStudents = () =>
+  useSectionMutation<{ students: string[]; section: string }>("sections.assign_students");
+
+export const useMoveStudents = () =>
+  useSectionMutation<{ students: string[]; from_section: string; to_section: string }>(
+    "sections.move_students",
+  );
+
+export const useSwapStudents = () =>
+  useSectionMutation<{ student_a: string; student_b: string }>("sections.swap_students");
+
+export const useWithdrawStudents = () =>
+  useSectionMutation<{ students: string[]; section: string }>("sections.withdraw_students");
+
+export const useDistributeStudents = () =>
+  useSectionMutation<{
+    program: string;
+    academic_year?: string;
+    sections: string[];
+    strategy: string;
+  }>("sections.distribute_students");
+
+export const useSaveSection = () =>
+  useSectionMutation<{
+    name?: string;
+    student_group_name?: string;
+    program?: string;
+    batch?: string;
+    academic_year?: string;
+    max_strength?: number;
+    disabled?: number;
+  }>("sections.save_section");
+
+// --- Academic context: school identity, period, holidays --------------------
+
+export type AcademicContext = {
+  school: { name: string; logo: string | null; email: string | null; phone: string | null };
+  academicYear: string | null;
+  academicTerm: string | null;
+  years: Array<{ name: string; from: string; to: string; closed: boolean }>;
+  terms: Array<{
+    name: string; label: string; academicYear: string;
+    from: string; to: string; closed: boolean;
+  }>;
+  closed: boolean;
+  canWrite: boolean;
+  readOnlyReason: string | null;
+  today: string;
+  todayIsHoliday: boolean;
+  todayHolidayReason: string | null;
+};
+
+export function useAcademicContext() {
+  return useQuery<AcademicContext>({
+    queryKey: ["academic-context"],
+    queryFn: () => apiGet<AcademicContext>("academic_context.get_context"),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSetPeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { academic_year?: string; academic_term?: string }) =>
+      apiPost<{ academicYear: string; academicTerm: string; closed: boolean }>(
+        "academic_context.set_period",
+        vars as Record<string, unknown>,
+      ),
+    // The period scopes every screen, so everything is refetched rather than
+    // leaving a page showing last term's data.
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export type HolidayRow = {
+  id: string;
+  date: string;
+  description: string | null;
+  weeklyOff: boolean;
+  past: boolean;
+};
+
+export function useHolidays() {
+  return useQuery<{
+    list: string | null;
+    listName?: string;
+    range: { from: string; to: string } | null;
+    weeklyOff?: string;
+    canEdit: boolean;
+    holidays: HolidayRow[];
+  }>({
+    queryKey: ["holidays"],
+    queryFn: () => apiGet("academic_context.holidays"),
+  });
+}
+
+export function useUpcomingHolidays(days = 30) {
+  return useQuery<{
+    holidays: Array<{ date: string; reason: string; inDays: number; isToday: boolean }>;
+    today: string;
+    todayIsHoliday: boolean;
+    todayReason: string | null;
+  }>({
+    queryKey: ["upcoming-holidays", days],
+    queryFn: () => apiGet("academic_context.upcoming_holidays", { days: String(days) }),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useSaveHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { date: string; description?: string; holiday?: string }) =>
+      apiPost<{ message_ar?: string }>("academic_context.save_holiday", vars as Record<string, unknown>),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holidays"] });
+      qc.invalidateQueries({ queryKey: ["upcoming-holidays"] });
+    },
+  });
+}
+
+export function useDeleteHoliday() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (holiday: string) =>
+      apiPost<{ message_ar?: string }>("academic_context.delete_holiday", { holiday }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["holidays"] });
+      qc.invalidateQueries({ queryKey: ["upcoming-holidays"] });
+    },
+  });
+}
+
+// --- Attachments ------------------------------------------------------------
+
+export type Attachment = {
+  id: string;
+  fileName: string;
+  url: string;
+  size: number;
+  sizeLabel: string;
+  isPrivate: boolean;
+  extension: string;
+  uploadedBy: string;
+  uploadedOn: string;
+};
+
+export function useAttachments(doctype: string | undefined, name: string | undefined) {
+  return useQuery<{
+    doctype: string;
+    name: string;
+    label: string;
+    canWrite: boolean;
+    attachments: Attachment[];
+    total: number;
+    maxBytes: number;
+    allowed: string[];
+  }>({
+    queryKey: ["attachments", doctype, name],
+    queryFn: () => apiGet("attachments.list_attachments", { doctype: doctype!, name: name! }),
+    enabled: !!doctype && !!name,
+  });
+}
+
+export function useDeleteAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (attachment: string) =>
+      apiPost<{ message_ar?: string }>("attachments.delete_attachment", { attachment }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attachments"] }),
+  });
+}
+
+/** Release a component's marks to students, or take them back. */
+export function usePublishComponent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      component_name: string;
+      academic_term?: string;
+      published: number;
+    }) =>
+      apiPost<{ published: boolean; count: number; message_ar?: string }>(
+        "gradebook.publish_component",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gradebook-sheet"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+    },
+  });
+}
+
+// --- Grade appeals and scheduled release ------------------------------------
+
+export type MarkChange = {
+  id: string;
+  student: string;
+  studentName: string;
+  component: string;
+  from: number | null;
+  to: number | null;
+  maxScore: number;
+  by: string;
+  at: string;
+};
+
+export function useMarkChangeLog(
+  student_group: string | undefined,
+  course: string | undefined,
+) {
+  return useQuery<{
+    changes: MarkChange[];
+    changedStudents: string[];
+    total: number;
+    reopen: { on: string; by: string; reason: string; status: string } | null;
+  }>({
+    queryKey: ["mark-changes", student_group, course],
+    queryFn: () =>
+      apiGet("grade_appeals.change_log", { student_group: student_group!, course: course! }),
+    enabled: !!student_group && !!course,
+  });
+}
+
+export function useReopenForAppeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      academic_term?: string;
+      reason: string;
+    }) =>
+      apiPost<{ status: string; hidden: number; message_ar?: string }>(
+        "grade_appeals.reopen_for_appeal",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export function useScheduleRelease() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      component_name: string;
+      release_on?: string;
+    }) =>
+      apiPost<{ releaseOn: string | null; count: number; message_ar?: string }>(
+        "grade_appeals.schedule_release",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gradebook-sheet"] });
+      qc.invalidateQueries({ queryKey: ["term-grades"] });
+    },
+  });
+}
+
+/** Where a student stands in their class — no other student is named. */
+export function useClassStanding(student: string | undefined) {
+  return useQuery<{
+    available: boolean;
+    reason?: string;
+    studentAverage?: number;
+    classAverage?: number;
+    difference?: number;
+    rank?: number;
+    classSize?: number;
+    highest?: number;
+    lowest?: number;
+    topPercent?: number;
+  }>({
+    queryKey: ["class-standing", student],
+    queryFn: () => apiGet("gradebook.class_standing", { student: student! }),
+    enabled: !!student,
+  });
+}
+
+/** Unread message counts per child, for the family inbox switcher. */
+export function useUnreadByChild() {
+  return useQuery<{
+    children: Array<{ id: string; name: string; unread: number }>;
+    general: number;
+    total: number;
+  }>({
+    queryKey: ["unread-by-child"],
+    queryFn: () => apiGet("communication.unread_by_child"),
+    refetchInterval: 60 * 1000,
+  });
+}
+
+// --- Assessment plan: quarters, the tree, and how marks are counted ---------
+
+export type Quarter = {
+  name: string;
+  totalMarks: number;
+  from: string;
+  to: string;
+  idx: number;
+};
+
+export type PlanAssessment = { name: string; type: string | null; maxScore: number; parent?: string };
+
+export type PlanCategory = {
+  name: string;
+  type: string | null;
+  quarter: string | null;
+  weight: number;
+  maxScore: number;
+  children: PlanAssessment[];
+};
+
+export type PlanQuarter = Quarter & {
+  categories: PlanCategory[];
+  weightUsed: number;
+  balanced: boolean;
+};
+
+export function useQuarters(academicTerm?: string) {
+  return useQuery<{
+    academicTerm: string | null;
+    termName?: string;
+    quarters: Quarter[];
+    total: number;
+    canEdit: boolean;
+  }>({
+    queryKey: ["quarters", academicTerm ?? "current"],
+    queryFn: () =>
+      apiGet("assessment_plan.get_quarters", academicTerm ? { academic_term: academicTerm } : {}),
+  });
+}
+
+export function useSaveQuarters() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { academic_term?: string; quarters: Array<{ name: string; totalMarks: number }> }) =>
+      apiPost<{ quarters: number; total: number; message_ar?: string }>(
+        "assessment_plan.save_quarters",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quarters"] });
+      qc.invalidateQueries({ queryKey: ["assessment-plan"] });
+    },
+  });
+}
+
+export function useAssessmentPlan(course?: string, academicTerm?: string) {
+  return useQuery<{
+    course: string;
+    academicTerm: string | null;
+    scheme: string | null;
+    schemeName: string | null;
+    quarters: PlanQuarter[];
+    unassigned: PlanCategory[];
+    orphans: PlanAssessment[];
+    canEdit: boolean;
+  }>({
+    queryKey: ["assessment-plan", course, academicTerm ?? "current"],
+    queryFn: () =>
+      apiGet("assessment_plan.get_plan", {
+        course: course!,
+        ...(academicTerm ? { academic_term: academicTerm } : {}),
+      }),
+    enabled: !!course,
+  });
+}
+
+export function useSaveAssessmentPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      course: string;
+      academic_term?: string;
+      scheme_name?: string;
+      categories: Array<{
+        quarter: string;
+        name: string;
+        type?: string;
+        weight: number;
+        children: Array<{ name: string; maxScore: number }>;
+      }>;
+    }) =>
+      apiPost<{ scheme: string; categories: number; assessments: number; message_ar?: string }>(
+        "assessment_plan.save_plan",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["assessment-plan"] }),
+  });
+}
+
+export type GradeRule = {
+  id: string;
+  quarter: string | null;
+  category: string;
+  mode: string;
+  modeLabel: string;
+  n: number;
+  setBy: string | null;
+  setOn: string;
+  notes: string | null;
+};
+
+export function useGradeRules(studentGroup?: string, course?: string) {
+  return useQuery<{ rules: GradeRule[]; modes: Array<{ value: string; label: string }> }>({
+    queryKey: ["grade-rules", studentGroup, course],
+    queryFn: () =>
+      apiGet("assessment_plan.get_rules", { student_group: studentGroup!, course: course! }),
+    enabled: !!studentGroup && !!course,
+  });
+}
+
+export function useSaveGradeRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      category: string;
+      quarter?: string;
+      count_mode: string;
+      count_n?: number;
+    }) =>
+      apiPost<{ id: string; message_ar?: string }>(
+        "assessment_plan.save_rule",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["grade-rules"] });
+      qc.invalidateQueries({ queryKey: ["computed-marks"] });
+    },
+  });
+}
+
+export type ComputedAssessment = {
+  name: string;
+  score: number;
+  maxScore: number;
+  percent: number;
+  missing: boolean;
+};
+
+export type ComputedCategory = {
+  category: string;
+  weight: number;
+  percent: number;
+  earned: number;
+  rule: string;
+  ruleLabel: string;
+  ruleN: number;
+  counted: ComputedAssessment[];
+  dropped: ComputedAssessment[];
+};
+
+export type ComputedStudent = {
+  student: string;
+  studentName: string;
+  quarters: Array<{
+    quarter: string;
+    totalMarks: number;
+    percent: number;
+    marks: number;
+    categories: ComputedCategory[];
+  }>;
+  marks: number;
+  totalMarks: number;
+  percent: number;
+};
+
+export function useComputedMarks(studentGroup?: string, course?: string, student?: string) {
+  return useQuery<{
+    students: ComputedStudent[];
+    quarters: Array<{ name: string; totalMarks: number }>;
+    rules: GradeRule[];
+  }>({
+    queryKey: ["computed-marks", studentGroup, course, student ?? "all"],
+    queryFn: () =>
+      apiGet("assessment_plan.compute_marks", {
+        student_group: studentGroup!,
+        course: course!,
+        ...(student ? { student } : {}),
+      }),
+    enabled: !!studentGroup && !!course,
+  });
+}
+
+// --- Quarter results and the two-month report card --------------------------
+
+export function useQuarterResults(
+  studentGroup?: string,
+  quarter?: string,
+  course?: string,
+) {
+  return useQuery<{
+    quarter: string;
+    quarterTotal: number;
+    courses: string[];
+    students: Array<{
+      student: string;
+      studentName: string;
+      subjects: Record<string, { marks: number; totalMarks: number; percent: number }>;
+      total: number;
+      outOf: number;
+      average: number;
+    }>;
+    classAverage: number;
+  }>({
+    queryKey: ["quarter-results", studentGroup, quarter, course ?? "all"],
+    queryFn: () =>
+      apiGet("export.quarter_results", {
+        student_group: studentGroup!,
+        quarter: quarter!,
+        ...(course ? { course } : {}),
+      }),
+    enabled: !!studentGroup && !!quarter,
+  });
+}
+
+// --- Logins: issuing and resetting ------------------------------------------
+
+export type PersonAccount = {
+  user: string;
+  username: string;
+  name: string;
+  enabled: boolean;
+  lastLogin: string;
+  mustChange: boolean;
+};
+
+export type IssuedCredentials = {
+  user: string;
+  username: string;
+  password: string;
+  name: string;
+};
+
+export function usePersonAccount(doctype?: string, name?: string) {
+  return useQuery<{
+    doctype: string;
+    name: string;
+    label: string;
+    hasAccount: boolean;
+    account: PersonAccount | null;
+  }>({
+    queryKey: ["person-account", doctype, name],
+    queryFn: () => apiGet("credentials.account_for", { doctype: doctype!, name: name! }),
+    enabled: !!doctype && !!name,
+  });
+}
+
+export function useIssueAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { doctype: string; name: string }) =>
+      apiPost<{ credentials: IssuedCredentials; message_ar?: string }>(
+        "credentials.issue_account",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["person-account"] }),
+  });
+}
+
+export function useResetAccountPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { doctype: string; name: string }) =>
+      apiPost<{ credentials: IssuedCredentials; message_ar?: string }>(
+        "credentials.reset_account_password",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["person-account"] }),
+  });
+}
+
+export type GuardianDossier = {
+  profile: {
+    id: string; name: string; idNumber: string | null; email: string | null;
+    phone: string | null; altPhone: string | null; birthDate: string;
+    nationality: string | null; gender: string; bloodGroup: string | null;
+    education: string | null; occupation: string | null;
+    designation: string | null; workAddress: string | null;
+    image: string | null; hasLogin: boolean;
+  };
+  children: Array<{
+    id: string; name: string; image: string | null; active: boolean;
+    relation: string | null; program: string | null; batch: string | null;
+    academicYear: string | null; attendanceRate: number; absences: number;
+    outstanding: number;
+  }>;
+  summary: { children: number; outstanding: number; needsAttention: number };
+};
+
+export function useGuardianDossier(guardian: string | undefined) {
+  return useQuery<GuardianDossier>({
+    queryKey: ["guardian-dossier", guardian],
+    queryFn: () => apiGet<GuardianDossier>("dossier.guardian_dossier", { guardian: guardian! }),
+    enabled: !!guardian,
   });
 }

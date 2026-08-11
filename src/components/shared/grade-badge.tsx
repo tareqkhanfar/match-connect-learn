@@ -1,5 +1,21 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * The colour bands, as data.
+ *
+ * `gradeTone` used to be the only definition, which meant the meaning of each
+ * colour lived in an if-chain nobody could see. The legend on the gradebook
+ * reads this array, so the key on screen can never drift from the colours
+ * actually used.
+ */
+export const GRADE_BANDS = [
+  { min: 90, max: 100, label: "ممتاز", tone: "bg-success-soft text-success border-success/30" },
+  { min: 80, max: 89.99, label: "جيد جداً", tone: "bg-primary-soft text-primary border-primary/30" },
+  { min: 65, max: 79.99, label: "جيد", tone: "bg-info-soft text-info border-info/30" },
+  { min: 50, max: 64.99, label: "مقبول", tone: "bg-warning-soft text-warm-foreground border-warning/40" },
+  { min: 0, max: 49.99, label: "راسب", tone: "bg-destructive-soft text-destructive border-destructive/30" },
+] as const;
+
 /** Colour band for a percentage — shared by every grade display. */
 export function gradeTone(percentage: number) {
   if (percentage >= 90) return "bg-success-soft text-success border-success/30";

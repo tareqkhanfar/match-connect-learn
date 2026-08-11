@@ -2,6 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { GradeCalculation } from "@/components/shared/grade-calculation";
+import {
+  Eye,
   ArrowUpFromLine,
   CheckCheck,
   CheckCircle2,
@@ -26,6 +38,7 @@ import {
   useTermOverview,
   useUnpublishTerm,
   type TermSubmissionRow,
+  useReopenForAppeal,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/term")({
@@ -198,6 +211,7 @@ function TeacherTermView() {
           )}
         </SectionCard>
       </div>
+
     </>
   );
 }
@@ -209,6 +223,34 @@ function AdminTermView() {
   const review = useReviewTerm();
   const publish = usePublishTerm();
   const unpublish = useUnpublishTerm();
+  const reopenAppeal = useReopenForAppeal();
+  const [appeal, setAppeal] = useState<
+    { student_group: string; course: string; className: string } | null
+  >(null);
+  const [appealReason, setAppealReason] = useState("");
+  const [preview, setPreview] = useState<
+    { student_group: string; course: string; className: string } | null
+  >(null);
+
+  async function submitAppeal() {
+    if (!appeal) return;
+    if (!appealReason.trim()) {
+      toast.error("يجب كتابة سبب إعادة الفتح");
+      return;
+    }
+    try {
+      const res = await reopenAppeal.mutateAsync({
+        student_group: appeal.student_group,
+        course: appeal.course,
+        reason: appealReason.trim(),
+      });
+      toast.success(res.message_ar || "تم إعادة فتح العلامات");
+      setAppeal(null);
+      setAppealReason("");
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر إعادة الفتح");
+    }
+  }
   const confirm = useConfirm();
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -386,17 +428,64 @@ function AdminTermView() {
                                 className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg bg-card px-3 py-2"
                               >
                                 <div className="min-w-0">
-                                  <p className="truncate text-sm font-semibold">{s.course}</p>
+                                  <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+                                    {s.course}
+                                    {/* A reopened subject is flagged with how many
+                                        marks moved, so the reviewer checks the
+                                        teacher touched only the disputed one. */}
+                                    {s.reopened_on && (
+                                      <span className="shrink-0 rounded-md border border-amber-500/50 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                                        {s.changed_count > 0
+                                          ? `عُدّلت ${s.changed_count} علامة`
+                                          : "أُعيد فتحها"}
+                                      </span>
+                                    )}
+                                  </p>
                                   <p className="num text-[11px] text-muted-foreground">
                                     {s.instructor ?? "—"}
                                     {s.submitted_on ? ` • ${s.submitted_on.slice(0, 16)}` : ""}
                                   </p>
+                                  {s.reopened_on && s.reopen_reason && (
+                                    <p className="mt-0.5 truncate text-[11px] text-amber-700">
+                                      سبب إعادة الفتح: {s.reopen_reason}
+                                    </p>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Pill tone={state.tone}>
                                     <StateIcon className="ml-1 inline size-3" />
                                     {s.status_label}
                                   </Pill>
+                                  {s.status === "Submitted" && s.reopened_on && (
+                                    <Link
+                                      to="/app/gradebook"
+                                      search={{ group: r.student_group, course: s.course }}
+                                      className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-secondary"
+                                    >
+                                      مراجعة التعديلات
+                                    </Link>
+                                  )}
+                                  {/* Marks must be readable before they are
+                                      approved: approving a submission sight
+                                      unseen is the one thing the review step
+                                      exists to prevent. */}
+                                  {(s.status === "Submitted" ||
+                                    s.status === "Approved" ||
+                                    s.status === "Published") && (
+                                    <button
+                                      onClick={() =>
+                                        setPreview({
+                                          student_group: r.student_group,
+                                          course: s.course,
+                                          className: r.name,
+                                        })
+                                      }
+                                      className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-secondary"
+                                    >
+                                      <Eye className="size-3" />
+                                      مشاهدة العلامات
+                                    </button>
+                                  )}
                                   {s.status === "Submitted" && (
                                     <>
                                       <button
@@ -413,6 +502,25 @@ function AdminTermView() {
                                       </button>
                                     </>
                                   )}
+                                  {/* Once approved or published there was no way
+                                      back for a single subject — an appeal had to
+                                      reopen the whole class. This reopens just
+                                      this course for this section. */}
+                                  {(s.status === "Approved" || s.status === "Published") && (
+                                    <button
+                                      onClick={() =>
+                                        setAppeal({
+                                          student_group: r.student_group,
+                                          course: s.course,
+                                          className: r.name,
+                                        })
+                                      }
+                                      className="inline-flex items-center gap-1 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-500/20"
+                                    >
+                                      <Undo2 className="size-3" />
+                                      إعادة فتح (طعن)
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -427,6 +535,72 @@ function AdminTermView() {
           )}
         </SectionCard>
       </div>
+      {preview && (
+        <Dialog open onOpenChange={(v) => !v && setPreview(null)}>
+          <DialogContent className="max-w-4xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle>علامات {preview.course}</DialogTitle>
+              <DialogDescription>
+                {preview.className} — العلامات كما احتسبها المعلم، قبل الاعتماد.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[65vh] overflow-y-auto">
+              <GradeCalculation
+                studentGroup={preview.student_group}
+                course={preview.course}
+                canEdit={false}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {appeal && (
+        <Dialog open onOpenChange={(v) => !v && setAppeal(null)}>
+          <DialogContent dir="rtl">
+            <DialogHeader>
+              <DialogTitle>إعادة فتح العلامات للتعديل</DialogTitle>
+              <DialogDescription>
+                {appeal.course} — {appeal.className}. ستعود العلامات للمعلم للتعديل، وتُخفى عن
+                الطلاب وأولياء الأمور مؤقتاً حتى إعادة النشر.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="appeal-reason">سبب إعادة الفتح</Label>
+              <Textarea
+                id="appeal-reason"
+                value={appealReason}
+                onChange={(e) => setAppealReason(e.target.value)}
+                placeholder="مثال: طعن الطالب على علامة الاختبار النهائي وتبيّن وجود خطأ في الجمع"
+                rows={3}
+                className="rounded-xl"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                يُحفظ السبب في سجل النتائج مع اسمك وتاريخ الإجراء.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setAppeal(null)}
+                className="rounded-lg border border-border px-4 py-2 text-sm"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={submitAppeal}
+                disabled={reopenAppeal.isPending || !appealReason.trim()}
+                className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
+              >
+                {reopenAppeal.isPending ? "جارٍ..." : "إعادة الفتح"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

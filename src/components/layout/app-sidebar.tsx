@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronsLeft, GraduationCap, LogOut, X } from "lucide-react";
+import { ChevronsLeft, LogOut, X } from "lucide-react";
 import { groupFor, groupsForRole, labelFor, navForRole } from "@/lib/nav";
 import { useApp } from "@/lib/app-context";
 import { roleLabels } from "@/lib/roles";
@@ -20,8 +20,16 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
   const content = (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground shadow-glow">
-          <GraduationCap className="size-5" />
+        {/* The brand mark carries its own colours, so it sits on a light plate
+            rather than the gradient the generic icon needed. */}
+        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/95 p-1.5 shadow-glow">
+          <img
+            src="/brand/match-systems-logo.png"
+            alt="Match Systems"
+            width={256}
+            height={217}
+            className="size-full object-contain"
+          />
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">

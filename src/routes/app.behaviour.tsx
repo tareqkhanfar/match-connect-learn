@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -168,7 +169,13 @@ function BehaviourPage() {
     {
       fieldname: "category",
       label: "التصنيف",
-      render: (r) => (r.category ? (CATEGORY_AR[r.category] ?? r.category) : "—"),
+      render: (r) =>
+        r.category
+          ? r.category
+              .split(",")
+              .map((c) => CATEGORY_AR[c.trim()] ?? c.trim())
+              .join("، ")
+          : "—",
     },
     { fieldname: "student_group", label: "الشعبة", hiddenByDefault: true },
     { fieldname: "description", label: "الوصف", hiddenByDefault: true },
@@ -402,24 +409,22 @@ function BehaviourDialog({
           {!record && (
             <div className="space-y-1.5">
               <Label>الطالب *</Label>
-              <Input
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="ابحث عن الطالب..."
-                className="rounded-xl"
+              {/* One control instead of a search box stacked above a dropdown:
+                  the search is inside the list, which is where a user expects
+                  it and which keeps the two in step. */}
+              <SearchableSelect
+                options={(studentsQuery.data?.items ?? []).map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  hint: s.id,
+                }))}
+                value={form.student}
+                onChange={(v) => set("student", v)}
+                onSearchChange={setStudentSearch}
+                placeholder="اختر الطالب"
+                searchPlaceholder="ابحث بالاسم أو الرقم…"
+                emptyText="لا يوجد طالب بهذا الاسم"
               />
-              <Select value={form.student} onValueChange={(v) => set("student", v)}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="اختر الطالب" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(studentsQuery.data?.items ?? []).map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           )}
 
@@ -446,20 +451,39 @@ function BehaviourDialog({
                 className="num rounded-xl"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>التصنيف</Label>
-              <Select value={form.category} onValueChange={(v) => set("category", v)}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder="اختر التصنيف" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c}>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>التصنيف (يمكن اختيار أكثر من واحد)</Label>
+              {/* One incident is often several things at once — late *and* no
+                  homework — so the categories are checkboxes stored as a
+                  comma-separated list rather than a single choice. */}
+              <div className="flex flex-wrap gap-1.5 rounded-xl border border-border p-2.5">
+                {CATEGORIES.map((c) => {
+                  const chosen = form.category
+                    .split(",")
+                    .map((x) => x.trim())
+                    .filter(Boolean);
+                  const on = chosen.includes(c);
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() =>
+                        set(
+                          "category",
+                          (on ? chosen.filter((x) => x !== c) : [...chosen, c]).join(","),
+                        )
+                      }
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        on
+                          ? "border-primary bg-primary-soft text-primary"
+                          : "border-border hover:bg-secondary"
+                      }`}
+                    >
                       {CATEGORY_AR[c] ?? c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>التاريخ</Label>

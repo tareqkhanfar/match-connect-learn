@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Minus,
+  ArrowDown,
+  ArrowUp,
   AlertTriangle,
   ArrowRight,
   Award,
@@ -35,6 +38,7 @@ import {
   type SubjectGrade,
 } from "@/lib/api/hooks";
 import { downloadReportCard } from "@/lib/api/export";
+import { FinalMarksTable } from "@/routes/app.finals";
 import { isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/record")({
@@ -305,28 +309,11 @@ function RecordBody({ data }: { data: NonNullable<ReturnType<typeof useAcademicR
 
   return (
     <>
-      <div className="mb-5 grid gap-4 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-        {data.shows_cumulative && data.cumulative_grade ? (
-          <GradeHero
-            percentage={data.cumulative ?? 0}
-            grade={data.cumulative_grade.grade}
-            emoji={data.cumulative_grade.emoji}
-            label={data.cumulative_grade.label}
-            caption="المعدل التراكمي"
-          />
-        ) : (
-          /* The total belongs to the administration, or the term is not
-             published yet — say so rather than showing a misleading zero. */
-          <div className="card-surface flex flex-col items-center justify-center gap-2 p-6 text-center">
-            <Lock className="size-6 text-muted-foreground" />
-            <p className="text-sm font-semibold">المعدل غير متاح</p>
-            <p className="text-xs text-muted-foreground">
-              يظهر المعدل التراكمي بعد اعتماد الإدارة ونشر نتائج الفصل.
-            </p>
-          </div>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
+      {/* No cumulative GPA here: this screen is the term's marks. A running
+          total across years belongs on a transcript, not beside a single
+          term's subjects. */}
+      <div className="mb-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="card-surface flex items-center gap-3 p-4">
             <Avatar name={data.student_name ?? ""} className="size-12 rounded-2xl text-sm" />
             <div className="min-w-0">
@@ -386,6 +373,7 @@ function RecordBody({ data }: { data: NonNullable<ReturnType<typeof useAcademicR
               <EmptyBlock title="لا توجد مواد في هذا الفصل" />
             ) : (
               <div className="space-y-4">
+                <FinalMarksTable subjects={period.subjects} />
                 {period.subjects.map((s) => (
                   <SubjectRow key={`${period.academic_term}-${s.course}`} subject={s} />
                 ))}
@@ -414,14 +402,6 @@ function SubjectRow({ subject }: { subject: SubjectGrade }) {
               {subject.components.length} مكوّن
             </span>
           </div>
-          <div className="mt-2">
-            <ProgressBar value={subject.final} tone={progressTone(subject.final)} />
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-            <span>الموزون {subject.percentage}%</span>
-            {subject.bonus > 0 && <span className="text-success">+{subject.bonus} إضافي</span>}
-            {subject.covered < 100 && <span>مُدخل {subject.covered}% من الخطة</span>}
-          </div>
         </div>
         <GradeBadge
           percentage={subject.final}
@@ -441,6 +421,7 @@ function SubjectRow({ subject }: { subject: SubjectGrade }) {
                   <th className="pb-2 font-semibold">المكوّن</th>
                   <th className="pb-2 font-semibold">النوع</th>
                   <th className="pb-2 font-semibold">الدرجة</th>
+                  <th className="pb-2 font-semibold">معدل الشعبة</th>
                   <th className="pb-2 font-semibold">الوزن</th>
                   <th className="pb-2 font-semibold">التقدير</th>
                 </tr>
@@ -459,6 +440,24 @@ function SubjectRow({ subject }: { subject: SubjectGrade }) {
                     <td className="py-2 text-muted-foreground">{c.type_label}</td>
                     <td className="num py-2">
                       {c.score}/{c.max_score}
+                    </td>
+                    {/* How the rest of the section did on this same
+                        assessment, and which side of it this mark falls on. */}
+                    <td className="num py-2">
+                      {c.class_average === null || c.class_average === undefined ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <span className="text-muted-foreground">{c.class_average}%</span>
+                          {c.percentage > c.class_average ? (
+                            <ArrowUp className="size-3.5 text-emerald-600" />
+                          ) : c.percentage < c.class_average ? (
+                            <ArrowDown className="size-3.5 text-red-600" />
+                          ) : (
+                            <Minus className="size-3.5 text-muted-foreground" />
+                          )}
+                        </span>
+                      )}
                     </td>
                     <td className="num py-2 text-muted-foreground">{c.weight}%</td>
                     <td className="py-2">

@@ -8,6 +8,8 @@ import { DataTable, type Column } from "@/components/shared/data-table";
 import { useConfirm } from "@/components/shared/confirm";
 import { BulkActions } from "@/components/shared/bulk-actions";
 import { StudentPicker } from "@/components/shared/student-picker";
+import { Attachments } from "@/components/shared/attachments";
+import { AccountCredentials } from "@/components/shared/account-credentials";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +35,7 @@ import {
   useGuardianFilterOptions,
 } from "@/lib/api/hooks";
 
-export const Route = createFileRoute("/app/guardians")({
+export const Route = createFileRoute("/app/guardians/")({
   head: () => ({
     meta: [
       { title: "أولياء الأمور — Match Education" },
@@ -89,7 +91,20 @@ function GuardiansPage() {
   }
 
   const columns: Column<GuardianRow>[] = [
-    { fieldname: "name", label: "الاسم", sortable: true },
+    {
+      fieldname: "name",
+      label: "الاسم",
+      sortable: true,
+      render: (g) => (
+        <Link
+          to="/app/guardians/$guardianId"
+          params={{ guardianId: g.id }}
+          className="font-semibold hover:text-primary"
+        >
+          {g.name}
+        </Link>
+      ),
+    },
     { fieldname: "phone", label: "الهاتف", numeric: true, render: (g) => g.phone ?? "—" },
     { fieldname: "email", label: "البريد", render: (g) => g.email ?? "—" },
     {
@@ -351,6 +366,21 @@ function GuardianDialog({
             إلغاء
           </button>
         </DialogFooter>
+
+        {/* Files need a saved record to attach to, so this appears only when
+            editing an existing guardian, not while creating one. */}
+        {guardian?.id && (
+          <div className="space-y-4 border-t border-border pt-4">
+            <AccountCredentials doctype="Guardian" name={guardian.id} canManage />
+            <Attachments
+              doctype="Guardian"
+              name={guardian.id}
+              title="مستندات ولي الأمر"
+              description="صورة الهوية، إثبات العنوان، أو أي وثيقة أخرى."
+              compact
+            />
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

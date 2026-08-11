@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { DoorOpen, Plus, School, Trash2, Users } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { DoorOpen, LayoutGrid, Plus, School, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
@@ -156,6 +156,14 @@ function ClassesPage() {
         subtitle="إدارة الصفوف الدراسية وإسناد المعلمين والمواد"
         actions={
           canManage ? (
+            <div className="flex items-center gap-2">
+            <Link
+              to="/app/sections"
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:bg-secondary"
+            >
+              <LayoutGrid className="size-4" />
+              توزيع الطلاب على الشعب
+            </Link>
             <button
               onClick={() => setCreating(true)}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
@@ -163,6 +171,7 @@ function ClassesPage() {
               <Plus className="size-4" />
               إضافة شعبة
             </button>
+            </div>
           ) : null
         }
       />

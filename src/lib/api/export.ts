@@ -333,3 +333,102 @@ export async function uploadStudentPhoto(student: string, file: File): Promise<s
   }
   return envelope.data.image as string;
 }
+
+/**
+ * Upload a document against a record.
+ *
+ * Sent as multipart/form-data rather than JSON: a 15 MB scan base64-encoded
+ * would be 20 MB on the wire, and the browser streams a FormData body.
+ */
+export async function uploadAttachment(
+  doctype: string,
+  name: string,
+  file: File,
+  description?: string,
+): Promise<{ id: string; fileName: string; url: string }> {
+  const base = (import.meta.env["VITE_API_BASE"] ?? "").replace(/\/$/, "");
+  const body = new FormData();
+  body.append("file", file);
+  if (description) body.append("description", description);
+
+  const params = new URLSearchParams({ doctype, name });
+  const res = await fetch(
+    `${base}/api/method/match_schools.api.attachments.upload_attachment?${params}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "X-Frappe-CSRF-Token":
+          (typeof window !== "undefined" &&
+            (window as unknown as { csrf_token?: string }).csrf_token) ||
+          "",
+      },
+      body,
+    },
+  );
+
+  const payload = await res.json().catch(() => null);
+  const envelope = payload?.message;
+  if (!res.ok || !envelope?.success) {
+    const error = new Error(envelope?.message_en || "Upload failed") as Error & {
+      messageAr?: string;
+    };
+    error.messageAr =
+      envelope?.message_ar ||
+      (res.status === 403 ? "لا تملك صلاحية رفع الملفات لهذا السجل." : "تعذّر رفع الملف.");
+    throw error;
+  }
+  return envelope.data.attachment;
+}
+
+/** Download a single quarter's report card ("شهادة الشهرين") for one student. */
+export async function downloadQuarterCard(
+  student: string,
+  quarter: string,
+  options: { studentGroup?: string; academicTerm?: string } = {},
+): Promise<void> {
+  const res = await fetch(endpoint("export_quarter_report_card"), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Frappe-CSRF-Token":
+        (typeof window !== "undefined" &&
+          (window as unknown as { csrf_token?: string }).csrf_token) ||
+        "",
+    },
+    body: JSON.stringify({
+      student,
+      quarter,
+      ...(options.studentGroup ? { student_group: options.studentGroup } : {}),
+      ...(options.academicTerm ? { academic_term: options.academicTerm } : {}),
+    }),
+  });
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.ok || contentType.includes("application/json")) {
+    let messageEn = `Export failed (${res.status})`;
+    let messageAr = "تعذّر إنشاء الشهادة.";
+    try {
+      const payload = await res.json();
+      const envelope = payload?.message;
+      messageEn = envelope?.message_en || messageEn;
+      messageAr = envelope?.message_ar || messageAr;
+    } catch {
+      // A non-JSON error body tells us nothing useful; keep the defaults.
+    }
+    const error = new Error(messageEn) as Error & { messageAr?: string };
+    error.messageAr = messageAr;
+    throw error;
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `quarter-${quarter}-${student}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}

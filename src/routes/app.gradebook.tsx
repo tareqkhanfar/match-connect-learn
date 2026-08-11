@@ -1,5 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { BookOpenCheck, Download, FileDown, Save, Settings2, Sparkles, Users } from "lucide-react";
+import {
+  BookOpenCheck,
+  CalendarClock,
+  Download,
+  EyeOff,
+  FileDown,
+  Save,
+  Send,
+  Settings2,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -10,7 +21,8 @@ import {
   ProgressBar,
   SectionCard,
 } from "@/components/shared/ui-kit";
-import { GradeBadge, progressTone } from "@/components/shared/grade-badge";
+import { GradeCalculation } from "@/components/shared/grade-calculation";
+import { GRADE_BANDS, GradeBadge, progressTone } from "@/components/shared/grade-badge";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +54,10 @@ import {
   useImportableAssignments,
   useImportAssignment,
   useImportAssignmentsCombined,
+  usePublishComponent,
+  useMarkChangeLog,
+  useReopenForAppeal,
+  useScheduleRelease,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/gradebook")({
@@ -196,6 +212,7 @@ function GradebookPage() {
 
 /** Enter one component's marks for a whole class. */
 function MarkEntry({ group, course }: { group: string; course: string }) {
+  const { role } = useApp();
   const [component, setComponent] = useState<string>("");
   const sheet = useEntrySheet({
     student_group: group,
@@ -214,6 +231,52 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
   }, [components, component]);
 
   const [marks, setMarks] = useState<Record<string, string>>({});
+  const [showEmpty, setShowEmpty] = useState(false);
+  const publish = usePublishComponent();
+  const changeLog = useMarkChangeLog(group || undefined, course || undefined);
+  const scheduleRelease = useScheduleRelease();
+  const reopen = useReopenForAppeal();
+  const [releaseOn, setReleaseOn] = useState("");
+
+  // Marks edited since they were first entered. Outlined in the sheet so a
+  // teacher correcting one appeal can see they have not touched anyone else.
+  const changedStudents = useMemo(
+    () => new Set(changeLog.data?.changedStudents ?? []),
+    [changeLog.data],
+  );
+
+  async function applyRelease(date: string) {
+    if (!active) return;
+    try {
+      const res = await scheduleRelease.mutateAsync({
+        student_group: group,
+        course,
+        component_name: active.component_name,
+        ...(date ? { release_on: date } : {}),
+      });
+      toast.success(res.message_ar || "تم الحفظ");
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر ضبط موعد النشر");
+    }
+  }
+
+  const publishedCount = sheet.data?.publishedCount ?? 0;
+  const draftCount = sheet.data?.draftCount ?? 0;
+
+  async function togglePublish(toPublish: boolean) {
+    if (!active) return;
+    try {
+      const res = await publish.mutateAsync({
+        student_group: group,
+        course,
+        component_name: active.component_name,
+        published: toPublish ? 1 : 0,
+      });
+      toast.success(res.message_ar || (toPublish ? "تم النشر" : "تم السحب"));
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر تنفيذ العملية");
+    }
+  }
   useEffect(() => {
     // Reset edits when the class, subject or component changes.
     setMarks({});
@@ -239,6 +302,30 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
 
   async function save() {
     if (!active) return;
+
+    // Marks are a legal record, so a half-filled sheet is refused outright
+    // and the offending cells turn red rather than being saved as zeros.
+    const empties = rows.filter((r) => valueFor(r.student, r.score) === "");
+    if (empties.length > 0) {
+      setShowEmpty(true);
+      toast.error(
+        `${empties.length} طالب بدون علامة — أكمل الحقول باللون الأحمر أو احذف المكوّن.`,
+      );
+      return;
+    }
+    const badSteps = rows.filter((r) => {
+      const v = valueFor(r.student, r.score);
+      return v !== "" && (Number(v) * 2) % 1 !== 0;
+    });
+    if (badSteps.length > 0) {
+      toast.error(`${badSteps.length} علامة يجب أن تكون من مضاعفات ٠.٥`);
+      return;
+    }
+    if (overMax > 0) {
+      toast.error(`${overMax} علامة تتجاوز الحد الأقصى ${maxScore}`);
+      return;
+    }
+    setShowEmpty(false);
     const payload = {
       student_group: group,
       course,
@@ -329,10 +416,34 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
           <div className="flex items-center gap-2">
             <Input
               type="number"
+              step={0.5}
+              min={0}
+              inputMode="decimal"
               placeholder="تعبئة الكل"
               onChange={(e) => e.target.value && fillAll(e.target.value)}
               className="num h-9 w-28 rounded-lg text-center"
             />
+            <button
+              onClick={() => togglePublish(draftCount > 0)}
+              disabled={publish.isPending || (publishedCount === 0 && draftCount === 0)}
+              title={
+                draftCount > 0
+                  ? "الطلاب لا يرون هذه الدرجات بعد"
+                  : "الدرجات ظاهرة للطلاب — يمكنك سحبها للتعديل"
+              }
+              className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3.5 text-xs font-bold transition-colors disabled:opacity-50 ${
+                draftCount > 0
+                  ? "border-primary bg-primary-soft text-primary hover:bg-primary/10"
+                  : "border-border text-muted-foreground hover:bg-secondary"
+              }`}
+            >
+              {draftCount > 0 ? <Send className="size-3.5" /> : <EyeOff className="size-3.5" />}
+              {publish.isPending
+                ? "…"
+                : draftCount > 0
+                  ? `نشر للطلاب (${draftCount})`
+                  : "سحب من الطلاب"}
+            </button>
             <button
               onClick={save}
               disabled={saveMarks.isPending || rows.length === 0}
@@ -350,6 +461,71 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
           </div>
         )}
 
+        {/* Why the marks are open again, so the teacher knows this is an
+            appeal and not a mistake. */}
+        {changeLog.data?.reopen && (
+          <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs">
+            <p className="font-bold text-amber-800">
+              أُعيد فتح هذه العلامات للتعديل
+            </p>
+            <p className="mt-0.5 text-amber-700">
+              السبب: {changeLog.data.reopen.reason} — بواسطة{" "}
+              {changeLog.data.reopen.by} في{" "}
+              {changeLog.data.reopen.on.slice(0, 16)}
+            </p>
+          </div>
+        )}
+
+        {/* Release date: the school decides when families see these marks. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+          <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
+          <span className="text-xs font-medium">عرض العلامات لأولياء الأمور بتاريخ:</span>
+          <Input
+            type="date"
+            value={releaseOn}
+            onChange={(e) => setReleaseOn(e.target.value)}
+            className="h-8 w-40 rounded-lg text-xs"
+            dir="ltr"
+          />
+          <button
+            onClick={() => applyRelease(releaseOn)}
+            disabled={scheduleRelease.isPending || !releaseOn}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary disabled:opacity-50"
+          >
+            حفظ الموعد
+          </button>
+          {releaseOn && (
+            <button
+              onClick={() => {
+                setReleaseOn("");
+                void applyRelease("");
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              إلغاء الموعد
+            </button>
+          )}
+          <span className="mr-auto text-[11px] text-muted-foreground">
+            حتى ذلك التاريخ تبقى العلامات مخفية عن الطلاب وأولياء الأمور
+          </span>
+        </div>
+
+        {/* Colour key — the meaning of every band used in this screen. */}
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/30 p-2.5">
+          <span className="text-[11px] font-medium text-muted-foreground">دليل الألوان:</span>
+          {GRADE_BANDS.map((b) => (
+            <span
+              key={b.label}
+              className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${b.tone}`}
+            >
+              {b.label} {Math.round(b.min)}–{Math.round(b.max)}
+            </span>
+          ))}
+          <span className="rounded-md border-2 border-amber-500 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            عُدّلت بعد الرصد
+          </span>
+        </div>
+
         {rows.length === 0 ? (
           <EmptyBlock title="لا يوجد طلاب في هذه الشعبة" icon={<Users className="size-6" />} />
         ) : (
@@ -357,7 +533,14 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
             {rows.map((r) => {
               const raw = valueFor(r.student, r.score);
               const num = raw === "" ? null : Number(raw);
-              const invalid = num != null && num > maxScore && active?.component_type !== "Bonus";
+              const overLimit =
+                num != null && num > maxScore && active?.component_type !== "Bonus";
+              // A mark must be a multiple of 0.5 — 7.3 is a typo, and the
+              // server refuses it rather than rounding it away.
+              const badStep = num != null && (num * 2) % 1 !== 0;
+              // Empty is flagged only once a save has been attempted.
+              const missing = showEmpty && raw === "";
+              const invalid = overLimit || badStep || missing;
               const pct = num != null && maxScore ? (num / maxScore) * 100 : null;
               return (
                 <li
@@ -374,19 +557,45 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
+                  <div className="flex flex-col items-start gap-0.5">
                   <div className="flex items-center gap-1.5">
                     <Input
                       type="number"
                       min={0}
+                      max={maxScore}
+                      // Marks are recorded to the nearest half. Without a step
+                      // the browser assumes 1 and rejects "7.5" outright.
+                      step={0.5}
+                      inputMode="decimal"
                       value={raw}
                       onChange={(e) => setMarks((p) => ({ ...p, [r.student]: e.target.value }))}
                       className={
                         invalid
                           ? "num h-9 w-24 rounded-lg border-destructive text-center"
-                          : "num h-9 w-24 rounded-lg text-center"
+                          : changedStudents.has(r.student)
+                            ? // Edited after it was first entered — usually an
+                              // appeal. Outlined so the correction is obvious
+                              // and an accidental edit to a neighbour is not.
+                              "num h-9 w-24 rounded-lg border-2 border-amber-500 bg-amber-500/10 text-center"
+                            : "num h-9 w-24 rounded-lg text-center"
+                      }
+                      title={
+                        changedStudents.has(r.student)
+                          ? "تم تعديل هذه العلامة بعد إدخالها"
+                          : undefined
                       }
                     />
                     <span className="text-xs text-muted-foreground">/ {maxScore}</span>
+                  </div>
+                  {invalid && (
+                    <span className="text-[10px] font-medium text-destructive">
+                      {missing
+                        ? "لم تُدخل علامة"
+                        : overLimit
+                          ? `الحد الأقصى ${maxScore}`
+                          : "من مضاعفات ٠.٥ فقط"}
+                    </span>
+                  )}
                   </div>
                 </li>
               );
@@ -394,6 +603,17 @@ function MarkEntry({ group, course }: { group: string; course: string }) {
           </ul>
         )}
       </SectionCard>
+
+      {/* How these marks are being counted, and the arithmetic it produces. */}
+      {group && course && (
+        <div className="mt-6">
+          <GradeCalculation
+            studentGroup={group}
+            course={course}
+            canEdit={role === "admin" || role === "secretary" || role === "teacher"}
+          />
+        </div>
+      )}
     </>
   );
 }

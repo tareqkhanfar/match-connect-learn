@@ -1,5 +1,8 @@
 import {
   ShieldCheck,
+  FileText,
+  Layers,
+  LayoutGrid,
   LayoutDashboard,
   Users,
   GraduationCap,
@@ -19,7 +22,6 @@ import {
   Bus,
   BookOpenCheck,
   Award,
-  Scale,
   ArrowUpFromLine,
   ScrollText,
   Ticket,
@@ -181,6 +183,15 @@ export const navItems: NavItem[] = [
       parent: "علامات الأبناء",
     },
     to: "/app/record",
+    icon: Award,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
+  },
+  {
+    // The result on its own, separate from the screen that shows the working.
+    label: "العلامات النهائية",
+    to: "/app/finals",
     icon: Award,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
     group: "المتابعة اليومية",
@@ -352,11 +363,18 @@ export const navItems: NavItem[] = [
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
-    label: "خطط التقييم",
-    to: "/app/schemes",
-    icon: Scale,
-    roles: ["admin", "secretary"],
-    group: "المالية والتواصل",
+    label: "شهادات الأرباع",
+    to: "/app/quarter-results",
+    icon: FileText,
+    roles: ["admin", "secretary", "teacher"],
+    group: "الإدارة الأكاديمية",
+  },
+  {
+    label: "خطة التقييم",
+    to: "/app/assessment-plan",
+    icon: Layers,
+    roles: ["admin", "secretary", "teacher"],
+    group: "الإدارة الأكاديمية",
   },
   {
     label: "إعدادات المدرسة",
@@ -364,6 +382,20 @@ export const navItems: NavItem[] = [
     icon: Settings,
     roles: ["admin"],
     group: "المالية والتواصل",
+  },
+  {
+    label: "التقويم الدراسي",
+    to: "/app/calendar",
+    icon: CalendarDays,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "عام",
+  },
+  {
+    label: "توزيع الشعب",
+    to: "/app/sections",
+    icon: LayoutGrid,
+    roles: ["admin", "secretary"],
+    group: "الإدارة الأكاديمية",
   },
   {
     // Every persona manages their own account security, so this is the one

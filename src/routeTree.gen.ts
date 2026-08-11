@@ -16,9 +16,11 @@ import { Route as AppActivitiesRouteImport } from './routes/app.activities'
 import { Route as AppAdmissionsRouteImport } from './routes/app.admissions'
 import { Route as AppAlertsRouteImport } from './routes/app.alerts'
 import { Route as AppAppraisalRouteImport } from './routes/app.appraisal'
+import { Route as AppAssessmentPlanRouteImport } from './routes/app.assessment-plan'
 import { Route as AppAssignmentsRouteImport } from './routes/app.assignments'
 import { Route as AppAttendanceRouteImport } from './routes/app.attendance'
 import { Route as AppBehaviourRouteImport } from './routes/app.behaviour'
+import { Route as AppCalendarRouteImport } from './routes/app.calendar'
 import { Route as AppCertificatesRouteImport } from './routes/app.certificates'
 import { Route as AppChatRouteImport } from './routes/app.chat'
 import { Route as AppClassesRouteImport } from './routes/app.classes'
@@ -27,28 +29,33 @@ import { Route as AppDayScheduleRouteImport } from './routes/app.day-schedule'
 import { Route as AppEnrollmentRouteImport } from './routes/app.enrollment'
 import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
+import { Route as AppFinalsRouteImport } from './routes/app.finals'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
-import { Route as AppGuardiansRouteImport } from './routes/app.guardians'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
+import { Route as AppQuarterResultsRouteImport } from './routes/app.quarter-results'
 import { Route as AppQuizzesRouteImport } from './routes/app.quizzes'
 import { Route as AppRecordRouteImport } from './routes/app.record'
 import { Route as AppReportsRouteImport } from './routes/app.reports'
 import { Route as AppResourcesRouteImport } from './routes/app.resources'
 import { Route as AppSchemesRouteImport } from './routes/app.schemes'
+import { Route as AppSectionsRouteImport } from './routes/app.sections'
 import { Route as AppSecurityRouteImport } from './routes/app.security'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppSubjectsRouteImport } from './routes/app.subjects'
 import { Route as AppSurveysRouteImport } from './routes/app.surveys'
-import { Route as AppTeachersRouteImport } from './routes/app.teachers'
 import { Route as AppTermRouteImport } from './routes/app.term'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppTimetableBuilderRouteImport } from './routes/app.timetable-builder'
 import { Route as AppTimetableGridRouteImport } from './routes/app.timetable-grid'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
+import { Route as AppGuardiansIndexRouteImport } from './routes/app.guardians.index'
+import { Route as AppGuardiansGuardianIdRouteImport } from './routes/app.guardians.$guardianId'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
 import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
+import { Route as AppTeachersIndexRouteImport } from './routes/app.teachers.index'
+import { Route as AppTeachersInstructorIdRouteImport } from './routes/app.teachers.$instructorId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -85,6 +92,11 @@ const AppAppraisalRoute = AppAppraisalRouteImport.update({
   path: '/appraisal',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssessmentPlanRoute = AppAssessmentPlanRouteImport.update({
+  id: '/assessment-plan',
+  path: '/assessment-plan',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAssignmentsRoute = AppAssignmentsRouteImport.update({
   id: '/assignments',
   path: '/assignments',
@@ -98,6 +110,11 @@ const AppAttendanceRoute = AppAttendanceRouteImport.update({
 const AppBehaviourRoute = AppBehaviourRouteImport.update({
   id: '/behaviour',
   path: '/behaviour',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarRoute = AppCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCertificatesRoute = AppCertificatesRouteImport.update({
@@ -140,14 +157,14 @@ const AppFeesRoute = AppFeesRouteImport.update({
   path: '/fees',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFinalsRoute = AppFinalsRouteImport.update({
+  id: '/finals',
+  path: '/finals',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppGradebookRoute = AppGradebookRouteImport.update({
   id: '/gradebook',
   path: '/gradebook',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppGuardiansRoute = AppGuardiansRouteImport.update({
-  id: '/guardians',
-  path: '/guardians',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHealthRoute = AppHealthRouteImport.update({
@@ -163,6 +180,11 @@ const AppLibraryRoute = AppLibraryRouteImport.update({
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppQuarterResultsRoute = AppQuarterResultsRouteImport.update({
+  id: '/quarter-results',
+  path: '/quarter-results',
   getParentRoute: () => AppRoute,
 } as any)
 const AppQuizzesRoute = AppQuizzesRouteImport.update({
@@ -190,6 +212,11 @@ const AppSchemesRoute = AppSchemesRouteImport.update({
   path: '/schemes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSectionsRoute = AppSectionsRouteImport.update({
+  id: '/sections',
+  path: '/sections',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSecurityRoute = AppSecurityRouteImport.update({
   id: '/security',
   path: '/security',
@@ -208,11 +235,6 @@ const AppSubjectsRoute = AppSubjectsRouteImport.update({
 const AppSurveysRoute = AppSurveysRouteImport.update({
   id: '/surveys',
   path: '/surveys',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppTeachersRoute = AppTeachersRouteImport.update({
-  id: '/teachers',
-  path: '/teachers',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTermRoute = AppTermRouteImport.update({
@@ -240,6 +262,16 @@ const AppTransportRoute = AppTransportRouteImport.update({
   path: '/transport',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGuardiansIndexRoute = AppGuardiansIndexRouteImport.update({
+  id: '/guardians/',
+  path: '/guardians/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGuardiansGuardianIdRoute = AppGuardiansGuardianIdRouteImport.update({
+  id: '/guardians/$guardianId',
+  path: '/guardians/$guardianId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -250,6 +282,16 @@ const AppStudentsStudentIdRoute = AppStudentsStudentIdRouteImport.update({
   path: '/students/$studentId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTeachersIndexRoute = AppTeachersIndexRouteImport.update({
+  id: '/teachers/',
+  path: '/teachers/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeachersInstructorIdRoute = AppTeachersInstructorIdRouteImport.update({
+  id: '/teachers/$instructorId',
+  path: '/teachers/$instructorId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -258,9 +300,11 @@ export interface FileRoutesByFullPath {
   '/app/admissions': typeof AppAdmissionsRoute
   '/app/alerts': typeof AppAlertsRoute
   '/app/appraisal': typeof AppAppraisalRoute
+  '/app/assessment-plan': typeof AppAssessmentPlanRoute
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/behaviour': typeof AppBehaviourRoute
+  '/app/calendar': typeof AppCalendarRoute
   '/app/certificates': typeof AppCertificatesRoute
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
@@ -269,29 +313,34 @@ export interface FileRoutesByFullPath {
   '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/finals': typeof AppFinalsRoute
   '/app/gradebook': typeof AppGradebookRoute
-  '/app/guardians': typeof AppGuardiansRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/quarter-results': typeof AppQuarterResultsRoute
   '/app/quizzes': typeof AppQuizzesRoute
   '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
   '/app/resources': typeof AppResourcesRoute
   '/app/schemes': typeof AppSchemesRoute
+  '/app/sections': typeof AppSectionsRoute
   '/app/security': typeof AppSecurityRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/surveys': typeof AppSurveysRoute
-  '/app/teachers': typeof AppTeachersRoute
   '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
+  '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
+  '/app/guardians/': typeof AppGuardiansIndexRoute
   '/app/students/': typeof AppStudentsIndexRoute
+  '/app/teachers/': typeof AppTeachersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -299,9 +348,11 @@ export interface FileRoutesByTo {
   '/app/admissions': typeof AppAdmissionsRoute
   '/app/alerts': typeof AppAlertsRoute
   '/app/appraisal': typeof AppAppraisalRoute
+  '/app/assessment-plan': typeof AppAssessmentPlanRoute
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/behaviour': typeof AppBehaviourRoute
+  '/app/calendar': typeof AppCalendarRoute
   '/app/certificates': typeof AppCertificatesRoute
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
@@ -310,29 +361,34 @@ export interface FileRoutesByTo {
   '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/finals': typeof AppFinalsRoute
   '/app/gradebook': typeof AppGradebookRoute
-  '/app/guardians': typeof AppGuardiansRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/quarter-results': typeof AppQuarterResultsRoute
   '/app/quizzes': typeof AppQuizzesRoute
   '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
   '/app/resources': typeof AppResourcesRoute
   '/app/schemes': typeof AppSchemesRoute
+  '/app/sections': typeof AppSectionsRoute
   '/app/security': typeof AppSecurityRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/surveys': typeof AppSurveysRoute
-  '/app/teachers': typeof AppTeachersRoute
   '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
   '/app': typeof AppIndexRoute
+  '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
+  '/app/guardians': typeof AppGuardiansIndexRoute
   '/app/students': typeof AppStudentsIndexRoute
+  '/app/teachers': typeof AppTeachersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -342,9 +398,11 @@ export interface FileRoutesById {
   '/app/admissions': typeof AppAdmissionsRoute
   '/app/alerts': typeof AppAlertsRoute
   '/app/appraisal': typeof AppAppraisalRoute
+  '/app/assessment-plan': typeof AppAssessmentPlanRoute
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/behaviour': typeof AppBehaviourRoute
+  '/app/calendar': typeof AppCalendarRoute
   '/app/certificates': typeof AppCertificatesRoute
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
@@ -353,29 +411,34 @@ export interface FileRoutesById {
   '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
   '/app/fees': typeof AppFeesRoute
+  '/app/finals': typeof AppFinalsRoute
   '/app/gradebook': typeof AppGradebookRoute
-  '/app/guardians': typeof AppGuardiansRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/quarter-results': typeof AppQuarterResultsRoute
   '/app/quizzes': typeof AppQuizzesRoute
   '/app/record': typeof AppRecordRoute
   '/app/reports': typeof AppReportsRoute
   '/app/resources': typeof AppResourcesRoute
   '/app/schemes': typeof AppSchemesRoute
+  '/app/sections': typeof AppSectionsRoute
   '/app/security': typeof AppSecurityRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/subjects': typeof AppSubjectsRoute
   '/app/surveys': typeof AppSurveysRoute
-  '/app/teachers': typeof AppTeachersRoute
   '/app/term': typeof AppTermRoute
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
   '/app/': typeof AppIndexRoute
+  '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
+  '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
+  '/app/guardians/': typeof AppGuardiansIndexRoute
   '/app/students/': typeof AppStudentsIndexRoute
+  '/app/teachers/': typeof AppTeachersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -386,9 +449,11 @@ export interface FileRouteTypes {
     | '/app/admissions'
     | '/app/alerts'
     | '/app/appraisal'
+    | '/app/assessment-plan'
     | '/app/assignments'
     | '/app/attendance'
     | '/app/behaviour'
+    | '/app/calendar'
     | '/app/certificates'
     | '/app/chat'
     | '/app/classes'
@@ -397,29 +462,34 @@ export interface FileRouteTypes {
     | '/app/enrollment'
     | '/app/exams'
     | '/app/fees'
+    | '/app/finals'
     | '/app/gradebook'
-    | '/app/guardians'
     | '/app/health'
     | '/app/library'
     | '/app/profile'
+    | '/app/quarter-results'
     | '/app/quizzes'
     | '/app/record'
     | '/app/reports'
     | '/app/resources'
     | '/app/schemes'
+    | '/app/sections'
     | '/app/security'
     | '/app/settings'
     | '/app/subjects'
     | '/app/surveys'
-    | '/app/teachers'
     | '/app/term'
     | '/app/timetable'
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/transport'
     | '/app/'
+    | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
+    | '/app/teachers/$instructorId'
+    | '/app/guardians/'
     | '/app/students/'
+    | '/app/teachers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -427,9 +497,11 @@ export interface FileRouteTypes {
     | '/app/admissions'
     | '/app/alerts'
     | '/app/appraisal'
+    | '/app/assessment-plan'
     | '/app/assignments'
     | '/app/attendance'
     | '/app/behaviour'
+    | '/app/calendar'
     | '/app/certificates'
     | '/app/chat'
     | '/app/classes'
@@ -438,29 +510,34 @@ export interface FileRouteTypes {
     | '/app/enrollment'
     | '/app/exams'
     | '/app/fees'
+    | '/app/finals'
     | '/app/gradebook'
-    | '/app/guardians'
     | '/app/health'
     | '/app/library'
     | '/app/profile'
+    | '/app/quarter-results'
     | '/app/quizzes'
     | '/app/record'
     | '/app/reports'
     | '/app/resources'
     | '/app/schemes'
+    | '/app/sections'
     | '/app/security'
     | '/app/settings'
     | '/app/subjects'
     | '/app/surveys'
-    | '/app/teachers'
     | '/app/term'
     | '/app/timetable'
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/transport'
     | '/app'
+    | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
+    | '/app/teachers/$instructorId'
+    | '/app/guardians'
     | '/app/students'
+    | '/app/teachers'
   id:
     | '__root__'
     | '/'
@@ -469,9 +546,11 @@ export interface FileRouteTypes {
     | '/app/admissions'
     | '/app/alerts'
     | '/app/appraisal'
+    | '/app/assessment-plan'
     | '/app/assignments'
     | '/app/attendance'
     | '/app/behaviour'
+    | '/app/calendar'
     | '/app/certificates'
     | '/app/chat'
     | '/app/classes'
@@ -480,29 +559,34 @@ export interface FileRouteTypes {
     | '/app/enrollment'
     | '/app/exams'
     | '/app/fees'
+    | '/app/finals'
     | '/app/gradebook'
-    | '/app/guardians'
     | '/app/health'
     | '/app/library'
     | '/app/profile'
+    | '/app/quarter-results'
     | '/app/quizzes'
     | '/app/record'
     | '/app/reports'
     | '/app/resources'
     | '/app/schemes'
+    | '/app/sections'
     | '/app/security'
     | '/app/settings'
     | '/app/subjects'
     | '/app/surveys'
-    | '/app/teachers'
     | '/app/term'
     | '/app/timetable'
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/transport'
     | '/app/'
+    | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
+    | '/app/teachers/$instructorId'
+    | '/app/guardians/'
     | '/app/students/'
+    | '/app/teachers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -561,6 +645,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAppraisalRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/assessment-plan': {
+      id: '/app/assessment-plan'
+      path: '/assessment-plan'
+      fullPath: '/app/assessment-plan'
+      preLoaderRoute: typeof AppAssessmentPlanRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/assignments': {
       id: '/app/assignments'
       path: '/assignments'
@@ -580,6 +671,13 @@ declare module '@tanstack/react-router' {
       path: '/behaviour'
       fullPath: '/app/behaviour'
       preLoaderRoute: typeof AppBehaviourRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/calendar': {
+      id: '/app/calendar'
+      path: '/calendar'
+      fullPath: '/app/calendar'
+      preLoaderRoute: typeof AppCalendarRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/certificates': {
@@ -638,18 +736,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFeesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/finals': {
+      id: '/app/finals'
+      path: '/finals'
+      fullPath: '/app/finals'
+      preLoaderRoute: typeof AppFinalsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/gradebook': {
       id: '/app/gradebook'
       path: '/gradebook'
       fullPath: '/app/gradebook'
       preLoaderRoute: typeof AppGradebookRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/guardians': {
-      id: '/app/guardians'
-      path: '/guardians'
-      fullPath: '/app/guardians'
-      preLoaderRoute: typeof AppGuardiansRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/health': {
@@ -671,6 +769,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/app/profile'
       preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/quarter-results': {
+      id: '/app/quarter-results'
+      path: '/quarter-results'
+      fullPath: '/app/quarter-results'
+      preLoaderRoute: typeof AppQuarterResultsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/quizzes': {
@@ -708,6 +813,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSchemesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/sections': {
+      id: '/app/sections'
+      path: '/sections'
+      fullPath: '/app/sections'
+      preLoaderRoute: typeof AppSectionsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/security': {
       id: '/app/security'
       path: '/security'
@@ -734,13 +846,6 @@ declare module '@tanstack/react-router' {
       path: '/surveys'
       fullPath: '/app/surveys'
       preLoaderRoute: typeof AppSurveysRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/teachers': {
-      id: '/app/teachers'
-      path: '/teachers'
-      fullPath: '/app/teachers'
-      preLoaderRoute: typeof AppTeachersRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/term': {
@@ -778,6 +883,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTransportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/guardians/': {
+      id: '/app/guardians/'
+      path: '/guardians'
+      fullPath: '/app/guardians/'
+      preLoaderRoute: typeof AppGuardiansIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/guardians/$guardianId': {
+      id: '/app/guardians/$guardianId'
+      path: '/guardians/$guardianId'
+      fullPath: '/app/guardians/$guardianId'
+      preLoaderRoute: typeof AppGuardiansGuardianIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/students/': {
       id: '/app/students/'
       path: '/students'
@@ -792,6 +911,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStudentsStudentIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/teachers/': {
+      id: '/app/teachers/'
+      path: '/teachers'
+      fullPath: '/app/teachers/'
+      preLoaderRoute: typeof AppTeachersIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/teachers/$instructorId': {
+      id: '/app/teachers/$instructorId'
+      path: '/teachers/$instructorId'
+      fullPath: '/app/teachers/$instructorId'
+      preLoaderRoute: typeof AppTeachersInstructorIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -800,9 +933,11 @@ interface AppRouteChildren {
   AppAdmissionsRoute: typeof AppAdmissionsRoute
   AppAlertsRoute: typeof AppAlertsRoute
   AppAppraisalRoute: typeof AppAppraisalRoute
+  AppAssessmentPlanRoute: typeof AppAssessmentPlanRoute
   AppAssignmentsRoute: typeof AppAssignmentsRoute
   AppAttendanceRoute: typeof AppAttendanceRoute
   AppBehaviourRoute: typeof AppBehaviourRoute
+  AppCalendarRoute: typeof AppCalendarRoute
   AppCertificatesRoute: typeof AppCertificatesRoute
   AppChatRoute: typeof AppChatRoute
   AppClassesRoute: typeof AppClassesRoute
@@ -811,29 +946,34 @@ interface AppRouteChildren {
   AppEnrollmentRoute: typeof AppEnrollmentRoute
   AppExamsRoute: typeof AppExamsRoute
   AppFeesRoute: typeof AppFeesRoute
+  AppFinalsRoute: typeof AppFinalsRoute
   AppGradebookRoute: typeof AppGradebookRoute
-  AppGuardiansRoute: typeof AppGuardiansRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppQuarterResultsRoute: typeof AppQuarterResultsRoute
   AppQuizzesRoute: typeof AppQuizzesRoute
   AppRecordRoute: typeof AppRecordRoute
   AppReportsRoute: typeof AppReportsRoute
   AppResourcesRoute: typeof AppResourcesRoute
   AppSchemesRoute: typeof AppSchemesRoute
+  AppSectionsRoute: typeof AppSectionsRoute
   AppSecurityRoute: typeof AppSecurityRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubjectsRoute: typeof AppSubjectsRoute
   AppSurveysRoute: typeof AppSurveysRoute
-  AppTeachersRoute: typeof AppTeachersRoute
   AppTermRoute: typeof AppTermRoute
   AppTimetableRoute: typeof AppTimetableRoute
   AppTimetableBuilderRoute: typeof AppTimetableBuilderRoute
   AppTimetableGridRoute: typeof AppTimetableGridRoute
   AppTransportRoute: typeof AppTransportRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppGuardiansGuardianIdRoute: typeof AppGuardiansGuardianIdRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
+  AppTeachersInstructorIdRoute: typeof AppTeachersInstructorIdRoute
+  AppGuardiansIndexRoute: typeof AppGuardiansIndexRoute
   AppStudentsIndexRoute: typeof AppStudentsIndexRoute
+  AppTeachersIndexRoute: typeof AppTeachersIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -841,9 +981,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdmissionsRoute: AppAdmissionsRoute,
   AppAlertsRoute: AppAlertsRoute,
   AppAppraisalRoute: AppAppraisalRoute,
+  AppAssessmentPlanRoute: AppAssessmentPlanRoute,
   AppAssignmentsRoute: AppAssignmentsRoute,
   AppAttendanceRoute: AppAttendanceRoute,
   AppBehaviourRoute: AppBehaviourRoute,
+  AppCalendarRoute: AppCalendarRoute,
   AppCertificatesRoute: AppCertificatesRoute,
   AppChatRoute: AppChatRoute,
   AppClassesRoute: AppClassesRoute,
@@ -852,29 +994,34 @@ const AppRouteChildren: AppRouteChildren = {
   AppEnrollmentRoute: AppEnrollmentRoute,
   AppExamsRoute: AppExamsRoute,
   AppFeesRoute: AppFeesRoute,
+  AppFinalsRoute: AppFinalsRoute,
   AppGradebookRoute: AppGradebookRoute,
-  AppGuardiansRoute: AppGuardiansRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppProfileRoute: AppProfileRoute,
+  AppQuarterResultsRoute: AppQuarterResultsRoute,
   AppQuizzesRoute: AppQuizzesRoute,
   AppRecordRoute: AppRecordRoute,
   AppReportsRoute: AppReportsRoute,
   AppResourcesRoute: AppResourcesRoute,
   AppSchemesRoute: AppSchemesRoute,
+  AppSectionsRoute: AppSectionsRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSubjectsRoute: AppSubjectsRoute,
   AppSurveysRoute: AppSurveysRoute,
-  AppTeachersRoute: AppTeachersRoute,
   AppTermRoute: AppTermRoute,
   AppTimetableRoute: AppTimetableRoute,
   AppTimetableBuilderRoute: AppTimetableBuilderRoute,
   AppTimetableGridRoute: AppTimetableGridRoute,
   AppTransportRoute: AppTransportRoute,
   AppIndexRoute: AppIndexRoute,
+  AppGuardiansGuardianIdRoute: AppGuardiansGuardianIdRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
+  AppTeachersInstructorIdRoute: AppTeachersInstructorIdRoute,
+  AppGuardiansIndexRoute: AppGuardiansIndexRoute,
   AppStudentsIndexRoute: AppStudentsIndexRoute,
+  AppTeachersIndexRoute: AppTeachersIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

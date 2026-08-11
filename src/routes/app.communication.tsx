@@ -23,6 +23,7 @@ import {
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { RichText, RichTextView } from "@/components/shared/rich-text";
 import { useApp } from "@/lib/app-context";
+import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice } from "@/lib/roles";
 import type { AnnouncementRow } from "@/lib/api/types";
 import {
@@ -58,7 +59,10 @@ function CommunicationPage() {
   const canManageAnnouncements = isBackOffice(role);
 
   const announcementsQuery = useAnnouncements();
-  const inboxQuery = useInbox();
+  // A guardian with several children reads one inbox per child; the switcher
+  // above the list scopes it. Staff and students have no child to pick.
+  const viewedChild = useViewedStudent();
+  const inboxQuery = useInbox(50, role === "parent" ? viewedChild || undefined : undefined);
   const deleteAnnouncement = useDeleteAnnouncement();
 
   const [openThread, setOpenThread] = useState<string | null>(null);

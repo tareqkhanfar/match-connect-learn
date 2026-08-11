@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Check, ClipboardCheck, Clock, Save, X } from "lucide-react";
+import { AlertTriangle, CalendarOff, Check, ClipboardCheck, Clock, Save, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -36,6 +36,8 @@ import {
   useAttendanceSheet,
   useMarkAttendance,
   useMyGroups,
+  useAcademicContext,
+  useUpcomingHolidays,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/attendance")({
@@ -60,12 +62,20 @@ export const Route = createFileRoute("/app/attendance")({
 });
 
 /** Backend statuses, matching Student Attendance in Education. */
-type Status = "Present" | "Absent" | "Leave";
+type Status = "Present" | "Absent" | "Excused" | "Leave";
+
+/** The statuses a user can pick. "Leave" is legacy — same meaning as
+ *  "Excused" — so it is displayed but never offered as a fourth button. */
+const SELECTABLE: Status[] = ["Present", "Absent", "Excused"];
 
 const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof Check }> = {
   Present: { label: "حاضر", cls: "bg-success text-success-foreground", icon: Check },
-  Leave: { label: "إجازة", cls: "bg-warning text-warning-foreground", icon: Clock },
+  // An excused absence is not counted against the student anywhere — not in
+  // the rate, not on a certificate. It is a distinct status, not a note.
+  Excused: { label: "غائب بعذر", cls: "bg-warning text-warning-foreground", icon: Clock },
   Absent: { label: "غائب", cls: "bg-destructive text-destructive-foreground", icon: X },
+  // Written by an older version; shown so historic sheets still read.
+  Leave: { label: "غائب بعذر", cls: "bg-warning text-warning-foreground", icon: Clock },
 };
 
 function todayISO() {
@@ -199,6 +209,8 @@ function StaffAttendanceView() {
 
   // Local edits layered over whatever is already saved on the server.
   const [edits, setEdits] = useState<Record<string, Status>>({});
+  const { data: context } = useAcademicContext();
+  const { data: holidayInfo } = useUpcomingHolidays(365);
   useEffect(() => {
     // Reset local edits whenever the sheet identity changes.
     setEdits({});
@@ -215,7 +227,7 @@ function StaffAttendanceView() {
 
   const counts = {
     Present: Object.values(marks).filter((m) => m === "Present").length,
-    Leave: Object.values(marks).filter((m) => m === "Leave").length,
+    Excused: Object.values(marks).filter((m) => m === "Excused" || m === "Leave").length,
     Absent: Object.values(marks).filter((m) => m === "Absent").length,
   };
 
@@ -238,6 +250,27 @@ function StaffAttendanceView() {
   const report = reportQuery.data;
   const trend = (report?.rows ?? []).map((r) => ({ month: r.date, present: r.rate }));
 
+  // The sheet must refuse the same days the server refuses, and say why —
+  // discovering it only on save wastes the teacher's time.
+  const holidayReason = (holidayInfo?.holidays ?? []).find((h) => h.date === date)?.reason ?? null;
+  const isFuture = date > (context?.today ?? date);
+  const periodClosed = context ? !context.canWrite : false;
+  const blockedReason = holidayReason
+    ? `اليوم عطلة — ${holidayReason}. لا يمكن تسجيل الحضور.`
+    : isFuture
+      ? "لا يمكن تسجيل الحضور لتاريخ مستقبلي."
+      : periodClosed
+        ? (context?.readOnlyReason ?? "الفصل الدراسي مغلق.")
+        : null;
+
+  /** Set every student in the sheet to one status. */
+  function markAll(status: Status) {
+    const next: Record<string, Status> = {};
+    for (const r of rows) next[r.student] = status;
+    setEdits(next);
+    toast.success(`تم تعيين ${rows.length} طالباً كـ ${STATUS_META[status].label}`);
+  }
+
   return (
     <>
       <PageHeader
@@ -247,7 +280,8 @@ function StaffAttendanceView() {
           canMark ? (
             <button
               onClick={save}
-              disabled={markAttendance.isPending || rows.length === 0}
+              disabled={markAttendance.isPending || rows.length === 0 || !!blockedReason}
+              title={blockedReason ?? undefined}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft disabled:opacity-60"
             >
               <Save className="size-4" />
@@ -260,7 +294,7 @@ function StaffAttendanceView() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="حاضر" value={counts.Present} icon={Check} tone="accent" />
         <KpiCard label="غائب" value={counts.Absent} icon={X} tone="warm" />
-        <KpiCard label="إجازة" value={counts.Leave} icon={Clock} tone="info" />
+        <KpiCard label="غائب بعذر" value={counts.Excused} icon={Clock} tone="info" />
         <KpiCard
           label="نسبة الحضور العامة"
           value={`${report?.summary.rate ?? 0}%`}
@@ -289,6 +323,38 @@ function StaffAttendanceView() {
           className="h-10 rounded-xl"
         />
       </div>
+
+      {blockedReason && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <CalendarOff className="mt-0.5 size-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold text-amber-800">تعذّر التسجيل في هذا التاريخ</p>
+            <p className="text-amber-700/90">{blockedReason}</p>
+          </div>
+        </div>
+      )}
+
+      {canMark && rows.length > 0 && !blockedReason && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+          <span className="text-xs font-medium text-muted-foreground">تعيين الجميع:</span>
+          {SELECTABLE.map((state) => {
+            const meta = STATUS_META[state];
+            return (
+              <button
+                key={state}
+                onClick={() => markAll(state)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
+              >
+                <meta.icon className="size-3.5" />
+                {meta.label}
+              </button>
+            );
+          })}
+          <span className="mr-auto text-[11px] text-muted-foreground">
+            يمكن تعديل أي طالب بعد التعيين الجماعي
+          </span>
+        </div>
+      )}
 
       <SectionCard
         title="شبكة تسجيل الحضور"
@@ -325,10 +391,15 @@ function StaffAttendanceView() {
                     <p className="num text-xs text-muted-foreground">{s.student}</p>
                   </div>
                   <div className="flex gap-1.5">
-                    {(Object.keys(STATUS_META) as Status[]).map((state) => {
+                    {SELECTABLE.map((state) => {
                       const meta = STATUS_META[state];
                       const Icon = meta.icon;
-                      const active = current === state;
+                      // A record saved as the legacy "Leave" means the same as
+                      // "Excused", so it lights that button rather than leaving
+                      // the row looking unmarked.
+                      const active =
+                        current === state ||
+                        (state === "Excused" && current === "Leave");
                       return (
                         <button
                           key={state}
