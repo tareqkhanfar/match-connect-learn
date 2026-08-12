@@ -136,10 +136,9 @@ export function useSaveMyProfile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
-      apiPost<{ user: string; preferences: Record<string, string> }>(
-        "settings.save_my_profile",
-        { payload },
-      ),
+      apiPost<{ user: string; preferences: Record<string, string> }>("settings.save_my_profile", {
+        payload,
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-profile"] });
       qc.invalidateQueries({ queryKey: qk.session });
@@ -1557,10 +1556,7 @@ export function useSendChat() {
       thread?: string;
       files?: SubmissionFile[];
     }) =>
-      apiPost<{ sent: number; messages: string[]; recipients: string[] }>(
-        "messaging.send",
-        vars,
-      ),
+      apiPost<{ sent: number; messages: string[]; recipients: string[] }>("messaging.send", vars),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.inbox });
       qc.invalidateQueries({ queryKey: ["notifications"] });
@@ -2004,7 +2000,8 @@ export function useImportAssignmentsCombined() {
       assignments: string[];
       component_name?: string;
       weight?: number;
-    }) => apiPost<{ created: number; updated: number }>("gradebook.import_assignments_combined", vars),
+    }) =>
+      apiPost<{ created: number; updated: number }>("gradebook.import_assignments_combined", vars),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["entry-sheet"] });
       qc.invalidateQueries({ queryKey: ["importable-assignments"] });
@@ -2146,6 +2143,122 @@ export function usePlan(plan: Opt<string>) {
   });
 }
 
+export interface DayShape {
+  count: number;
+  minutes: number;
+  start: string;
+  gap: number;
+  break_after: number;
+  break_minutes: number;
+}
+
+export interface PeriodPreview {
+  periods: Array<{
+    name: string;
+    order: number;
+    from_time: string;
+    to_time: string;
+    is_break: boolean;
+  }>;
+  teaching: number;
+  ends_at: string;
+}
+
+/**
+ * The school day these settings produce, worked out on the server.
+ *
+ * The times are derived rather than typed: a school says "seven periods of
+ * forty-five minutes, break after the second", and the period rows follow from
+ * that. Deriving them in one place keeps the preview and the saved plan
+ * identical.
+ */
+export interface SchoolDayShape extends DayShape {
+  working_days: string[];
+  days: Array<{ code: string; label: string }>;
+  periods: PeriodPreview["periods"];
+}
+
+/** The school's default working days and period pattern. */
+export function useSchoolDayShape() {
+  return useQuery<SchoolDayShape>({
+    queryKey: ["school-day-shape"],
+    queryFn: () => apiGet<SchoolDayShape>("timetable.get_day_shape"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSaveSchoolDayShape() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: Partial<DayShape> & { working_days?: string[] }) =>
+      apiPost<SchoolDayShape>("timetable.save_day_shape", {
+        ...vars,
+        ...(vars.working_days ? { working_days: JSON.stringify(vars.working_days) } : {}),
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["school-day-shape"] }),
+  });
+}
+
+export type TimetableAudience = "draft" | "teachers" | "all";
+
+/** How much of a class's timetable each audience can currently see. */
+export function usePublicationStatus(studentGroup: Opt<string>) {
+  return useQuery<{
+    studentGroup: string;
+    counts: Partial<Record<TimetableAudience, number>>;
+    total: number;
+    audiences: Array<{ value: TimetableAudience; label: string }>;
+  }>({
+    queryKey: ["timetable-publication", studentGroup],
+    queryFn: () =>
+      apiGet("timetable_grid.publication_status", {
+        student_group: studentGroup as string,
+      }),
+    enabled: Boolean(studentGroup),
+  });
+}
+
+export function usePublishTimetable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student_group: string; audience: TimetableAudience }) =>
+      apiPost<{ lessons: number; audience: string; audienceLabel: string }>(
+        "timetable_grid.publish_timetable",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timetable-publication"] });
+      qc.invalidateQueries({ queryKey: ["timetable"] });
+    },
+  });
+}
+
+/** The dates generation would use for a class if none are given. */
+export function useDefaultRange(studentGroup: Opt<string>) {
+  return useQuery<{ from: string; to: string; label: string }>({
+    queryKey: ["default-range", studentGroup],
+    queryFn: () =>
+      apiGet("timetable_grid.default_range", { student_group: studentGroup as string }),
+    enabled: Boolean(studentGroup),
+  });
+}
+
+export function usePeriodPreview(shape: DayShape) {
+  return useQuery<PeriodPreview>({
+    queryKey: ["period-preview", shape],
+    queryFn: () =>
+      apiGet<PeriodPreview>("timetable.preview_periods", {
+        count: String(shape.count),
+        minutes: String(shape.minutes),
+        start: shape.start,
+        gap: String(shape.gap),
+        break_after: String(shape.break_after),
+        break_minutes: String(shape.break_minutes),
+      }),
+    staleTime: 60 * 1000,
+  });
+}
+
 export function usePlanDefaults(studentGroup: Opt<string>) {
   return useQuery<{
     periods: PlanDetail["periods"];
@@ -2206,7 +2319,13 @@ export interface GeneratedTimetable {
 export function useGenerateTimetable() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (plan: string) => apiPost<GeneratedTimetable>("timetable.generate", { plan }),
+    // `variant` seeds the solver's tie-breaking so pressing build again gives
+    // a different valid week instead of repeating the first one.
+    mutationFn: (vars: string | { plan: string; variant?: number }) =>
+      apiPost<GeneratedTimetable>(
+        "timetable.generate",
+        typeof vars === "string" ? { plan: vars } : vars,
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable-plans"] }),
   });
 }
@@ -2215,10 +2334,10 @@ export function useApplyTimetable() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { plan: string; from_date?: string; weeks?: number }) =>
-      apiPost<{ created: number; skipped: Array<{ date: string; course: string; reason: string }> }>(
-        "timetable.apply_plan",
-        vars,
-      ),
+      apiPost<{
+        created: number;
+        skipped: Array<{ date: string; course: string; reason: string }>;
+      }>("timetable.apply_plan", vars),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["timetable-plans"] });
       qc.invalidateQueries({ queryKey: qk.timetable({}) });
@@ -2289,7 +2408,13 @@ export interface ActivityRow {
 }
 
 export function useActivities(
-  params: Opt<{ activity_type: string; status: string; search: string; page: number; page_size: number }> = {},
+  params: Opt<{
+    activity_type: string;
+    status: string;
+    search: string;
+    page: number;
+    page_size: number;
+  }> = {},
 ) {
   return useQuery<Paginated<ActivityRow>>({
     queryKey: ["activities", params],
@@ -2371,7 +2496,13 @@ export function useGiveConsent() {
 
 export function useActivityParticipants(activity: Opt<string>) {
   return useQuery<{
-    activity: { id: string; title: string; capacity: number; requires_consent: boolean; start_date: string };
+    activity: {
+      id: string;
+      title: string;
+      capacity: number;
+      requires_consent: boolean;
+      start_date: string;
+    };
     rows: Array<{
       id: string;
       student: string;
@@ -2463,7 +2594,8 @@ export interface ObservationDetail {
 export function useObservation(observation: Opt<string>) {
   return useQuery<ObservationDetail>({
     queryKey: ["observation", observation],
-    queryFn: () => apiGet<ObservationDetail>("appraisal.get_observation", { observation: observation! }),
+    queryFn: () =>
+      apiGet<ObservationDetail>("appraisal.get_observation", { observation: observation! }),
     enabled: Boolean(observation),
   });
 }
@@ -2789,7 +2921,13 @@ export function useQuizResults(quiz: Opt<string>) {
       minutes: number;
     }>;
     not_sat: Array<{ student: string; student_name: string }>;
-    questions: Array<{ idx: number; text: string; correct: number; total: number; percent: number }>;
+    questions: Array<{
+      idx: number;
+      text: string;
+      correct: number;
+      total: number;
+      percent: number;
+    }>;
   }>({
     queryKey: ["quiz-results", quiz],
     queryFn: () => apiGet("quizzes.quiz_results", { quiz: quiz! }),
@@ -2843,7 +2981,16 @@ export function useAlertRules(enabled = true) {
   });
 }
 
-export interface AlertRuleDetail extends Omit<AlertRuleRow, "open_alerts" | "last_run" | "last_matched" | "trigger_label" | "group" | "unit" | "severity_label"> {
+export interface AlertRuleDetail extends Omit<
+  AlertRuleRow,
+  | "open_alerts"
+  | "last_run"
+  | "last_matched"
+  | "trigger_label"
+  | "group"
+  | "unit"
+  | "severity_label"
+> {
   notes: string | null;
   actions: Array<{
     action_type: string;
@@ -2953,7 +3100,13 @@ export interface StudentAlert {
 }
 
 export function useAlerts(
-  params: Opt<{ student: string; status: string; severity: string; page: number; page_size: number }> = {},
+  params: Opt<{
+    student: string;
+    status: string;
+    severity: string;
+    page: number;
+    page_size: number;
+  }> = {},
 ) {
   return useQuery<Paginated<StudentAlert>>({
     queryKey: ["student-alerts", params],
@@ -3202,7 +3355,13 @@ export function useSubmitSurvey() {
 
 export function useSurveyResults(survey: Opt<string>) {
   return useQuery<{
-    survey: { id: string; title: string; audience_label?: string; anonymous: boolean; status?: string };
+    survey: {
+      id: string;
+      title: string;
+      audience_label?: string;
+      anonymous: boolean;
+      status?: string;
+    };
     summary: { responses: number; by_role: Array<{ role: string; count: number }> };
     questions: Array<{
       idx: number;
@@ -3449,8 +3608,7 @@ export function useStructureOptions(student: string | null | undefined) {
     defaultCompany: string | null;
   }>({
     queryKey: ["structure-options", student],
-    queryFn: () =>
-      apiGet("billing.structure_options", student ? { student } : {}),
+    queryFn: () => apiGet("billing.structure_options", student ? { student } : {}),
     enabled: Boolean(student),
   });
 }
@@ -3537,8 +3695,7 @@ export function useInvoiceStudent() {
 export function useSubmitInvoice() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (invoice: string) =>
-      apiPost<StudentInvoice>("billing.submit_invoice", { invoice }),
+    mutationFn: (invoice: string) => apiPost<StudentInvoice>("billing.submit_invoice", { invoice }),
     onSuccess: () => invalidateBilling(qc),
   });
 }
@@ -3620,8 +3777,7 @@ export interface EnrollmentOptions {
 export function useEnrollmentOptions(program?: string) {
   return useQuery<EnrollmentOptions>({
     queryKey: ["enrollment-options", program ?? null],
-    queryFn: () =>
-      apiGet<EnrollmentOptions>("enrollment.form_options", program ? { program } : {}),
+    queryFn: () => apiGet<EnrollmentOptions>("enrollment.form_options", program ? { program } : {}),
   });
 }
 
@@ -3714,10 +3870,21 @@ export interface GridOptions {
   defaultAcademicTerm: string | null;
 }
 
-export function useGridOptions() {
+/**
+ * Options for the timetable grid, narrowed to one class when given.
+ *
+ * The class matters: without it the server returns every course in the school,
+ * so a timetabler building a Grade 1 week is offered the secondary syllabus.
+ * Passing the group makes the backend return that programme's courses only.
+ */
+export function useGridOptions(studentGroup?: string) {
   return useQuery<GridOptions>({
-    queryKey: ["grid-options"],
-    queryFn: () => apiGet<GridOptions>("timetable_grid.grid_options"),
+    queryKey: ["grid-options", studentGroup ?? null],
+    queryFn: () =>
+      apiGet<GridOptions>(
+        "timetable_grid.grid_options",
+        studentGroup ? { student_group: studentGroup } : {},
+      ),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -3787,7 +3954,13 @@ export function useSavePattern() {
 export function useGenerateLessons() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { student_group: string; from_date?: string; to_date?: string }) =>
+    mutationFn: (vars: {
+      student_group: string;
+      from_date?: string;
+      to_date?: string;
+      // Who may read the generated week; defaults to draft on the server.
+      audience?: TimetableAudience;
+    }) =>
       apiPost<{
         created: number;
         removed: number;
@@ -3844,6 +4017,26 @@ export function useDayLessons(params: {
         ...(params.instructor ? { instructor: params.instructor } : {}),
       }),
     enabled: Boolean(params.date),
+  });
+}
+
+export interface SwapCandidate extends DayLesson {
+  /** Whether this swap can actually be made. */
+  available: boolean;
+  /** Why not, when it cannot. */
+  reason?: string;
+}
+
+/** The lessons this one could trade teachers with, and which are possible. */
+export function useSwapCandidates(courseSchedule: string | null) {
+  return useQuery<{
+    lesson: DayLesson;
+    candidates: SwapCandidate[];
+    availableCount: number;
+  }>({
+    queryKey: ["swap-candidates", courseSchedule],
+    queryFn: () => apiGet("lesson_changes.swap_candidates", { course_schedule: courseSchedule! }),
+    enabled: Boolean(courseSchedule),
   });
 }
 
@@ -3926,7 +4119,6 @@ export function useCoverReport(params: { from_date?: string; to_date?: string } 
       ),
   });
 }
-
 
 // --- Account security -------------------------------------------------------
 
@@ -4023,128 +4215,309 @@ export function useFailedLoginReport(days = 7) {
 
 export type StudentDossier = {
   profile: {
-    id: string; name: string; gender: string; image: string | null;
-    birthDate: string; age: number | null; email: string | null;
-    phone: string | null; joined: string; address: string; city: string | null;
-    nationality: string | null; bloodGroup: string | null; active: boolean;
-    hasLogin: boolean; grade: string | null; section: string | null;
+    id: string;
+    name: string;
+    gender: string;
+    image: string | null;
+    birthDate: string;
+    age: number | null;
+    email: string | null;
+    phone: string | null;
+    joined: string;
+    address: string;
+    city: string | null;
+    nationality: string | null;
+    bloodGroup: string | null;
+    active: boolean;
+    hasLogin: boolean;
+    grade: string | null;
+    section: string | null;
     academicYear: string | null;
   };
   enrollments: Array<{
-    id: string; program: string; academicYear: string; academicTerm: string | null;
-    batch: string | null; date: string; submitted: boolean;
+    id: string;
+    program: string;
+    academicYear: string;
+    academicTerm: string | null;
+    batch: string | null;
+    date: string;
+    submitted: boolean;
   }>;
   guardians: Array<{
-    id: string; name: string; relation: string | null; phone: string | null;
-    email: string | null; occupation: string | null; hasLogin: boolean;
+    id: string;
+    name: string;
+    relation: string | null;
+    phone: string | null;
+    email: string | null;
+    occupation: string | null;
+    hasLogin: boolean;
   }>;
   attendance: {
-    present: number; absent: number; late: number; total: number; rate: number;
-    recent: Array<{ id: string; date: string; status: string; group: string | null; lesson: string | null }>;
+    present: number;
+    absent: number;
+    late: number;
+    total: number;
+    rate: number;
+    recent: Array<{
+      id: string;
+      date: string;
+      status: string;
+      group: string | null;
+      lesson: string | null;
+    }>;
   };
   grades: {
     average: number | null;
     results: Array<{
-      id: string; course: string; plan: string | null; academicYear: string | null;
-      academicTerm: string | null; score: number; maxScore: number;
-      percentage: number | null; grade: string | null; group: string | null;
+      id: string;
+      course: string;
+      plan: string | null;
+      academicYear: string | null;
+      academicTerm: string | null;
+      score: number;
+      maxScore: number;
+      percentage: number | null;
+      grade: string | null;
+      group: string | null;
     }>;
     gradebook: Array<{
-      id: string; course: string; component: string; type: string | null;
-      score: number; maxScore: number; percentage: number; academicTerm: string | null;
+      id: string;
+      course: string;
+      component: string;
+      type: string | null;
+      score: number;
+      maxScore: number;
+      percentage: number;
+      academicTerm: string | null;
     }>;
   };
-  courses: Array<{ id: string; course: string; program: string | null; enrollment: string | null; date: string }>;
+  courses: Array<{
+    id: string;
+    course: string;
+    program: string | null;
+    enrollment: string | null;
+    date: string;
+  }>;
   behaviour: {
-    positivePoints: number; negativePoints: number; net: number;
+    positivePoints: number;
+    negativePoints: number;
+    net: number;
     records: Array<{
-      id: string; date: string; type: string | null; points: number;
-      category: string | null; description: string | null; action: string | null;
-      parentNotified: boolean; reportedBy: string | null;
+      id: string;
+      date: string;
+      type: string | null;
+      points: number;
+      category: string | null;
+      description: string | null;
+      action: string | null;
+      parentNotified: boolean;
+      reportedBy: string | null;
     }>;
   };
   health: {
     record: {
-      id: string; bloodGroup: string | null; heightCm: number | null;
-      weightKg: number | null; conditions: string | null; allergies: string | null;
-      medications: string | null; specialNeeds: string | null;
-      immunisations: string | null; lastCheckup: string;
-      emergencyContact: string | null; emergencyPhone: string | null;
-      physician: string | null; physicianPhone: string | null; notes: string | null;
+      id: string;
+      bloodGroup: string | null;
+      heightCm: number | null;
+      weightKg: number | null;
+      conditions: string | null;
+      allergies: string | null;
+      medications: string | null;
+      specialNeeds: string | null;
+      immunisations: string | null;
+      lastCheckup: string;
+      emergencyContact: string | null;
+      emergencyPhone: string | null;
+      physician: string | null;
+      physicianPhone: string | null;
+      notes: string | null;
     } | null;
     visits: Array<{
-      id: string; date: string; type: string | null; complaint: string | null;
-      treatment: string | null; outcome: string | null; parentNotified: boolean;
+      id: string;
+      date: string;
+      type: string | null;
+      complaint: string | null;
+      treatment: string | null;
+      outcome: string | null;
+      parentNotified: boolean;
     }>;
   };
   assignments: {
-    submitted: number; graded: number; averagePercent: number | null;
+    submitted: number;
+    graded: number;
+    averagePercent: number | null;
     items: Array<{
-      id: string; assignment: string; title: string | null; status: string | null;
-      submittedOn: string; score: number; maxScore: number; feedback: string | null;
+      id: string;
+      assignment: string;
+      title: string | null;
+      status: string | null;
+      submittedOn: string;
+      score: number;
+      maxScore: number;
+      feedback: string | null;
     }>;
   };
   quizzes: Array<{
-    id: string; quiz: string; title: string | null; attempt: number;
-    status: string | null; submittedOn: string; score: number; total: number;
-    percentage: number; passed: boolean;
+    id: string;
+    quiz: string;
+    title: string | null;
+    attempt: number;
+    status: string | null;
+    submittedOn: string;
+    score: number;
+    total: number;
+    percentage: number;
+    passed: boolean;
   }>;
   billing: {
-    billed: number; paid: number; outstanding: number;
+    billed: number;
+    paid: number;
+    outstanding: number;
     invoices: Array<{
-      id: string; date: string; dueDate: string; total: number;
-      outstanding: number; status: string | null; draft: boolean;
-      overdueDays: number; enrollment: string | null;
+      id: string;
+      date: string;
+      dueDate: string;
+      total: number;
+      outstanding: number;
+      status: string | null;
+      draft: boolean;
+      overdueDays: number;
+      enrollment: string | null;
     }>;
   };
   services: {
-    library: Array<{ id: string; book: string; status: string | null; issued: string; due: string; returned: string; overdue: boolean }>;
-    transport: Array<{ id: string; route: string | null; stop: string | null; active: boolean; from: string; to: string }>;
-    activities: Array<{ id: string; activity: string; status: string | null; consent: string | null; enrolledOn: string; attended: boolean }>;
+    library: Array<{
+      id: string;
+      book: string;
+      status: string | null;
+      issued: string;
+      due: string;
+      returned: string;
+      overdue: boolean;
+    }>;
+    transport: Array<{
+      id: string;
+      route: string | null;
+      stop: string | null;
+      active: boolean;
+      from: string;
+      to: string;
+    }>;
+    activities: Array<{
+      id: string;
+      activity: string;
+      status: string | null;
+      consent: string | null;
+      enrolledOn: string;
+      attended: boolean;
+    }>;
   };
   alerts: Array<{
-    id: string; rule: string | null; title: string | null; status: string | null;
-    severity: string | null; raisedOn: string; resolvedOn: string;
+    id: string;
+    rule: string | null;
+    title: string | null;
+    status: string | null;
+    severity: string | null;
+    raisedOn: string;
+    resolvedOn: string;
   }>;
   /** Dated lessons. Kept as an array so an older bundle keeps working. */
   timetable: Array<{
-    id: string; course: string; date: string; from: string; to: string;
-    instructor: string | null; room: string | null; group: string | null;
+    id: string;
+    course: string;
+    date: string;
+    from: string;
+    to: string;
+    instructor: string | null;
+    room: string | null;
+    group: string | null;
   }>;
   /** The same lessons collapsed onto a weekly grid. */
   timetableGrid: {
     days: Array<{ value: string; label: string }>;
     periods: string[];
     cells: Array<{
-      day: string; from: string; to: string; course: string;
-      instructor: string | null; room: string | null; group: string | null;
+      day: string;
+      from: string;
+      to: string;
+      course: string;
+      instructor: string | null;
+      room: string | null;
+      group: string | null;
     }>;
     lessons: Array<{
-      id: string; course: string; date: string; from: string; to: string;
-      instructor: string | null; room: string | null; group: string | null;
+      id: string;
+      course: string;
+      date: string;
+      from: string;
+      to: string;
+      instructor: string | null;
+      room: string | null;
+      group: string | null;
     }>;
   };
 };
 
 export type TeacherDossier = {
   profile: {
-    id: string; name: string; employee: string | null; department: string | null;
-    status: string | null; image: string | null; gender: string;
-    designation: string | null; email: string | null; phone: string | null;
-    joined: string; birthDate: string; hasLogin: boolean;
+    id: string;
+    name: string;
+    employee: string | null;
+    department: string | null;
+    status: string | null;
+    image: string | null;
+    gender: string;
+    designation: string | null;
+    email: string | null;
+    phone: string | null;
+    joined: string;
+    birthDate: string;
+    hasLogin: boolean;
   };
   summary: { groups: number; students: number; lessons: number; periodsPerWeek: number };
   groups: Array<{
-    id: string; name: string; program: string | null; batch: string | null;
-    academicYear: string | null; students: number; active: boolean;
+    id: string;
+    name: string;
+    program: string | null;
+    batch: string | null;
+    academicYear: string | null;
+    students: number;
+    active: boolean;
   }>;
-  lessons: Array<{ id: string; course: string; date: string; from: string; to: string; room: string | null; group: string | null }>;
+  lessons: Array<{
+    id: string;
+    course: string;
+    date: string;
+    from: string;
+    to: string;
+    room: string | null;
+    group: string | null;
+  }>;
   loads: Array<{
-    id: string; course: string; periodsPerWeek: number; maxPerDay: number;
-    room: string | null; section: string | null; planName: string | null; plan: string;
+    id: string;
+    course: string;
+    periodsPerWeek: number;
+    maxPerDay: number;
+    room: string | null;
+    section: string | null;
+    planName: string | null;
+    plan: string;
   }>;
-  observations: Array<{ id: string; date: string; observer: string | null; rating: string | null; summary: string | null; status: string | null }>;
-  assignments: Array<{ id: string; title: string; course: string | null; dueDate: string; status: string | null }>;
+  observations: Array<{
+    id: string;
+    date: string;
+    observer: string | null;
+    rating: string | null;
+    summary: string | null;
+    status: string | null;
+  }>;
+  assignments: Array<{
+    id: string;
+    title: string;
+    course: string | null;
+    dueDate: string;
+    status: string | null;
+  }>;
 };
 
 export function useStudentDossier(student: string | undefined) {
@@ -4222,7 +4595,8 @@ export function useSectionOptions() {
 function useSectionMutation<V>(method: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: V) => apiPost<{ message_ar?: string }>(method, vars as Record<string, unknown>),
+    mutationFn: (vars: V) =>
+      apiPost<{ message_ar?: string }>(method, vars as Record<string, unknown>),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["program-sections"] });
       qc.invalidateQueries({ queryKey: ["classes"] });
@@ -4271,8 +4645,12 @@ export type AcademicContext = {
   academicTerm: string | null;
   years: Array<{ name: string; from: string; to: string; closed: boolean }>;
   terms: Array<{
-    name: string; label: string; academicYear: string;
-    from: string; to: string; closed: boolean;
+    name: string;
+    label: string;
+    academicYear: string;
+    from: string;
+    to: string;
+    closed: boolean;
   }>;
   closed: boolean;
   canWrite: boolean;
@@ -4343,7 +4721,10 @@ export function useSaveHoliday() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { date: string; description?: string; holiday?: string }) =>
-      apiPost<{ message_ar?: string }>("academic_context.save_holiday", vars as Record<string, unknown>),
+      apiPost<{ message_ar?: string }>(
+        "academic_context.save_holiday",
+        vars as Record<string, unknown>,
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["holidays"] });
       qc.invalidateQueries({ queryKey: ["upcoming-holidays"] });
@@ -4439,10 +4820,7 @@ export type MarkChange = {
   at: string;
 };
 
-export function useMarkChangeLog(
-  student_group: string | undefined,
-  course: string | undefined,
-) {
+export function useMarkChangeLog(student_group: string | undefined, course: string | undefined) {
   return useQuery<{
     changes: MarkChange[];
     changedStudents: string[];
@@ -4536,7 +4914,12 @@ export type Quarter = {
   idx: number;
 };
 
-export type PlanAssessment = { name: string; type: string | null; maxScore: number; parent?: string };
+export type PlanAssessment = {
+  name: string;
+  type: string | null;
+  maxScore: number;
+  parent?: string;
+};
 
 export type PlanCategory = {
   name: string;
@@ -4570,7 +4953,10 @@ export function useQuarters(academicTerm?: string) {
 export function useSaveQuarters() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { academic_term?: string; quarters: Array<{ name: string; totalMarks: number }> }) =>
+    mutationFn: (vars: {
+      academic_term?: string;
+      quarters: Array<{ name: string; totalMarks: number }>;
+    }) =>
       apiPost<{ quarters: number; total: number; message_ar?: string }>(
         "assessment_plan.save_quarters",
         vars as unknown as Record<string, unknown>,
@@ -4723,11 +5109,7 @@ export function useComputedMarks(studentGroup?: string, course?: string, student
 
 // --- Quarter results and the two-month report card --------------------------
 
-export function useQuarterResults(
-  studentGroup?: string,
-  quarter?: string,
-  course?: string,
-) {
+export function useQuarterResults(studentGroup?: string, quarter?: string, course?: string) {
   return useQuery<{
     quarter: string;
     quarterTotal: number;
@@ -4811,17 +5193,34 @@ export function useResetAccountPassword() {
 
 export type GuardianDossier = {
   profile: {
-    id: string; name: string; idNumber: string | null; email: string | null;
-    phone: string | null; altPhone: string | null; birthDate: string;
-    nationality: string | null; gender: string; bloodGroup: string | null;
-    education: string | null; occupation: string | null;
-    designation: string | null; workAddress: string | null;
-    image: string | null; hasLogin: boolean;
+    id: string;
+    name: string;
+    idNumber: string | null;
+    email: string | null;
+    phone: string | null;
+    altPhone: string | null;
+    birthDate: string;
+    nationality: string | null;
+    gender: string;
+    bloodGroup: string | null;
+    education: string | null;
+    occupation: string | null;
+    designation: string | null;
+    workAddress: string | null;
+    image: string | null;
+    hasLogin: boolean;
   };
   children: Array<{
-    id: string; name: string; image: string | null; active: boolean;
-    relation: string | null; program: string | null; batch: string | null;
-    academicYear: string | null; attendanceRate: number; absences: number;
+    id: string;
+    name: string;
+    image: string | null;
+    active: boolean;
+    relation: string | null;
+    program: string | null;
+    batch: string | null;
+    academicYear: string | null;
+    attendanceRate: number;
+    absences: number;
     outstanding: number;
   }>;
   summary: { children: number; outstanding: number; needsAttention: number };

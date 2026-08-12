@@ -55,25 +55,37 @@ function shortTime(t: string) {
 
 function TimetablePage() {
   const { role } = useApp();
-  // Students and parents get their own timetable; staff pick a class.
-  const picksClass = role === "admin" || role === "teacher";
+  const isTeacher = role === "teacher";
+  // Students and parents get their own timetable; the back office picks a
+  // class. A teacher gets their *own* lessons: "جدولي" means the periods this
+  // teacher stands in front of a class, not everything their sections are
+  // taught by everyone else.
+  const picksClass = role === "admin" || role === "secretary";
 
   const classesQuery = useClasses();
   const [groupId, setGroupId] = useState<string>("");
 
+  // A teacher may still look at a whole class, but only by asking for it.
+  const [teacherViewsClass, setTeacherViewsClass] = useState(false);
+  const showsClassPicker = picksClass || (isTeacher && teacherViewsClass);
+
   useEffect(() => {
-    if (picksClass && !groupId && classesQuery.data?.length) {
+    if (showsClassPicker && !groupId && classesQuery.data?.length) {
       setGroupId(classesQuery.data[0]!.name);
     }
-  }, [picksClass, classesQuery.data, groupId]);
+  }, [showsClassPicker, classesQuery.data, groupId]);
 
   const viewed = useViewedStudent();
   const timetableQuery = useTimetable(
-    picksClass && groupId
+    showsClassPicker && groupId
       ? { student_group: groupId }
-      : viewed
-        ? { student: viewed }
-        : {},
+      : // No argument for a teacher: the server resolves the instructor from
+        // the session, so one teacher can never request another's week.
+        isTeacher
+        ? {}
+        : viewed
+          ? { student: viewed }
+          : {},
   );
 
   const days = timetableQuery.data?.days ?? {};
@@ -93,15 +105,29 @@ function TimetablePage() {
   return (
     <>
       <PageHeader
-        title={byRole(role, "الجدول الدراسي", { teacher: "جدولي", student: "جدولي الدراسي", parent: "جدول الأبناء" })}
+        title={byRole(role, "الجدول الدراسي", {
+          teacher: "جدولي",
+          student: "جدولي الدراسي",
+          parent: "جدول الأبناء",
+        })}
         subtitle={
-          picksClass
+          showsClassPicker
             ? `${selectedClass?.student_group_name ?? ""} • ${timetableQuery.data?.week_start ?? ""}`
-            : `الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
+            : isTeacher
+              ? `حصصي أنا • الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
+              : `الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
         }
         actions={
           <>
-            {picksClass && (
+            {isTeacher && (
+              <button
+                onClick={() => setTeacherViewsClass((v) => !v)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold transition-colors hover:bg-secondary"
+              >
+                {teacherViewsClass ? "عرض حصصي أنا" : "عرض جدول شعبة كاملة"}
+              </button>
+            )}
+            {showsClassPicker && (
               <Select value={groupId} onValueChange={setGroupId}>
                 <SelectTrigger className="h-10 w-[200px] rounded-xl">
                   <SelectValue placeholder="اختر الشعبة" />
@@ -166,10 +192,33 @@ function TimetablePage() {
                       return (
                         <td key={day} className="border-b border-border p-1.5 align-top">
                           {slot ? (
-                            <div className={`rounded-xl border p-2 ${colorFor(slot.subject)}`}>
-                              <p className="truncate text-xs font-bold">{slot.subject}</p>
+                            <div
+                              className={`rounded-xl border p-2 ${
+                                slot.cancelled
+                                  ? "border-destructive/40 bg-destructive-soft"
+                                  : colorFor(slot.subject)
+                              }`}
+                            >
+                              <p
+                                className={`truncate text-xs font-bold ${
+                                  slot.cancelled ? "text-destructive line-through" : ""
+                                }`}
+                              >
+                                {slot.subject}
+                              </p>
+                              {slot.cancelled && (
+                                <p className="mt-0.5 text-[10px] font-bold text-destructive">
+                                  ملغية{slot.cancelReason ? ` — ${slot.cancelReason}` : ""}
+                                </p>
+                              )}
                               {slot.teacher && (
-                                <p className="truncate text-[11px] opacity-80">{slot.teacher}</p>
+                                <p
+                                  className={`truncate text-[11px] opacity-80 ${
+                                    slot.cancelled ? "line-through" : ""
+                                  }`}
+                                >
+                                  {slot.teacher}
+                                </p>
                               )}
                               {slot.room && (
                                 <p className="num truncate text-[10px] opacity-70">{slot.room}</p>

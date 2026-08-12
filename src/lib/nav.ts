@@ -324,15 +324,9 @@ export const navItems: NavItem[] = [
     group: "المتابعة اليومية",
   },
   {
+    // The plan and the grid are one screen: /app/timetable-builder redirects.
     label: "بناء الجدول الدراسي",
     to: "/app/timetable-grid",
-    icon: CalendarCog,
-    roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
-  },
-  {
-    label: "توليد الجدول الدراسي",
-    to: "/app/timetable-builder",
     icon: CalendarCog,
     roles: ["admin", "secretary"],
     group: "الإدارة الأكاديمية",

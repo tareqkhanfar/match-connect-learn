@@ -312,6 +312,10 @@ export interface ScheduleSlot {
   room: string | null;
   title: string | null;
   color?: string | null;
+  /** A lesson called off for this date. It stays on the timetable, struck
+   *  through, rather than leaving an unexplained gap in the week. */
+  cancelled?: boolean;
+  cancelReason?: string | null;
 }
 
 export interface Timetable {

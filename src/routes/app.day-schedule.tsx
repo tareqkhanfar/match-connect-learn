@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/api/error-message";
 import {
   useAvailableInstructors,
+  useSwapCandidates,
   useCoverReport,
   useDayLessons,
   useGridOptions,
@@ -171,7 +172,13 @@ function DaySchedulePage() {
                           <span className="num rounded-lg bg-secondary px-2 py-0.5 text-xs font-bold">
                             {l.from} - {l.to}
                           </span>
-                          <p className="truncate text-sm font-bold">{l.course}</p>
+                          <p
+                            className={`truncate text-sm font-bold ${
+                              l.cancelled ? "text-destructive line-through" : ""
+                            }`}
+                          >
+                            {l.course}
+                          </p>
                           {l.change && (
                             <Pill tone={l.change.type === "Cancelled" ? "danger" : "warning"}>
                               {l.change.typeLabel}
@@ -237,15 +244,7 @@ function DaySchedulePage() {
         />
       )}
 
-      {swapping && (
-        <SwapDialog
-          lesson={swapping}
-          candidates={lessons.filter(
-            (l) => l.id !== swapping.id && !l.change && l.instructor !== swapping.instructor,
-          )}
-          onClose={() => setSwapping(null)}
-        />
-      )}
+      {swapping && <SwapDialog lesson={swapping} onClose={() => setSwapping(null)} />}
     </>
   );
 }
@@ -338,23 +337,52 @@ function ChangeDialog({
           {type === "Substitute" && (
             <div className="space-y-1.5">
               <Label>المعلم البديل *</Label>
-              <SearchableSelect
-                value={instructor}
-                onChange={setInstructor}
-                options={(teachers.data?.available ?? []).map((t) => ({
-                  value: t.id,
-                  label: t.name,
-                }))}
-                placeholder={
-                  teachers.isLoading ? "جارٍ التحقق من التوفر…" : "اختر معلماً متاحاً"
-                }
-              />
+
+              {/* Everyone is listed, free in green and busy in red with the
+                  reason. Hiding the busy ones answered "who can cover?" but
+                  not "why can't he?" — which is the question that follows. */}
+              {teachers.isLoading ? (
+                <p className="py-3 text-center text-xs text-muted-foreground">
+                  جارٍ التحقق من التوفر…
+                </p>
+              ) : (
+                <div className="max-h-56 space-y-1.5 overflow-y-auto">
+                  {(teachers.data?.available ?? []).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setInstructor(t.id)}
+                      className={`w-full rounded-xl border p-2.5 text-right transition-colors ${
+                        instructor === t.id
+                          ? "border-emerald-500 bg-emerald-500/15"
+                          : "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10"
+                      }`}
+                    >
+                      <span className="text-sm font-bold">{t.name}</span>
+                      <span className="mr-2 rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                        متاح
+                      </span>
+                    </button>
+                  ))}
+                  {(teachers.data?.busy ?? []).map((t) => (
+                    <div
+                      key={t.id}
+                      className="rounded-xl border border-destructive/30 bg-destructive-soft/40 p-2.5"
+                    >
+                      <span className="text-sm font-bold text-muted-foreground">{t.name}</span>
+                      <span className="mr-2 rounded-md bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
+                        مشغول
+                      </span>
+                      {t.reason && (
+                        <p className="mt-1 text-[11px] leading-relaxed text-destructive/90">
+                          {t.reason}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                تُعرض فقط أسماء المتاحين في هذا الوقت
-                {teachers.data?.busy.length
-                  ? ` — ${teachers.data.busy.length} معلماً مشغولاً`
-                  : ""}
-                .
+                الأخضر متاح في هذا الوقت، والأحمر مشغول مع سبب انشغاله.
               </p>
             </div>
           )}
@@ -410,18 +438,16 @@ function ChangeDialog({
 
 /* ------------------------------------------------------------------ swap */
 
-function SwapDialog({
-  lesson,
-  candidates,
-  onClose,
-}: {
-  lesson: DayLesson;
-  candidates: DayLesson[];
-  onClose: () => void;
-}) {
+function SwapDialog({ lesson, onClose }: { lesson: DayLesson; onClose: () => void }) {
   const [second, setSecond] = useState("");
   const [reason, setReason] = useState("");
   const swap = useSwapLessons();
+
+  // The server works out which swaps are actually possible — same class, and
+  // both teachers free for each other's period.
+  const options = useSwapCandidates(lesson.id);
+  const rows = options.data?.candidates ?? [];
+  const availableCount = options.data?.availableCount ?? 0;
 
   async function submit() {
     if (!second) {
@@ -463,17 +489,62 @@ function SwapDialog({
 
         <div className="space-y-1.5">
           <Label>الحصة المقابلة *</Label>
-          <SearchableSelect
-            value={second}
-            onChange={setSecond}
-            options={candidates.map((c) => ({
-              value: c.id,
-              label: `${c.from} ${c.course} — ${c.instructorName || c.instructor}`,
-            }))}
-            placeholder={candidates.length ? "اختر الحصة" : "لا توجد حصص متاحة للتبديل"}
-          />
+
+          {/* Green is free, red is not — with the reason on the row itself,
+              so an impossible swap is obvious before it is attempted. */}
+          {options.isLoading ? (
+            <p className="py-3 text-center text-xs text-muted-foreground">جارٍ الفحص…</p>
+          ) : rows.length === 0 ? (
+            <p className="rounded-xl border border-border p-3 text-center text-xs text-muted-foreground">
+              لا توجد حصص أخرى لهذه الشعبة في هذا اليوم.
+            </p>
+          ) : (
+            <div className="max-h-64 space-y-1.5 overflow-y-auto">
+              {rows.map((c) => {
+                const picked = second === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => c.available && setSecond(c.id)}
+                    disabled={!c.available}
+                    className={`w-full rounded-xl border p-2.5 text-right transition-colors ${
+                      !c.available
+                        ? "cursor-not-allowed border-destructive/30 bg-destructive-soft/40"
+                        : picked
+                          ? "border-emerald-500 bg-emerald-500/15"
+                          : "border-emerald-500/40 bg-emerald-500/5 hover:bg-emerald-500/10"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-bold">
+                        {c.course} — {c.instructorName || c.instructor}
+                      </span>
+                      <span
+                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                          c.available
+                            ? "bg-emerald-500/20 text-emerald-700"
+                            : "bg-destructive/15 text-destructive"
+                        }`}
+                      >
+                        {c.available ? "متاح" : "غير متاح"}
+                      </span>
+                    </div>
+                    <p className="num mt-0.5 text-[11px] text-muted-foreground">
+                      {c.from} - {c.to}
+                    </p>
+                    {!c.available && c.reason && (
+                      <p className="mt-1 text-[11px] leading-relaxed text-destructive/90">
+                        {c.reason}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <p className="text-[11px] text-muted-foreground">
-            يتبادل المعلمان الحصتين، وتبقى كل شعبة في وقتها وقاعتها.
+            يتبادل المعلمان الحصتين، وتبقى كل شعبة في وقتها وقاعتها. التبديل داخل الشعبة نفسها فقط.
           </p>
         </div>
 
@@ -485,7 +556,7 @@ function SwapDialog({
         <DialogFooter className="gap-2">
           <button
             onClick={submit}
-            disabled={swap.isPending || !candidates.length}
+            disabled={swap.isPending || !second || availableCount === 0}
             className="h-11 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground shadow-soft disabled:opacity-60"
           >
             {swap.isPending ? "جارٍ التبديل…" : "تبديل"}
