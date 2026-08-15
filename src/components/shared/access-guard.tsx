@@ -15,12 +15,19 @@ export function AccessGuard({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { data } = useMyBlocks();
 
-  const blocked = (data?.blocked ?? []).includes(pathname);
+  // Two kinds of block: named pages, and the whole portal. The second cannot
+  // be a list of paths — it has to close routes added after the rule was
+  // written — so it is a flag, with the alerts page kept open. A student who
+  // cannot read why they are locked out has no way back in.
+  const everything = data?.everything === true;
+  const allowed = data?.allowed ?? ["/app/alerts", "/app"];
+  const blocked = everything
+    ? !allowed.includes(pathname)
+    : (data?.blocked ?? []).includes(pathname);
+
   if (!blocked) return <>{children}</>;
 
-  const reason = (data?.reasons ?? []).find((r) =>
-    r.pages.length ? true : false,
-  );
+  const reason = (data?.reasons ?? []).find((r) => (r.pages.length ? true : false));
 
   return (
     <div className="mx-auto max-w-2xl py-10">
@@ -30,10 +37,12 @@ export function AccessGuard({ children }: { children: ReactNode }) {
             <Ban className="size-10" />
           </span>
           <h1 className="mt-4 text-xl font-black text-destructive">
-            ⛔ هذه الصفحة غير متاحة حالياً
+            {everything ? "⛔ تم تعليق الوصول إلى النظام" : "⛔ هذه الصفحة غير متاحة حالياً"}
           </h1>
           <p className="mt-2 text-sm leading-relaxed">
-            تم تقييد الوصول إلى هذه الصفحة بناءً على تنبيه صادر من إدارة المدرسة.
+            {everything
+              ? "تم تعليق وصولك إلى جميع صفحات النظام بناءً على تنبيه صادر من إدارة المدرسة. يمكنك الاطّلاع على التنبيهات فقط."
+              : "تم تقييد الوصول إلى هذه الصفحة بناءً على تنبيه صادر من إدارة المدرسة."}
           </p>
         </div>
 
@@ -44,9 +53,7 @@ export function AccessGuard({ children }: { children: ReactNode }) {
                 <span className="text-xl">{reason.emoji}</span>
                 {reason.title}
               </p>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {reason.message}
-              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{reason.message}</p>
             </div>
 
             <p className="flex items-start gap-2 rounded-xl bg-warm-soft p-3 text-xs text-warm-foreground">

@@ -7,6 +7,7 @@ import { ChildSwitcher } from "./child-switcher";
 import { UserMenu } from "./user-menu";
 import { ChatWidget } from "./chat-widget";
 import { AccessGuard } from "@/components/shared/access-guard";
+import { AlertPopup } from "@/components/shared/alert-popup";
 import { ForcePasswordChange } from "@/components/shared/force-password-change";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
@@ -76,6 +77,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/* A rule may close a page to a student; say why rather than
                 showing an empty screen. */}
             <AccessGuard>{children}</AccessGuard>
+            {/* An unacknowledged warning interrupts once, on arrival. */}
+            <AlertPopup />
           </div>
         </main>
       </div>

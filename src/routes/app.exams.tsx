@@ -17,6 +17,7 @@ import { KpiCard, PageHeader, Pill, SectionCard } from "@/components/shared/ui-k
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
+import { ExamBoard } from "@/components/shared/exam-board";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,10 @@ function ExamsPage() {
   const canSchedule = isBackOffice(role) || role === "teacher";
 
   const [view, setView] = useState<"upcoming" | "past">("upcoming");
+  // How the same exams are laid out. A list answers "what is next"; the board
+  // answers "is this week too heavy", which is the question when scheduling.
+  const [layout, setLayout] = useState<"list" | "week" | "month">("list");
+  const [cursor, setCursor] = useState(() => new Date());
   const [type, setType] = useState("");
   const [group, setGroup] = useState("");
   const [editing, setEditing] = useState<ExamSitting | null>(null);
@@ -85,6 +90,7 @@ function ExamsPage() {
     ...(viewed ? { student: viewed } : {}),
   });
   const remove = useDeleteExam();
+  const saveExam = useSaveExam();
   const confirm = useConfirm();
 
   const all = query.data?.exams ?? [];
@@ -105,10 +111,28 @@ function ExamsPage() {
     return entries;
   }, [visible, view]);
 
+  /** Drag-and-drop: only the date moves; time, room and staff stay put. */
+  async function moveExam(exam: ExamSitting, date: string) {
+    try {
+      await saveExam.mutateAsync({
+        id: exam.id,
+        student_group: exam.student_group,
+        course: exam.course,
+        schedule_date: date,
+        from_time: exam.from_time,
+        to_time: exam.to_time,
+        room: exam.room,
+        max: exam.max,
+      });
+      toast.success(`تم نقل ${exam.course} إلى ${date}`);
+    } catch (err) {
+      // Holidays and clashes are refused by the server with a reason.
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر نقل الامتحان");
+    }
+  }
+
   const next = all.filter((e) => e.upcoming).sort((a, b) => a.date.localeCompare(b.date))[0];
-  const thisWeek = all.filter(
-    (e) => e.upcoming && e.days_away !== null && e.days_away <= 7,
-  ).length;
+  const thisWeek = all.filter((e) => e.upcoming && e.days_away !== null && e.days_away <= 7).length;
 
   async function removeExam(exam: ExamSitting) {
     const ok = await confirm({
@@ -223,6 +247,27 @@ function ExamsPage() {
           </button>
         </div>
 
+        {/* The same exams, laid out three ways. */}
+        <div className="inline-flex items-center gap-1 rounded-xl bg-secondary p-1">
+          {(
+            [
+              ["list", "قائمة"],
+              ["week", "أسبوعي"],
+              ["month", "شهري"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setLayout(key)}
+              className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                layout === key ? "bg-card shadow-soft" : "text-muted-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <SearchableSelect
           options={(query.data?.types ?? []).map((t) => ({ value: t.code, label: t.label }))}
           value={type}
@@ -249,6 +294,25 @@ function ExamsPage() {
         <ErrorState error={query.error} onRetry={() => query.refetch()} />
       ) : query.isLoading ? (
         <TableSkeleton rows={6} />
+      ) : layout !== "list" ? (
+        <div className="card-surface p-4">
+          <ExamBoard
+            exams={visible}
+            view={layout}
+            cursor={cursor}
+            busy={saveExam.isPending}
+            onMove={(delta) =>
+              setCursor((c) => {
+                const next = new Date(c);
+                if (layout === "month") next.setMonth(next.getMonth() + delta);
+                else next.setDate(next.getDate() + delta * 7);
+                return next;
+              })
+            }
+            onDropExam={canSchedule ? moveExam : () => {}}
+            {...(canSchedule ? { onPick: setEditing } : {})}
+          />
+        </div>
       ) : byDate.length === 0 ? (
         <EmptyBlock
           title={view === "upcoming" ? "لا توجد امتحانات قادمة" : "لا توجد امتحانات سابقة"}

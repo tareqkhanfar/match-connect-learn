@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Attachments } from "@/components/shared/attachments";
 import { PendingAttachments, uploadPending } from "@/components/shared/pending-attachments";
+import { QuickGuardianDialog } from "@/components/shared/quick-guardian";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
@@ -125,10 +126,25 @@ function AdmissionsPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="إجمالي الطلبات" value={counts["All"] ?? 0} icon={ClipboardList} tone="primary" />
-        <KpiCard label="بانتظار القرار" value={counts["Applied"] ?? 0} icon={UserPlus} tone="warm" />
+        <KpiCard
+          label="إجمالي الطلبات"
+          value={counts["All"] ?? 0}
+          icon={ClipboardList}
+          tone="primary"
+        />
+        <KpiCard
+          label="بانتظار القرار"
+          value={counts["Applied"] ?? 0}
+          icon={UserPlus}
+          tone="warm"
+        />
         <KpiCard label="مقبولة" value={counts["Approved"] ?? 0} icon={CheckCircle2} tone="info" />
-        <KpiCard label="مُسجَّلة" value={counts["Admitted"] ?? 0} icon={GraduationCap} tone="accent" />
+        <KpiCard
+          label="مُسجَّلة"
+          value={counts["Admitted"] ?? 0}
+          icon={GraduationCap}
+          tone="accent"
+        />
       </div>
 
       <div className="my-5 flex flex-wrap items-center gap-3">
@@ -315,18 +331,19 @@ function ApplicantDialog({
   const detail = useApplicant(applicant?.id ?? null);
   const save = useSaveApplicant();
 
-  const [tab, setTab] = useState<
-    "basic" | "personal" | "relations" | "address" | "documents"
-  >("basic");
+  const [tab, setTab] = useState<"basic" | "personal" | "relations" | "address" | "documents">(
+    "basic",
+  );
   const [form, setForm] = useState<Record<string, string>>({});
-  const [guardians, setGuardians] = useState<
-    Array<{ guardian: string; relation: string }>
-  >([]);
+  const [guardians, setGuardians] = useState<Array<{ guardian: string; relation: string }>>([]);
   const [siblings, setSiblings] = useState<
     Array<{ name: string; birthDate: string; gender: string; sameSchool: boolean }>
   >([]);
   const [loaded, setLoaded] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // Same problem as the student form: a parent not yet on file used to mean
+  // abandoning a half-filled application to go and create them.
+  const [addingGuardian, setAddingGuardian] = useState(false);
 
   // Populate once the existing record arrives (or immediately when creating).
   useEffect(() => {
@@ -337,6 +354,7 @@ function ApplicantDialog({
     setForm({
       firstName: d?.firstName ?? applicant?.name?.split(" ")[0] ?? "",
       middleName: d?.middleName ?? "",
+      grandfatherName: d?.grandfatherName ?? "",
       lastName: d?.lastName ?? "",
       idNumber: d?.idNumber ?? applicant?.idNumber ?? "",
       program: d?.program ?? "",
@@ -461,13 +479,28 @@ function ApplicantDialog({
         {tab === "basic" && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="الاسم الأول *">
-              <Input value={form["firstName"] ?? ""} onChange={(e) => set("firstName", e.target.value)} />
+              <Input
+                value={form["firstName"] ?? ""}
+                onChange={(e) => set("firstName", e.target.value)}
+              />
             </Field>
             <Field label="اسم الأب">
-              <Input value={form["middleName"] ?? ""} onChange={(e) => set("middleName", e.target.value)} />
+              <Input
+                value={form["middleName"] ?? ""}
+                onChange={(e) => set("middleName", e.target.value)}
+              />
+            </Field>
+            <Field label="اسم الجد">
+              <Input
+                value={form["grandfatherName"] ?? ""}
+                onChange={(e) => set("grandfatherName", e.target.value)}
+              />
             </Field>
             <Field label="اسم العائلة">
-              <Input value={form["lastName"] ?? ""} onChange={(e) => set("lastName", e.target.value)} />
+              <Input
+                value={form["lastName"] ?? ""}
+                onChange={(e) => set("lastName", e.target.value)}
+              />
             </Field>
             <Field label="رقم الهوية *">
               <Input
@@ -552,7 +585,10 @@ function ApplicantDialog({
               />
             </Field>
             <Field label="الجنسية">
-              <Input value={form["nationality"] ?? ""} onChange={(e) => set("nationality", e.target.value)} />
+              <Input
+                value={form["nationality"] ?? ""}
+                onChange={(e) => set("nationality", e.target.value)}
+              />
             </Field>
             <Field label="البريد الإلكتروني">
               <Input
@@ -578,13 +614,22 @@ function ApplicantDialog({
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-sm font-bold">أولياء الأمور</p>
-                <button
-                  onClick={() => setGuardians((g) => [...g, { guardian: "", relation: "" }])}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
-                >
-                  <Plus className="size-3.5" />
-                  إضافة
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setAddingGuardian(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                  >
+                    <UserPlus className="size-3.5" />
+                    ولي أمر جديد
+                  </button>
+                  <button
+                    onClick={() => setGuardians((g) => [...g, { guardian: "", relation: "" }])}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                  >
+                    <Plus className="size-3.5" />
+                    إضافة
+                  </button>
+                </div>
               </div>
               {guardians.length === 0 ? (
                 <p className="rounded-xl bg-secondary/50 p-3 text-xs text-muted-foreground">
@@ -593,7 +638,10 @@ function ApplicantDialog({
               ) : (
                 <div className="space-y-2">
                   {guardians.map((g, i) => (
-                    <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2">
+                    <div
+                      key={i}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2"
+                    >
                       <SearchableSelect
                         value={g.guardian}
                         onChange={(v) =>
@@ -678,7 +726,9 @@ function ApplicantDialog({
                         max={new Date().toISOString().slice(0, 10)}
                         onChange={(e) =>
                           setSiblings((l) =>
-                            l.map((x, idx) => (idx === i ? { ...x, birthDate: e.target.value } : x)),
+                            l.map((x, idx) =>
+                              idx === i ? { ...x, birthDate: e.target.value } : x,
+                            ),
                           )
                         }
                       />
@@ -795,6 +845,17 @@ function ApplicantDialog({
           </button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Creating a parent without losing the half-filled application. */}
+      {addingGuardian && (
+        <QuickGuardianDialog
+          onClose={() => setAddingGuardian(false)}
+          onCreated={(id) => {
+            setGuardians((g) => [...g, { guardian: id, relation: "" }]);
+            setAddingGuardian(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }
@@ -807,7 +868,6 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
     </div>
   );
 }
-
 
 /* ---------------------------------------------------------------- detail */
 
@@ -918,10 +978,7 @@ function ApplicantDetailDialog({
                 <p className="mb-2 text-sm font-bold">أولياء الأمور</p>
                 <ul className="space-y-1.5">
                   {d.guardians.map((g) => (
-                    <li
-                      key={g.guardian}
-                      className="rounded-xl bg-secondary/60 px-3 py-2 text-sm"
-                    >
+                    <li key={g.guardian} className="rounded-xl bg-secondary/60 px-3 py-2 text-sm">
                       {g.name || g.guardian}
                       {g.relationLabel || g.relation ? (
                         <span className="text-muted-foreground">

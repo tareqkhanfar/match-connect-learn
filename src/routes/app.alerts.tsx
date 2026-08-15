@@ -14,7 +14,12 @@ import {
   Users,
 } from "lucide-react";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
-import { DashboardSkeleton, EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import {
+  DashboardSkeleton,
+  EmptyBlock,
+  ErrorState,
+  TableSkeleton,
+} from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { StudentPicker } from "@/components/shared/student-picker";
 import { useConfirm } from "@/components/shared/confirm";
@@ -64,8 +69,16 @@ export const Route = createFileRoute("/app/alerts")({
 /** Colour and icon per severity — used consistently across the page. */
 const SEVERITY = {
   Info: { tone: "info" as const, ring: "bg-info-soft text-info", icon: Bell },
-  Warning: { tone: "warning" as const, ring: "bg-warm-soft text-warm-foreground", icon: AlertTriangle },
-  Serious: { tone: "danger" as const, ring: "bg-destructive-soft text-destructive", icon: ShieldAlert },
+  Warning: {
+    tone: "warning" as const,
+    ring: "bg-warm-soft text-warm-foreground",
+    icon: AlertTriangle,
+  },
+  Serious: {
+    tone: "danger" as const,
+    ring: "bg-destructive-soft text-destructive",
+    icon: ShieldAlert,
+  },
   Critical: { tone: "danger" as const, ring: "bg-destructive text-white", icon: AlertOctagon },
 };
 
@@ -87,6 +100,8 @@ function AdminAlertsView() {
   const [editing, setEditing] = useState<AlertRuleRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [file, setFile] = useState<string | null>(null);
+  // Which rule is running, so only its own button shows the spinner.
+  const [runningRule, setRunningRule] = useState<string | null>(null);
 
   async function runAll() {
     try {
@@ -97,6 +112,28 @@ function AdminAlertsView() {
       );
     } catch (err) {
       toast.error((err as { messageAr?: string }).messageAr || "تعذّر تشغيل القواعد");
+    }
+  }
+
+  /**
+   * Run one rule on its own.
+   *
+   * Running everything to test a single rule is slow on a real school and
+   * makes the result hard to read — the counts are for all rules at once, so
+   * there is no way to tell what the rule being worked on actually did.
+   */
+  async function runOne(rule: AlertRuleRow) {
+    setRunningRule(rule.id);
+    try {
+      const result = await run.mutateAsync(rule.id);
+      toast.success(
+        `«${rule.name}»: ${result.matched} مطابقة — ` +
+          `${result.raised} تنبيه جديد، ${result.resolved} معالج`,
+      );
+    } catch (err) {
+      toast.error((err as { messageAr?: string }).messageAr || "تعذّر تشغيل القاعدة");
+    } finally {
+      setRunningRule(null);
     }
   }
 
@@ -117,7 +154,8 @@ function AdminAlertsView() {
   }
 
   if (overview.isLoading) return <DashboardSkeleton />;
-  if (overview.error) return <ErrorState error={overview.error} onRetry={() => overview.refetch()} />;
+  if (overview.error)
+    return <ErrorState error={overview.error} onRetry={() => overview.refetch()} />;
 
   const s = overview.data?.summary;
 
@@ -236,9 +274,7 @@ function AdminAlertsView() {
                       <Pill tone={r.enabled ? "success" : "muted"}>
                         {r.enabled ? "مفعّلة" : "معطّلة"}
                       </Pill>
-                      {r.open_alerts > 0 && (
-                        <Pill tone="warning">{r.open_alerts} تنبيه مفتوح</Pill>
-                      )}
+                      {r.open_alerts > 0 && <Pill tone="warning">{r.open_alerts} تنبيه مفتوح</Pill>}
                     </div>
                     <p className="num mt-0.5 text-xs text-muted-foreground">
                       {r.trigger_label} {r.operator} {r.threshold}
@@ -248,6 +284,19 @@ function AdminAlertsView() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => runOne(r)}
+                      disabled={run.isPending}
+                      title={
+                        r.enabled
+                          ? "فحص هذه القاعدة وحدها الآن"
+                          : "القاعدة معطّلة — يمكن فحصها يدوياً دون تفعيلها"
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-semibold transition-colors hover:bg-primary-soft hover:text-primary disabled:opacity-50"
+                    >
+                      <Play className="size-3.5" />
+                      {runningRule === r.id ? "جارٍ…" : "فحص"}
+                    </button>
                     <button
                       onClick={() => setEditing(r)}
                       className="rounded-lg bg-secondary px-3 py-2 text-xs font-semibold transition-colors hover:bg-primary-soft hover:text-primary"
@@ -370,8 +419,7 @@ function FamilyAlertsView() {
       {blocked.length > 0 && (
         <div className="mb-5 rounded-2xl border-2 border-destructive bg-destructive-soft p-5">
           <p className="flex items-center gap-2 text-base font-black text-destructive">
-            <Ban className="size-5" />
-            ⛔ تم تقييد الوصول إلى بعض الصفحات
+            <Ban className="size-5" />⛔ تم تقييد الوصول إلى بعض الصفحات
           </p>
           <p className="mt-2 text-sm leading-relaxed">
             يرجى مراجعة إدارة المدرسة لمعالجة الأمر واستعادة الوصول الكامل.
@@ -498,7 +546,10 @@ function StudentFileDialog({ student, onClose }: { student: string; onClose: () 
                 ["إنذارات", data.summary.warnings],
                 ["محجوب", data.summary.blocked ? "نعم" : "لا"],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl border border-border p-3 text-center">
+                <div
+                  key={String(label)}
+                  className="rounded-xl border border-border p-3 text-center"
+                >
                   <p className="text-[11px] text-muted-foreground">{label}</p>
                   <p className="num mt-1 text-lg font-bold">{value}</p>
                 </div>
@@ -558,7 +609,10 @@ function StudentFileDialog({ student, onClose }: { student: string; onClose: () 
         )}
 
         <DialogFooter className="sm:justify-start">
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إغلاق
           </button>
         </DialogFooter>
@@ -595,7 +649,12 @@ function RuleDialog({ rule, onClose }: { rule: AlertRuleRow | null; onClose: () 
   });
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const [actions, setActions] = useState<DraftAction[]>([
-    { action_type: "Notify", notify_roles: "student,parent", escalate_after_days: 7, block_pages: [] },
+    {
+      action_type: "Notify",
+      notify_roles: "student,parent",
+      escalate_after_days: 7,
+      block_pages: [],
+    },
   ]);
 
   // Load the saved actions when editing.
@@ -788,7 +847,11 @@ function RuleDialog({ rule, onClose }: { rule: AlertRuleRow | null; onClose: () 
             </p>
             {preview.data.sample.length > 0 && (
               <p className="num mt-1 text-[11px] text-muted-foreground">
-                مثال: {preview.data.sample.slice(0, 3).map((s) => `${s.name} (${s.value})`).join("، ")}
+                مثال:{" "}
+                {preview.data.sample
+                  .slice(0, 3)
+                  .map((s) => `${s.name} (${s.value})`)
+                  .join("، ")}
               </p>
             )}
           </div>
@@ -918,7 +981,9 @@ function RuleDialog({ rule, onClose }: { rule: AlertRuleRow | null; onClose: () 
                               )
                             }
                             className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
-                              on ? "bg-destructive text-white" : "bg-secondary text-muted-foreground"
+                              on
+                                ? "bg-destructive text-white"
+                                : "bg-secondary text-muted-foreground"
                             }`}
                           >
                             {p.label}
@@ -951,7 +1016,10 @@ function RuleDialog({ rule, onClose }: { rule: AlertRuleRow | null; onClose: () 
           >
             {save.isPending ? "جارٍ الحفظ…" : "حفظ القاعدة"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>

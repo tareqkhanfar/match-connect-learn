@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertCircle, CheckCircle2, Download, Plus, Receipt, Wallet } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Plus, Receipt, Trash2, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -211,13 +211,9 @@ function FeesPage() {
   return (
     <>
       <PageHeader
-        title={
-          role === "student" ? "رسومي" : role === "parent" ? "رسوم الأبناء" : "الرسوم المالية"
-        }
+        title={role === "student" ? "رسومي" : role === "parent" ? "رسوم الأبناء" : "الرسوم المالية"}
         subtitle={
-          canBill
-            ? "إصدار الفواتير، تسجيل الدفعات، ومتابعة التحصيل"
-            : "فواتيرك وحالة السداد"
+          canBill ? "إصدار الفواتير، تسجيل الدفعات، ومتابعة التحصيل" : "فواتيرك وحالة السداد"
         }
         actions={
           canBill ? (
@@ -387,8 +383,15 @@ function InvoiceDialog({ onClose }: { onClose: () => void }) {
   const [student, setStudent] = useState("");
   const [structure, setStructure] = useState("");
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
+  // Editable lines. A structure prefills them, but a registrar waiving a fee
+  // or adding a one-off charge should not have to build a whole new structure
+  // — and a zero line is legitimate, not an error.
+  const [lines, setLines] = useState<
+    Array<{ category: string; description: string; amount: string }>
+  >([]);
 
   const chosen = options.data?.structures.find((s) => s.id === structure);
+  const linesTotal = lines.reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
 
   async function submit() {
     if (!student) {
@@ -400,10 +403,22 @@ function InvoiceDialog({ onClose }: { onClose: () => void }) {
       return;
     }
     try {
+      const usable = lines.filter((l) => l.category);
       const result = await save.mutateAsync({
         student,
         fee_structure: structure,
         due_date: dueDate,
+        // Sent only when the registrar edited them; otherwise the backend
+        // expands the structure's own components.
+        ...(usable.length
+          ? {
+              components: usable.map((l) => ({
+                category: l.category,
+                description: l.description,
+                amount: Number(l.amount) || 0,
+              })),
+            }
+          : {}),
       });
       toast.success(`تم إصدار الفاتورة بقيمة ${money(result.grand_total)}`);
       onClose();
@@ -447,11 +462,93 @@ function InvoiceDialog({ onClose }: { onClose: () => void }) {
               className="num rounded-xl"
             />
           </div>
-          {chosen && (
+          {/* The lines themselves. Editable, and a zero is allowed. */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">بنود الفاتورة</Label>
+              <button
+                type="button"
+                onClick={() =>
+                  setLines((l) => [...l, { category: "", description: "", amount: "" }])
+                }
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-semibold transition-colors hover:bg-secondary"
+              >
+                <Plus className="size-3.5" />
+                إضافة بند
+              </button>
+            </div>
+
+            {lines.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                {chosen
+                  ? "ستُستخدم بنود هيكل الرسوم كما هي — أضف بنداً للتعديل عليها."
+                  : "اختر هيكل رسوم، أو أضف البنود يدوياً."}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {lines.map((l, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <SearchableSelect
+                        value={l.category}
+                        onChange={(v) =>
+                          setLines((list) =>
+                            list.map((x, idx) => (idx === i ? { ...x, category: v } : x)),
+                          )
+                        }
+                        options={(options.data?.categories ?? []).map((c) => ({
+                          value: c,
+                          label: c,
+                        }))}
+                        placeholder="اختر البند"
+                      />
+                    </div>
+                    <Input
+                      value={l.description}
+                      onChange={(e) =>
+                        setLines((list) =>
+                          list.map((x, idx) =>
+                            idx === i ? { ...x, description: e.target.value } : x,
+                          ),
+                        )
+                      }
+                      placeholder="وصف (اختياري)"
+                      className="w-40 rounded-xl"
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={l.amount}
+                      onChange={(e) =>
+                        setLines((list) =>
+                          list.map((x, idx) => (idx === i ? { ...x, amount: e.target.value } : x)),
+                        )
+                      }
+                      placeholder="0"
+                      className="num w-28 rounded-xl text-center"
+                      dir="ltr"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setLines((list) => list.filter((_, idx) => idx !== i))}
+                      className="rounded-lg p-2 text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {(chosen || lines.length > 0) && (
             <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">إجمالي الفاتورة</span>
-                <span className="num font-bold">{money(chosen.total)}</span>
+                <span className="num font-bold">
+                  {money(lines.length > 0 ? linesTotal : (chosen?.total ?? 0))}
+                </span>
               </div>
             </div>
           )}
@@ -531,9 +628,7 @@ function PaymentDialog({
         <div className="space-y-4">
           <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
             <span className="text-sm text-muted-foreground">المبلغ المتبقي</span>
-            <span className="num text-lg font-bold text-destructive">
-              {money(fee.outstanding)}
-            </span>
+            <span className="num text-lg font-bold text-destructive">{money(fee.outstanding)}</span>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
