@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowDown,
@@ -99,6 +99,7 @@ export function MarkGrid({
   const [picked, setPicked] = useState<string[]>([]);
   const [bulkDate, setBulkDate] = useState("");
   const [showPublish, setShowPublish] = useState(false);
+  const [calcFor, setCalcFor] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const term = sheet.data?.academic_term ?? undefined;
@@ -110,13 +111,21 @@ export function MarkGrid({
 
   // Assessments grouped under their category — the plan's own shape, which is
   // what gives the header its two rows.
+  const parents = useMemo(() => sheet.data?.parents ?? [], [sheet.data]);
+  const quarterTotals = useMemo(() => sheet.data?.quarter_totals ?? [], [sheet.data]);
+
+  const parentOf = useCallback(
+    (name: string) => parents.find((p) => p.component_name === name),
+    [parents],
+  );
+
   const groups = useMemo(() => {
     const out: Array<{ category: string; items: Column[] }> = [];
     components.forEach((c, index) => {
-      // Falling back to the quarter here would print it twice — once as the
-      // quarter band and again as the category beneath it. An assessment with
-      // no category of its own is simply "other marks" for that quarter.
-      const category = c.category || "مكوّنات أخرى";
+      // An assessment with a parent belongs under it. One without is scored
+      // on its own and stands as its own heading — it is not "other", it is
+      // simply a heading with a single column beneath it.
+      const category = c.category || c.component_name;
       const item: Column = { ...c, index };
       const last = out[out.length - 1];
       if (last && last.category === category) last.items.push(item);
@@ -134,21 +143,43 @@ export function MarkGrid({
     groups.forEach((g) => {
       const quarter = g.items[0]?.quarter || "";
       const last = out[out.length - 1];
+      // A heading with children also draws a total column, which the
+      // quarter band above has to span or the header slips out of line.
+      const width = g.items.length + (parents.some((p) => p.component_name === g.category) ? 1 : 0);
       if (last && last.quarter === quarter) {
-        last.span += g.items.length;
+        last.span += width;
         last.groups += 1;
       } else {
-        out.push({ quarter, span: g.items.length, groups: 1 });
+        out.push({ quarter, span: width, groups: 1 });
       }
     });
     return out;
-  }, [groups]);
+  }, [groups, parents]);
 
   // With no quarter on any component the row is noise, so it is dropped
   // rather than shown empty.
   const hasQuarters = quarters.some((q) => q.quarter);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+
+  /**
+   * The columns as the sheet draws them: every assessment, and after the last
+   * child of a heading, that heading's total.
+   *
+   * The total is a column of the sheet rather than a figure tucked in the
+   * header because it moves as marks are typed — a teacher entering the four
+   * short tests watches the heading fill in beside them, which is the whole
+   * point of showing it. Headings with a single column of their own get no
+   * total: it would just repeat the mark.
+   */
+  const layout = useMemo(() => {
+    const out: Array<{ kind: "mark"; column: Column } | { kind: "total"; parent: string }> = [];
+    groups.forEach((g) => {
+      g.items.forEach((column) => out.push({ kind: "mark", column }));
+      if (parentOf(g.category)) out.push({ kind: "total", parent: g.category });
+    });
+    return out;
+  }, [groups, parentOf]);
 
   // Shown on the toolbar button so the state of publication is legible
   // without opening anything.
@@ -235,9 +266,15 @@ export function MarkGrid({
     const move = moves[e.key];
     if (!move) return;
     const [r, c] = move;
-    if (r < 0 || r >= rows.length || c < 0 || c >= flat.length) return;
+    if (r < 0 || r >= rows.length || c < 0 || c >= layout.length) return;
     e.preventDefault();
-    focusCell(r, c);
+    // Total columns have no input, so stepping onto one would drop the caret.
+    // Carry on in the same direction until an enterable column turns up.
+    const step = c > col ? 1 : c < col ? -1 : 0;
+    let target = c;
+    while (step !== 0 && layout[target] && layout[target]!.kind === "total") target += step;
+    if (target < 0 || target >= layout.length || layout[target]?.kind === "total") return;
+    focusCell(r, target);
   }
 
   /**
@@ -263,9 +300,16 @@ export function MarkGrid({
       block.forEach((line, dr) => {
         const target = rows[row + dr];
         if (!target) return;
-        line.forEach((raw, dc) => {
-          const column = flat[col + dc];
-          if (!column) return;
+        // Pasting walks the layout, skipping total columns: a block copied
+        // from a spreadsheet has no cell for a figure the sheet computes, so
+        // counting them would shift every value one column to the left.
+        let at = col;
+        line.forEach((raw) => {
+          while (layout[at] && layout[at]!.kind === "total") at += 1;
+          const slot = layout[at];
+          at += 1;
+          if (!slot || slot.kind !== "mark") return;
+          const column = slot.column;
           next[target.student] = {
             ...(next[target.student] ?? {}),
             [column.component_name]: raw.trim(),
@@ -495,6 +539,36 @@ export function MarkGrid({
     }
   }
 
+  /**
+   * What a student scored under one heading.
+   *
+   * The heading is not marked directly — its children are — so its figure is
+   * their sum, out of what those children are worth together. This is the
+   * number a teacher checks against the heading's own maximum, and the one
+   * that carries the heading's weight into the subject mark.
+   */
+  function parentTotal(
+    student: string,
+    parentName: string,
+  ): { earned: number; outOf: number; pct: number | null } {
+    const p = parentOf(parentName);
+    let earned = 0;
+    let outOf = 0;
+    for (const name of p?.children ?? []) {
+      if (statOf(name)?.excluded) continue;
+      const column = flat.find((c) => c.component_name === name);
+      if (!column) continue;
+      outOf += column.max_score;
+      const raw = valueOf(student, name);
+      if (raw !== "" && !Number.isNaN(Number(raw))) earned += Number(raw);
+    }
+    return {
+      earned: Math.round(earned * 100) / 100,
+      outOf,
+      pct: outOf ? Math.round((earned / outOf) * 1000) / 10 : null,
+    };
+  }
+
   /** A student's running total across everything marked so far. */
   function totalFor(student: string): { earned: number; outOf: number; pct: number | null } {
     let earned = 0;
@@ -518,11 +592,25 @@ export function MarkGrid({
 
   /** CSV of exactly what is on screen, for a teacher who wants it offline. */
   function exportCsv() {
-    const header = ["الطالب", "الرقم", ...flat.map((c) => `${c.component_name} / ${c.max_score}`)];
+    // The file mirrors the sheet, headings included — exporting only the raw
+    // marks would drop the figures the teacher was actually reading.
+    const header = [
+      "الطالب",
+      "الرقم",
+      ...layout.map((slot) =>
+        slot.kind === "total"
+          ? `${slot.parent} — المجموع / ${parentOf(slot.parent)?.children_total ?? 0}`
+          : `${slot.column.component_name} / ${slot.column.max_score}`,
+      ),
+    ];
     const lines = rows.map((r) => [
       r.student_name ?? "",
       r.student,
-      ...flat.map((c) => valueOf(r.student, c.component_name)),
+      ...layout.map((slot) =>
+        slot.kind === "total"
+          ? String(parentTotal(r.student, slot.parent).earned)
+          : valueOf(r.student, slot.column.component_name),
+      ),
     ]);
     const csv = [header, ...lines]
       .map((line) => line.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
@@ -695,6 +783,20 @@ export function MarkGrid({
         )}
       </div>
 
+      {calcFor && (
+        <CalcDialog
+          parent={parentOf(calcFor)}
+          columns={flat.filter((c) =>
+            (parentOf(calcFor)?.children ?? []).includes(c.component_name),
+          )}
+          statOf={statOf}
+          rows={rows}
+          totalOf={(student) => parentTotal(student, calcFor)}
+          valueOf={valueOf}
+          onClose={() => setCalcFor(null)}
+        />
+      )}
+
       {canEdit && flat.length > 0 && showPublish && (
         <PublishDialog
           columns={flat}
@@ -742,7 +844,17 @@ export function MarkGrid({
                         : "bg-secondary text-muted-foreground"
                     } ${i > 0 ? "border-r-2 border-r-primary/40" : ""}`}
                   >
-                    {q.quarter || "غير محدّد"}
+                    <span className="block">{q.quarter || "غير محدّد"}</span>
+                    {(() => {
+                      const t = quarterTotals.find((x) => x.quarter === (q.quarter || ""));
+                      return t && (t.weight || t.max_score) ? (
+                        <span className="num mt-0.5 block text-[10px] font-bold opacity-90">
+                          {t.weight ? `وزن ${t.weight}%` : ""}
+                          {t.weight && t.max_score ? " · " : ""}
+                          {t.max_score ? `من ${t.max_score}` : ""}
+                        </span>
+                      ) : null;
+                    })()}
                   </th>
                 ))}
                 <th
@@ -775,10 +887,19 @@ export function MarkGrid({
               {groups.map((g, i) => (
                 <th
                   key={`${g.category}-${i}`}
-                  colSpan={g.items.length}
+                  colSpan={g.items.length + (parentOf(g.category) ? 1 : 0)}
                   className="border-b border-l border-border bg-secondary/70 p-2 text-center text-xs font-bold"
                 >
-                  {g.category}
+                  <span className="block">{g.category}</span>
+                  {(() => {
+                    const p = parentOf(g.category);
+                    const own = p ?? flat.find((c) => c.component_name === g.category);
+                    return own?.weight ? (
+                      <span className="num mt-0.5 block text-[10px] font-semibold text-muted-foreground">
+                        وزن {own.weight}%{p ? ` · من ${p.children_total}` : ""}
+                      </span>
+                    ) : null;
+                  })()}
                 </th>
               ))}
               {!hasQuarters && (
@@ -803,7 +924,29 @@ export function MarkGrid({
 
             {/* Child row: the assessments, each with its own menu. */}
             <tr>
-              {flat.map((c) => {
+              {layout.map((slot) => {
+                if (slot.kind === "total") {
+                  const p = parentOf(slot.parent);
+                  return (
+                    <th
+                      key={`th-total-${slot.parent}`}
+                      className="min-w-24 border-b border-l-2 border-border border-l-primary/30 bg-primary-soft/60 p-1.5 text-center align-top text-[11px]"
+                    >
+                      <button
+                        onClick={() => setCalcFor(slot.parent)}
+                        className="block w-full font-black text-primary underline decoration-dotted underline-offset-2 hover:opacity-70"
+                        title="كيف يُحتسب هذا المجموع"
+                      >
+                        مجموع
+                      </button>
+                      <span className="num block text-[10px] text-muted-foreground">
+                        / {p?.children_total ?? 0}
+                        {p?.weight ? ` · وزن ${p.weight}%` : ""}
+                      </span>
+                    </th>
+                  );
+                }
+                const c = slot.column;
                 const s = statOf(c.component_name);
                 const off = s?.excluded;
                 return (
@@ -873,7 +1016,27 @@ export function MarkGrid({
 
             {/* Statistics row: how the paper actually went. */}
             <tr>
-              {flat.map((c) => {
+              {layout.map((slot) => {
+                if (slot.kind === "total") {
+                  // The class average for a heading, from the same sum each
+                  // student's cell shows.
+                  const totals = rows.map((r) => parentTotal(r.student, slot.parent));
+                  const scored = totals.filter((t) => t.pct !== null && t.earned > 0);
+                  const avg = scored.length
+                    ? Math.round(
+                        (scored.reduce((n, t) => n + (t.pct ?? 0), 0) / scored.length) * 10,
+                      ) / 10
+                    : null;
+                  return (
+                    <th
+                      key={`st-total-${slot.parent}`}
+                      className="border-b border-l-2 border-border border-l-primary/30 bg-primary-soft/40 p-1 text-center text-[10px] font-bold text-primary"
+                    >
+                      {avg !== null ? <span className="num">م {avg}%</span> : <span>—</span>}
+                    </th>
+                  );
+                }
+                const c = slot.column;
                 const s = statOf(c.component_name);
                 return (
                   <th
@@ -909,7 +1072,27 @@ export function MarkGrid({
                     <span className="num block text-[10px] text-muted-foreground">{r.student}</span>
                   </td>
 
-                  {flat.map((c, colIndex) => {
+                  {layout.map((slot, colIndex) => {
+                    if (slot.kind === "total") {
+                      // Recomputed on every keystroke: this is the column a
+                      // teacher watches while entering the marks beneath it.
+                      const t = parentTotal(r.student, slot.parent);
+                      return (
+                        <td
+                          key={`td-total-${slot.parent}`}
+                          className="border-b border-l-2 border-border border-l-primary/30 bg-primary-soft/40 p-1 text-center"
+                        >
+                          <span className="num block text-sm font-black text-primary">
+                            {t.earned}
+                          </span>
+                          <span className="num block text-[10px] text-muted-foreground">
+                            / {t.outOf}
+                            {t.pct !== null ? ` · ${t.pct}%` : ""}
+                          </span>
+                        </td>
+                      );
+                    }
+                    const c = slot.column;
                     const off = statOf(c.component_name)?.excluded;
                     const raw = valueOf(r.student, c.component_name);
                     const value = Number(raw);
@@ -1257,6 +1440,155 @@ function PublishDialog({
             </div>
           </div>
         }
+
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-5 text-sm font-semibold transition-colors hover:bg-secondary"
+          >
+            إغلاق
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * How one heading's mark is arrived at.
+ *
+ * Opened from the heading's total column. It shows the arithmetic on the marks
+ * currently in the sheet — including unsaved edits, because a teacher asking
+ * "why is this 38?" is usually asking about the figure they can see, not the
+ * one on the server. Excluded assessments are listed but struck through, so
+ * the reason a total is lower than expected is visible rather than inferred.
+ */
+function CalcDialog({
+  parent,
+  columns,
+  statOf,
+  rows,
+  totalOf,
+  valueOf,
+  onClose,
+}: {
+  parent:
+    | {
+        component_name: string;
+        weight: number;
+        max_score: number;
+        children_total: number;
+        children: string[];
+      }
+    | undefined;
+  columns: Column[];
+  statOf: (name: string) => ColumnStat | undefined;
+  rows: Array<{ student: string; student_name?: string | null }>;
+  totalOf: (student: string) => { earned: number; outOf: number; pct: number | null };
+  valueOf: (student: string, component: string) => string;
+  onClose: () => void;
+}) {
+  const [who, setWho] = useState(rows[0]?.student ?? "");
+  const student = rows.find((r) => r.student === who) ?? rows[0];
+  const total = student ? totalOf(student.student) : null;
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-2xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wand2 className="size-5 text-primary" />
+            احتساب «{parent?.component_name}»
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Label className="text-xs">الطالب</Label>
+            <select
+              value={who}
+              onChange={(e) => setWho(e.target.value)}
+              className="h-9 flex-1 rounded-xl border border-border bg-card px-2 text-xs"
+            >
+              {rows.map((r) => (
+                <option key={r.student} value={r.student}>
+                  {r.student_name ?? r.student}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-right text-xs">
+              <thead className="bg-secondary">
+                <tr>
+                  <th className="p-2 font-semibold">الاختبار</th>
+                  <th className="p-2 text-center font-semibold">العلامة</th>
+                  <th className="p-2 text-center font-semibold">من</th>
+                  <th className="p-2 text-center font-semibold">النسبة</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {columns.map((c) => {
+                  const off = statOf(c.component_name)?.excluded;
+                  const raw = student ? valueOf(student.student, c.component_name) : "";
+                  const value = raw === "" ? null : Number(raw);
+                  const pct =
+                    value !== null && !Number.isNaN(value) && c.max_score
+                      ? Math.round((value / c.max_score) * 1000) / 10
+                      : null;
+                  return (
+                    <tr key={c.component_name} className={off ? "opacity-50" : ""}>
+                      <td className={`p-2 font-semibold ${off ? "line-through" : ""}`}>
+                        {c.component_name}
+                        {off && <span className="mr-1 text-[10px] text-destructive">(مستبعد)</span>}
+                      </td>
+                      <td className="num p-2 text-center font-bold">
+                        {value === null ? (
+                          <span className="text-muted-foreground">لم تُرصد</span>
+                        ) : (
+                          value
+                        )}
+                      </td>
+                      <td className="num p-2 text-center text-muted-foreground">{c.max_score}</td>
+                      <td className="num p-2 text-center text-muted-foreground">
+                        {off ? "لا يُحتسب" : pct !== null ? `${pct}%` : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-primary-soft/50">
+                <tr>
+                  <td className="p-2 font-black text-primary">المجموع</td>
+                  <td className="num p-2 text-center font-black text-primary">
+                    {total?.earned ?? 0}
+                  </td>
+                  <td className="num p-2 text-center font-bold">{total?.outOf ?? 0}</td>
+                  <td className="num p-2 text-center font-bold text-primary">
+                    {total?.pct !== null && total?.pct !== undefined ? `${total.pct}%` : "—"}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <p className="rounded-xl bg-secondary/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+            مجموع هذا البند يُحسب بجمع علامات اختباراته غير المستبعدة، من أصل{" "}
+            <span className="num font-bold">{parent?.children_total ?? 0}</span>. ثم يدخل في علامة
+            المادة بوزن <span className="num font-bold">{parent?.weight ?? 0}%</span>، أي أنّ نسبة{" "}
+            <span className="num font-bold">
+              {total?.pct !== null && total?.pct !== undefined ? `${total.pct}%` : "—"}
+            </span>{" "}
+            تعطي{" "}
+            <span className="num font-bold text-primary">
+              {total?.pct !== null && total?.pct !== undefined && parent
+                ? `${Math.round(((total.pct * parent.weight) / 100) * 10) / 10} من ${parent.weight}`
+                : "—"}
+            </span>{" "}
+            في العلامة النهائية.
+          </p>
+        </div>
 
         <DialogFooter>
           <button

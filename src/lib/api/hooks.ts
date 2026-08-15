@@ -1327,6 +1327,18 @@ export interface EntrySheet {
   /** Marks saved but not yet released to students. */
   draftCount: number;
   /** One summary per assessment: how it was marked and where it stands. */
+  /** The plan's headings: what each is worth and which assessments feed it. */
+  parents: Array<{
+    component_name: string;
+    component_type: string;
+    weight: number;
+    max_score: number;
+    quarter: string | null;
+    children_total: number;
+    children: string[];
+  }>;
+  /** What each quarter counts for, summed over its headings. */
+  quarter_totals: Array<{ quarter: string; weight: number; max_score: number }>;
   columns: Array<{
     component_name: string;
     marked: number;
