@@ -98,6 +98,7 @@ export function MarkGrid({
   // of a quarter a teacher releases six papers at once, not one at a time.
   const [picked, setPicked] = useState<string[]>([]);
   const [bulkDate, setBulkDate] = useState("");
+  const [showPublish, setShowPublish] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const term = sheet.data?.academic_term ?? undefined;
@@ -148,6 +149,11 @@ export function MarkGrid({
   const hasQuarters = quarters.some((q) => q.quarter);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+
+  // Shown on the toolbar button so the state of publication is legible
+  // without opening anything.
+  const publishedCount = stats.filter((s) => s.publish_state === "published").length;
+  const scheduledCount = stats.filter((s) => s.release_on).length;
 
   const rows = useMemo(() => {
     const q = search.trim();
@@ -619,6 +625,30 @@ export function MarkGrid({
           تصدير
         </button>
 
+        {/* Publication opens over the sheet rather than sitting above it: the
+            grid needs its height, and releasing marks is an occasional act,
+            not something a teacher keeps on screen while marking. */}
+        {canEdit && flat.length > 0 && (
+          <button
+            onClick={() => setShowPublish(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-xs font-semibold transition-colors hover:bg-secondary"
+            title="نشر العلامات للطلاب، سحبها، أو جدولة ظهورها"
+          >
+            <Send className="size-3.5" />
+            النشر
+            {publishedCount > 0 && (
+              <span className="num rounded-md bg-emerald-500/15 px-1.5 text-[10px] font-bold text-emerald-700">
+                {publishedCount}
+              </span>
+            )}
+            {scheduledCount > 0 && (
+              <span className="num rounded-md bg-amber-500/15 px-1.5 text-[10px] font-bold text-amber-700">
+                {scheduledCount}
+              </span>
+            )}
+          </button>
+        )}
+
         <div className="mr-auto flex items-center gap-2 text-xs text-muted-foreground">
           <span className="num">
             {marked} / {capacity} علامة مرصودة
@@ -665,8 +695,8 @@ export function MarkGrid({
         )}
       </div>
 
-      {canEdit && flat.length > 0 && (
-        <PublishPanel
+      {canEdit && flat.length > 0 && showPublish && (
+        <PublishDialog
           columns={flat}
           statOf={statOf}
           quarters={quarters}
@@ -678,10 +708,18 @@ export function MarkGrid({
           onPublish={bulkPublish}
           onSchedule={bulkSchedule}
           busy={publish.isPending || schedule.isPending}
+          onClose={() => setShowPublish(false)}
         />
       )}
 
-      <div ref={gridRef} className="overflow-auto rounded-xl border border-border">
+      {/* The sheet owns its scrolling in both directions. Without a height the
+          box never overflows vertically, so `sticky` headers had nothing to
+          stick to and scrolled away with the page — the column names vanished
+          exactly when a long class needed them most. */}
+      <div
+        ref={gridRef}
+        className="max-h-[calc(100vh-15rem)] min-h-72 overflow-auto overscroll-contain rounded-xl border border-border"
+      >
         <table className="w-full border-collapse text-right text-sm">
           <thead className="sticky top-0 z-20">
             {/* Top row: the quarter. Each one is walled off from the next so
@@ -1025,7 +1063,7 @@ export function MarkGrid({
  * whole quarter at once, and act. Every card says where it stands, because
  * "did I publish the midterm?" is the question this panel exists to answer.
  */
-function PublishPanel({
+function PublishDialog({
   columns,
   statOf,
   quarters,
@@ -1037,6 +1075,7 @@ function PublishPanel({
   onPublish,
   onSchedule,
   busy,
+  onClose,
 }: {
   columns: Column[];
   statOf: (name: string) => ColumnStat | undefined;
@@ -1049,9 +1088,8 @@ function PublishPanel({
   onPublish: (toPublish: boolean) => void;
   onSchedule: () => void;
   busy: boolean;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-
   const published = columns.filter((c) => statOf(c.component_name)?.publish_state === "published");
   const drafts = columns.filter((c) => statOf(c.component_name)?.publish_state === "draft");
   const scheduled = columns.filter((c) => statOf(c.component_name)?.release_on);
@@ -1071,161 +1109,165 @@ function PublishPanel({
   const allPicked = picked.length === columns.length && columns.length > 0;
 
   return (
-    <div className="card-surface mb-3 overflow-hidden">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 p-3 text-right transition-colors hover:bg-secondary/50"
-      >
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground">
-          <Send className="size-4" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-black">نشر العلامات للطلاب</span>
-          <span className="num mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-            <Pill tone="success">{published.length} منشور</Pill>
-            <Pill tone="muted">{drafts.length} مسودة</Pill>
-            {scheduled.length > 0 && <Pill tone="warning">{scheduled.length} مجدول</Pill>}
-          </span>
-        </span>
-        <ChevronDown
-          className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-3xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="size-5 text-primary" />
+            نشر العلامات للطلاب
+          </DialogTitle>
+        </DialogHeader>
 
-      {open && (
-        <div className="border-t border-border p-3">
-          <div className="mb-2.5 flex flex-wrap items-center gap-2 text-[11px]">
-            <button
-              onClick={() => setPicked(allPicked ? [] : columns.map((c) => c.component_name))}
-              className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
-            >
-              {allPicked ? "إلغاء تحديد الكل" : "تحديد الكل"}
-            </button>
-            <button
-              onClick={() => setPicked(drafts.map((c) => c.component_name))}
-              className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
-            >
-              غير المنشورة فقط
-            </button>
-            <button
-              onClick={() => setPicked(published.map((c) => c.component_name))}
-              className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
-            >
-              المنشورة فقط
-            </button>
-          </div>
+        <div className="num flex flex-wrap items-center gap-1.5 text-[11px]">
+          <Pill tone="success">{published.length} منشور</Pill>
+          <Pill tone="muted">{drafts.length} مسودة</Pill>
+          {scheduled.length > 0 && <Pill tone="warning">{scheduled.length} مجدول</Pill>}
+        </div>
 
-          {/* Cards, grouped exactly as the header groups them. */}
-          <div className="space-y-3">
-            {quarters.map((q, qi) => {
-              const cols = quarterColumns(qi);
-              const names = cols.map((c) => c.component_name);
-              const allInQuarter = names.every((n) => picked.includes(n));
-              return (
-                <div key={`${q.quarter}-${qi}`} className="rounded-xl border border-border p-2.5">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-xs font-black text-primary">
-                      {q.quarter || "غير محدّد"}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setPicked((p) =>
-                          allInQuarter
-                            ? p.filter((n) => !names.includes(n))
-                            : [...new Set([...p, ...names])],
-                        )
-                      }
-                      className="rounded-lg border border-border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:bg-secondary"
-                    >
-                      {allInQuarter ? "إلغاء الربع" : "تحديد الربع"}
-                    </button>
-                  </div>
-                  <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {cols.map((c) => {
-                      const s = statOf(c.component_name);
-                      const on = picked.includes(c.component_name);
-                      return (
-                        <button
-                          key={c.component_name}
-                          onClick={() => toggle(c.component_name)}
-                          className={`flex items-center gap-2 rounded-xl border p-2 text-right transition-all ${
-                            on
-                              ? "border-primary bg-primary-soft"
-                              : "border-border hover:bg-secondary/60"
-                          }`}
-                        >
-                          <span
-                            className={`grid size-4 shrink-0 place-items-center rounded border ${
+        {
+          <div className="max-h-[55vh] overflow-y-auto p-1">
+            <div className="mb-2.5 flex flex-wrap items-center gap-2 text-[11px]">
+              <button
+                onClick={() => setPicked(allPicked ? [] : columns.map((c) => c.component_name))}
+                className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
+              >
+                {allPicked ? "إلغاء تحديد الكل" : "تحديد الكل"}
+              </button>
+              <button
+                onClick={() => setPicked(drafts.map((c) => c.component_name))}
+                className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
+              >
+                غير المنشورة فقط
+              </button>
+              <button
+                onClick={() => setPicked(published.map((c) => c.component_name))}
+                className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
+              >
+                المنشورة فقط
+              </button>
+            </div>
+
+            {/* Cards, grouped exactly as the header groups them. */}
+            <div className="space-y-3">
+              {quarters.map((q, qi) => {
+                const cols = quarterColumns(qi);
+                const names = cols.map((c) => c.component_name);
+                const allInQuarter = names.every((n) => picked.includes(n));
+                return (
+                  <div key={`${q.quarter}-${qi}`} className="rounded-xl border border-border p-2.5">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-primary">
+                        {q.quarter || "غير محدّد"}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setPicked((p) =>
+                            allInQuarter
+                              ? p.filter((n) => !names.includes(n))
+                              : [...new Set([...p, ...names])],
+                          )
+                        }
+                        className="rounded-lg border border-border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:bg-secondary"
+                      >
+                        {allInQuarter ? "إلغاء الربع" : "تحديد الربع"}
+                      </button>
+                    </div>
+                    <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                      {cols.map((c) => {
+                        const s = statOf(c.component_name);
+                        const on = picked.includes(c.component_name);
+                        return (
+                          <button
+                            key={c.component_name}
+                            onClick={() => toggle(c.component_name)}
+                            className={`flex items-center gap-2 rounded-xl border p-2 text-right transition-all ${
                               on
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border"
+                                ? "border-primary bg-primary-soft"
+                                : "border-border hover:bg-secondary/60"
                             }`}
                           >
-                            {on && <Check className="size-3" />}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11px] font-bold">
-                              {c.component_name}
+                            <span
+                              className={`grid size-4 shrink-0 place-items-center rounded border ${
+                                on
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border"
+                              }`}
+                            >
+                              {on && <Check className="size-3" />}
                             </span>
-                            <span className="num block text-[10px] text-muted-foreground">
-                              {s ? `${s.marked}/${s.marked + s.missing} مرصودة` : "—"}
-                              {s?.release_on ? ` · يظهر ${s.release_on.slice(0, 10)}` : ""}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11px] font-bold">
+                                {c.component_name}
+                              </span>
+                              <span className="num block text-[10px] text-muted-foreground">
+                                {s ? `${s.marked}/${s.marked + s.missing} مرصودة` : "—"}
+                                {s?.release_on ? ` · يظهر ${s.release_on.slice(0, 10)}` : ""}
+                              </span>
                             </span>
-                          </span>
-                          {s?.publish_state === "published" && <Pill tone="success">منشور</Pill>}
-                          {s?.publish_state === "partial" && <Pill tone="warning">جزئي</Pill>}
-                          {s?.publish_state === "draft" && <Pill tone="muted">مسودة</Pill>}
-                        </button>
-                      );
-                    })}
+                            {s?.publish_state === "published" && <Pill tone="success">منشور</Pill>}
+                            {s?.publish_state === "partial" && <Pill tone="warning">جزئي</Pill>}
+                            {s?.publish_state === "draft" && <Pill tone="muted">مسودة</Pill>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          {/* Actions stay disabled until something is picked, so the buttons
+            {/* Actions stay disabled until something is picked, so the buttons
               can never fire on an empty selection. */}
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-            <span className="text-[11px] font-semibold text-muted-foreground">
-              {picked.length ? `${picked.length} محدَّد` : "لم تحدّد شيئاً"}
-            </span>
-            <button
-              onClick={() => onPublish(true)}
-              disabled={!picked.length || busy}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-40"
-            >
-              <Send className="size-3.5" />
-              نشر للطلاب
-            </button>
-            <button
-              onClick={() => onPublish(false)}
-              disabled={!picked.length || busy}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-destructive/40 px-3.5 text-xs font-bold text-destructive transition-colors hover:bg-destructive-soft disabled:pointer-events-none disabled:opacity-40"
-            >
-              <EyeOff className="size-3.5" />
-              سحب من الطلاب
-            </button>
-            <span className="mr-auto flex items-center gap-1.5">
-              <CalendarClock className="size-3.5 text-muted-foreground" />
-              <input
-                type="date"
-                value={bulkDate}
-                onChange={(e) => setBulkDate(e.target.value)}
-                className="num h-9 rounded-xl border border-border bg-card px-2 text-xs"
-              />
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {picked.length ? `${picked.length} محدَّد` : "لم تحدّد شيئاً"}
+              </span>
               <button
-                onClick={onSchedule}
-                disabled={!picked.length || !bulkDate || busy}
-                className="h-9 rounded-xl border border-border px-3 text-xs font-bold transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => onPublish(true)}
+                disabled={!picked.length || busy}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-40"
               >
-                جدولة الظهور
+                <Send className="size-3.5" />
+                نشر للطلاب
               </button>
-            </span>
+              <button
+                onClick={() => onPublish(false)}
+                disabled={!picked.length || busy}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-destructive/40 px-3.5 text-xs font-bold text-destructive transition-colors hover:bg-destructive-soft disabled:pointer-events-none disabled:opacity-40"
+              >
+                <EyeOff className="size-3.5" />
+                سحب من الطلاب
+              </button>
+              <span className="mr-auto flex items-center gap-1.5">
+                <CalendarClock className="size-3.5 text-muted-foreground" />
+                <input
+                  type="date"
+                  value={bulkDate}
+                  onChange={(e) => setBulkDate(e.target.value)}
+                  className="num h-9 rounded-xl border border-border bg-card px-2 text-xs"
+                />
+                <button
+                  onClick={onSchedule}
+                  disabled={!picked.length || !bulkDate || busy}
+                  className="h-9 rounded-xl border border-border px-3 text-xs font-bold transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-40"
+                >
+                  جدولة الظهور
+                </button>
+              </span>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        }
+
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-5 text-sm font-semibold transition-colors hover:bg-secondary"
+          >
+            إغلاق
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1251,11 +1293,47 @@ function ColumnMenu({
   const [fill, setFill] = useState("");
   const published = stat?.publish_state === "published" || stat?.publish_state === "partial";
 
+  // The menu is positioned against the viewport, not the table. Absolute
+  // placement put it inside the sheet's own scroll box, which clipped it —
+  // worst when the class is small and the table is shorter than the menu.
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    const anchor = anchorRef.current?.previousElementSibling ?? anchorRef.current?.parentElement;
+    if (!anchor) return;
+    const place = () => {
+      const r = anchor.getBoundingClientRect();
+      const W = 224;
+      const H = 260;
+      // Flip above the header when there is not enough room below it.
+      const below = window.innerHeight - r.bottom;
+      const top = below < H && r.top > H ? Math.max(8, r.top - H - 4) : r.bottom + 4;
+      // Keep the whole menu on screen horizontally (RTL: measured from right).
+      const right = Math.min(Math.max(8, window.innerWidth - r.right), window.innerWidth - W - 8);
+      setPos({ top, right });
+    };
+    place();
+    window.addEventListener("resize", place);
+    // The sheet scrolls in both directions; the menu must follow its column.
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, []);
+
   return (
     <>
+      <span ref={anchorRef} className="hidden" />
       {/* Click anywhere else to dismiss. */}
-      <span className="fixed inset-0 z-30" onClick={onClose} />
-      <span className="absolute left-0 top-full z-40 mt-1 block w-56 rounded-xl border border-border bg-card p-2 text-right shadow-lg">
+      <span className="fixed inset-0 z-40" onClick={onClose} />
+      <span
+        style={pos ? { top: pos.top, right: pos.right } : undefined}
+        className={`fixed z-50 block w-56 rounded-xl border border-border bg-card p-2 text-right shadow-xl ${
+          pos ? "" : "invisible"
+        }`}
+      >
         <span className="mb-1.5 block text-[11px] font-bold">{component.component_name}</span>
 
         <span className="mb-2 flex items-center gap-1">
