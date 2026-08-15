@@ -558,9 +558,14 @@ export function MarkGrid({
       if (statOf(name)?.excluded) continue;
       const column = flat.find((c) => c.component_name === name);
       if (!column) continue;
-      outOf += column.max_score;
       const raw = valueOf(student, name);
-      if (raw !== "" && !Number.isNaN(Number(raw))) earned += Number(raw);
+      // An unmarked assessment counts on neither side. Including its maximum
+      // would read as a zero the student has not earned and does not deserve
+      // — and it is how this figure came to disagree with the subject grade
+      // the server computes, which has always ignored what is not yet marked.
+      if (raw === "" || Number.isNaN(Number(raw))) continue;
+      outOf += column.max_score;
+      earned += Number(raw);
     }
     return {
       earned: Math.round(earned * 100) / 100,
@@ -571,16 +576,43 @@ export function MarkGrid({
 
   /** A student's running total across everything marked so far. */
   function totalFor(student: string): { earned: number; outOf: number; pct: number | null } {
+    // The subject mark is weighted, not a sum of raw scores. Adding the marks
+    // up treated a 100-point final and a 5-point quiz as equals and produced a
+    // figure out of a denominator that grew with every mark entered — 222/255
+    // one day, 222/300 the next. What a teacher needs is what this student has
+    // earned of the 100 the subject is worth, counting only what is marked, so
+    // the figure is honest mid-term rather than pretending zeros.
     let earned = 0;
     let outOf = 0;
+
+    for (const p of parents) {
+      const t = parentTotal(student, p.component_name);
+      // Nothing marked under this heading yet: it stays out of both sides.
+      if (!t.outOf || t.pct === null) continue;
+      const anyMarked = (p.children ?? []).some(
+        (name) => valueOf(student, name) !== "" && !statOf(name)?.excluded,
+      );
+      if (!anyMarked) continue;
+      earned += (t.pct / 100) * p.weight;
+      outOf += p.weight;
+    }
+
+    // Assessments scored directly, with no heading above them.
+    const owned = new Set(parents.flatMap((p) => p.children ?? []));
     for (const c of flat) {
+      if (owned.has(c.component_name)) continue;
       if (statOf(c.component_name)?.excluded) continue;
       const raw = valueOf(student, c.component_name);
-      if (raw === "" || Number.isNaN(Number(raw))) continue;
-      earned += Number(raw);
-      outOf += c.max_score;
+      if (raw === "" || Number.isNaN(Number(raw)) || !c.max_score) continue;
+      earned += (Number(raw) / c.max_score) * c.weight;
+      outOf += c.weight;
     }
-    return { earned, outOf, pct: outOf ? (earned / outOf) * 100 : null };
+
+    return {
+      earned: Math.round(earned * 10) / 10,
+      outOf: Math.round(outOf * 10) / 10,
+      pct: outOf ? Math.round((earned / outOf) * 1000) / 10 : null,
+    };
   }
 
   function percentOf(student: string, component: string): number | null {
@@ -861,7 +893,10 @@ export function MarkGrid({
                   rowSpan={4}
                   className="border-b border-border bg-secondary p-2 text-center text-xs font-bold"
                 >
-                  المجموع
+                  <span className="block">علامة المادة</span>
+                  <span className="num mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                    مرجّحة من 100
+                  </span>
                 </th>
                 {compare.a && compare.b && (
                   <th
@@ -908,7 +943,10 @@ export function MarkGrid({
                     rowSpan={3}
                     className="border-b border-border bg-secondary p-2 text-center text-xs font-bold"
                   >
-                    المجموع
+                    <span className="block">علامة المادة</span>
+                    <span className="num mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                      مرجّحة من 100
+                    </span>
                   </th>
                   {compare.a && compare.b && (
                     <th
@@ -940,7 +978,7 @@ export function MarkGrid({
                         مجموع
                       </button>
                       <span className="num block text-[10px] text-muted-foreground">
-                        / {p?.children_total ?? 0}
+                        الخطة {p?.children_total ?? 0}
                         {p?.weight ? ` · وزن ${p.weight}%` : ""}
                       </span>
                     </th>
@@ -1140,12 +1178,20 @@ export function MarkGrid({
                     {total.pct === null ? (
                       <span className="text-muted-foreground">—</span>
                     ) : (
-                      <span className="font-bold">
-                        {Math.round(total.earned * 100) / 100}
+                      <span
+                        className="font-bold"
+                        title={`محسوبة من ${total.outOf}% من الخطة المرصودة حتى الآن`}
+                      >
+                        {total.earned}
                         <span className="text-[10px] font-normal text-muted-foreground">
                           {" "}
                           / {total.outOf}
                         </span>
+                        {total.outOf < 100 && (
+                          <span className="block text-[9px] font-normal text-amber-700">
+                            الخطة غير مكتملة
+                          </span>
+                        )}
                       </span>
                     )}
                   </td>
