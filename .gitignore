@@ -30,3 +30,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# فحوصات محلية: كوكيز جلسات ودَمب بيانات — لا تُرفع أبداً
+sa.txt
+st.txt
+tk.txt
+livesi.json
+*.cookies
+cookies*.txt
