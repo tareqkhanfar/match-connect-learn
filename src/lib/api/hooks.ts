@@ -1247,6 +1247,9 @@ export interface SchemeComponent {
   type_label?: string;
   weight: number;
   max_score: number;
+  /** The category this assessment sits under, from the assessment plan. */
+  category?: string | null;
+  quarter?: string | null;
 }
 
 export interface GradeScheme {
@@ -1302,6 +1305,8 @@ export interface EntrySheetRow {
     score: number;
     max_score: number;
     is_bonus: boolean;
+    /** Kept on the record but left out of the subject total. */
+    excluded?: boolean;
   }>;
 }
 
@@ -1321,6 +1326,77 @@ export interface EntrySheet {
   publishedCount: number;
   /** Marks saved but not yet released to students. */
   draftCount: number;
+  /** One summary per assessment: how it was marked and where it stands. */
+  columns: Array<{
+    component_name: string;
+    marked: number;
+    missing: number;
+    published: number;
+    publish_state: "published" | "partial" | "draft";
+    excluded: boolean;
+    release_on: string | null;
+    average: number | null;
+    highest: number | null;
+    lowest: number | null;
+    average_pct: number | null;
+  }>;
+}
+
+/** Save every column of the mark sheet in one request. */
+export function useSaveGrid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<{ saved: number; updated: number; columns: number }>("gradebook.save_grid", {
+        payload,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["class-term-grades"] });
+    },
+  });
+}
+
+/** Move a whole column up or down — a decision about the paper, not a student. */
+export function useCurveColumn() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      component_name: string;
+      points?: number;
+      percent?: number;
+      academic_term?: string;
+    }) =>
+      apiPost<{ changed: number; total: number }>(
+        "gradebook.curve_column",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["entry-sheet"] }),
+  });
+}
+
+/** Drop an assessment from the total while keeping its marks on the record. */
+export function useExcludeColumn() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      course: string;
+      component_name: string;
+      excluded: number;
+      academic_term?: string;
+    }) =>
+      apiPost<{ component: string; excluded: boolean; rows: number }>(
+        "gradebook.exclude_column",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["class-term-grades"] });
+    },
+  });
 }
 
 export function useEntrySheet(
@@ -1722,7 +1798,13 @@ export function useSaveGuardian() {
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       apiPost<{ id: string; name: string }>("students.save_guardian", { payload }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["guardians"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["guardians"] });
+      // The admission form's guardian picker is fed by a different query, so
+      // a parent created from inside that form would not appear in its own
+      // dropdown until the page was reloaded.
+      qc.invalidateQueries({ queryKey: ["admission-options"] });
+    },
   });
 }
 
@@ -3158,6 +3240,10 @@ export function useStudentAlertFile(student: Opt<string>) {
 export function useMyBlocks() {
   return useQuery<{
     blocked: string[];
+    /** The whole portal is closed, not a list of pages. */
+    everything?: boolean;
+    /** Routes that stay open even then — the student must be able to read why. */
+    allowed?: string[];
     reasons: Array<{
       alert: string;
       student_name: string;
@@ -3174,6 +3260,39 @@ export function useMyBlocks() {
   });
 }
 
+export interface MyAlert {
+  name: string;
+  student: string;
+  student_name: string | null;
+  title_ar: string;
+  message_ar: string;
+  emoji: string;
+  severity: string;
+  severity_label: string;
+  level: string;
+  level_label: string;
+  measured_value: number;
+  threshold: number;
+  raised_on: string;
+  blocks_access: number;
+  pages: string[];
+}
+
+/**
+ * Alerts the viewer has not yet acknowledged.
+ *
+ * Separate from `useMyBlocks`, which only reports pages already locked. A
+ * first warning blocks nothing, and a warning nobody sees until access is cut
+ * has failed at the one job it had.
+ */
+export function useMyAlerts() {
+  return useQuery<{ alerts: MyAlert[]; count: number }>({
+    queryKey: ["my-alerts"],
+    queryFn: () => apiGet("alerts.my_alerts"),
+    staleTime: 60_000,
+  });
+}
+
 export function useAcknowledgeAlert() {
   const qc = useQueryClient();
   return useMutation({
@@ -3183,6 +3302,7 @@ export function useAcknowledgeAlert() {
       qc.invalidateQueries({ queryKey: ["student-alerts"] });
       qc.invalidateQueries({ queryKey: ["student-alert-file"] });
       qc.invalidateQueries({ queryKey: ["my-blocks"] });
+      qc.invalidateQueries({ queryKey: ["my-alerts"] });
     },
   });
 }
@@ -3423,6 +3543,8 @@ export interface Sibling {
 export interface ApplicantDetail extends ApplicantRow {
   firstName: string | null;
   middleName: string | null;
+  /** The third of four names — see the add_grandfather_name patch. */
+  grandfatherName?: string | null;
   lastName: string | null;
   bloodGroup: string | null;
   studentCategory: string | null;
@@ -4820,16 +4942,26 @@ export type MarkChange = {
   at: string;
 };
 
-export function useMarkChangeLog(student_group: string | undefined, course: string | undefined) {
+export function useMarkChangeLog(
+  student_group: string | undefined,
+  course: string | undefined,
+  // Without the term the log reads every term's entries for this class and
+  // course at once, so a second term would show last term's corrections too.
+  academic_term?: string | undefined,
+) {
   return useQuery<{
     changes: MarkChange[];
     changedStudents: string[];
     total: number;
     reopen: { on: string; by: string; reason: string; status: string } | null;
   }>({
-    queryKey: ["mark-changes", student_group, course],
+    queryKey: ["mark-changes", student_group, course, academic_term ?? null],
     queryFn: () =>
-      apiGet("grade_appeals.change_log", { student_group: student_group!, course: course! }),
+      apiGet("grade_appeals.change_log", {
+        student_group: student_group!,
+        course: course!,
+        ...(academic_term ? { academic_term } : {}),
+      }),
     enabled: !!student_group && !!course,
   });
 }

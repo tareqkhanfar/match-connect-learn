@@ -1,17 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpenCheck,
-  CalendarClock,
-  Download,
-  EyeOff,
+  ExternalLink,
   FileDown,
-  Save,
-  Send,
+  History,
   Settings2,
   Sparkles,
+  Table2,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   Avatar,
@@ -22,7 +20,7 @@ import {
   SectionCard,
 } from "@/components/shared/ui-kit";
 import { GradeCalculation } from "@/components/shared/grade-calculation";
-import { GRADE_BANDS, GradeBadge, progressTone } from "@/components/shared/grade-badge";
+import { GradeBadge, progressTone } from "@/components/shared/grade-badge";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,17 +44,11 @@ import {
   useClasses,
   useClassTermGrades,
   useEntrySheet,
-  useSaveMarks,
-  useSchemes,
   useSubjects,
-  type SchemeComponent,
   useImportableAssignments,
   useImportAssignment,
   useImportAssignmentsCombined,
-  usePublishComponent,
   useMarkChangeLog,
-  useReopenForAppeal,
-  useScheduleRelease,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/gradebook")({
@@ -80,16 +71,6 @@ export const Route = createFileRoute("/app/gradebook")({
   component: GradebookPage,
 });
 
-const TYPE_AR: Record<string, string> = {
-  Exam: "امتحان",
-  Quiz: "اختبار قصير",
-  Activity: "نشاط",
-  Homework: "واجب",
-  Participation: "مشاركة",
-  Project: "مشروع",
-  Bonus: "درجة إضافية",
-};
-
 function GradebookPage() {
   const { role } = useApp();
   const canEnter = role === "admin" || role === "secretary" || role === "teacher";
@@ -97,11 +78,13 @@ function GradebookPage() {
   const classesQuery = useClasses();
   const subjectsQuery = useSubjects();
 
-  // A link from the term-workflow page preselects the class and subject.
+  // The term-workflow page links straight to a class/subject.
   const { group: groupFromUrl, course: courseFromUrl } = Route.useSearch();
   const [group, setGroup] = useState(groupFromUrl ?? "");
   const [course, setCourse] = useState(courseFromUrl ?? "");
   const [importing, setImporting] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
 
   // Default to the first class the user can see.
   useEffect(() => {
@@ -123,8 +106,8 @@ function GradebookPage() {
   return (
     <>
       <PageHeader
-        title="رصد العلامات"
-        subtitle="أدخل علامات كل مكوّن، وتُحتسب علامة المادة تلقائياً"
+        title="سجل العلامات"
+        subtitle="افتح ورقة العلامات لإدخال الدرجات، أو راجع الاحتساب وسجل التعديلات"
         actions={
           group && course ? (
             <button
@@ -176,27 +159,27 @@ function GradebookPage() {
       {!group || !course ? (
         <EmptyBlock
           title="اختر الشعبة والمادة"
-          description="ثم أدخل العلامات لكل مكوّن من مكوّنات التقييم."
+          description="ثم افتح ورقة العلامات لإدخال الدرجات."
           icon={<BookOpenCheck className="size-6" />}
         />
       ) : (
-        <Tabs defaultValue="entry" dir="rtl">
-          <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
-            <TabsTrigger value="entry" className="rounded-lg">
-              إدخال العلامات
-            </TabsTrigger>
-            <TabsTrigger value="summary" className="rounded-lg">
-              علامات الفصل للشعبة
-            </TabsTrigger>
-          </TabsList>
+        <>
+          <MarkActions
+            group={group}
+            course={course}
+            onLog={() => setShowLog(true)}
+            onCalc={() => setShowCalc(true)}
+          />
 
-          <TabsContent value="entry">
-            <MarkEntry group={group} course={course} />
-          </TabsContent>
-          <TabsContent value="summary">
-            <ClassSummary group={group} course={course} />
-          </TabsContent>
-        </Tabs>
+          <div className="mt-6">
+            <SectionCard
+              title="علامات الفصل للشعبة"
+              description="العلامة النهائية لكل طالب في هذه المادة"
+            >
+              <ClassSummary group={group} course={course} />
+            </SectionCard>
+          </div>
+        </>
       )}
 
       {importing && group && course && (
@@ -206,415 +189,219 @@ function GradebookPage() {
           onClose={() => setImporting(false)}
         />
       )}
+
+      {showLog && group && course && (
+        <ChangeLogDialog group={group} course={course} onClose={() => setShowLog(false)} />
+      )}
+
+      {showCalc && group && course && (
+        <Dialog open onOpenChange={(v) => !v && setShowCalc(false)}>
+          <DialogContent className="max-w-4xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings2 className="size-5 text-primary" />
+                طريقة احتساب العلامات
+              </DialogTitle>
+            </DialogHeader>
+            {/* The arithmetic behind every mark: which assessments counted,
+                which the teacher's rule dropped, and what each category came
+                to. A teacher explaining a mark to a parent reads it here. */}
+            <div className="max-h-[70vh] overflow-y-auto">
+              <GradeCalculation studentGroup={group} course={course} canEdit={canEnter} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
 
-/** Enter one component's marks for a whole class. */
-function MarkEntry({ group, course }: { group: string; course: string }) {
-  const { role } = useApp();
-  const [component, setComponent] = useState<string>("");
-  const sheet = useEntrySheet({
-    student_group: group,
-    course,
-    component_name: component || undefined,
-  });
-  const saveMarks = useSaveMarks();
+/**
+ * The three things a teacher does with a subject's marks.
+ *
+ * Entering them is the big one and opens its own screen; the other two —
+ * checking the arithmetic and reading what changed — are references, so they
+ * open over this page rather than replacing it.
+ */
+function MarkActions({
+  group,
+  course,
+  onLog,
+  onCalc,
+}: {
+  group: string;
+  course: string;
+  onLog: () => void;
+  onCalc: () => void;
+}) {
+  const sheet = useEntrySheet({ student_group: group, course });
+  const columns = sheet.data?.columns ?? [];
+  const students = sheet.data?.rows.length ?? 0;
 
-  const components = sheet.data?.components ?? [];
-  const active: SchemeComponent | undefined =
-    components.find((c) => c.component_name === component) ?? components[0];
+  const marked = columns.reduce((n, c) => n + c.marked, 0);
+  const capacity = columns.length * students;
+  const publishedColumns = columns.filter((c) => c.publish_state === "published").length;
+  const excluded = columns.filter((c) => c.excluded).length;
 
-  // Pick the first component once the scheme loads.
-  useEffect(() => {
-    if (!component && components.length) setComponent(components[0]!.component_name);
-  }, [components, component]);
-
-  const [marks, setMarks] = useState<Record<string, string>>({});
-  const [showEmpty, setShowEmpty] = useState(false);
-  const publish = usePublishComponent();
-  const changeLog = useMarkChangeLog(group || undefined, course || undefined);
-  const scheduleRelease = useScheduleRelease();
-  const reopen = useReopenForAppeal();
-  const [releaseOn, setReleaseOn] = useState("");
-
-  // Marks edited since they were first entered. Outlined in the sheet so a
-  // teacher correcting one appeal can see they have not touched anyone else.
-  const changedStudents = useMemo(
-    () => new Set(changeLog.data?.changedStudents ?? []),
-    [changeLog.data],
-  );
-
-  async function applyRelease(date: string) {
-    if (!active) return;
-    try {
-      const res = await scheduleRelease.mutateAsync({
-        student_group: group,
-        course,
-        component_name: active.component_name,
-        ...(date ? { release_on: date } : {}),
-      });
-      toast.success(res.message_ar || "تم الحفظ");
-    } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر ضبط موعد النشر");
-    }
-  }
-
-  const publishedCount = sheet.data?.publishedCount ?? 0;
-  const draftCount = sheet.data?.draftCount ?? 0;
-
-  async function togglePublish(toPublish: boolean) {
-    if (!active) return;
-    try {
-      const res = await publish.mutateAsync({
-        student_group: group,
-        course,
-        component_name: active.component_name,
-        published: toPublish ? 1 : 0,
-      });
-      toast.success(res.message_ar || (toPublish ? "تم النشر" : "تم السحب"));
-    } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر تنفيذ العملية");
-    }
-  }
-  useEffect(() => {
-    // Reset edits when the class, subject or component changes.
-    setMarks({});
-  }, [group, course, component]);
-
-  const rows = sheet.data?.rows ?? [];
-  const maxScore = active?.max_score ?? 100;
-
-  function valueFor(student: string, saved: number | null) {
-    const edited = marks[student];
-    if (edited !== undefined) return edited;
-    return saved != null ? String(saved) : "";
-  }
-
-  const overMax = useMemo(
-    () =>
-      rows.filter((r) => {
-        const raw = valueFor(r.student, r.score);
-        return raw !== "" && Number(raw) > maxScore && active?.component_type !== "Bonus";
-      }).length,
-    [rows, marks, maxScore, active],
-  );
-
-  async function save() {
-    if (!active) return;
-
-    // Marks are a legal record, so a half-filled sheet is refused outright
-    // and the offending cells turn red rather than being saved as zeros.
-    const empties = rows.filter((r) => valueFor(r.student, r.score) === "");
-    if (empties.length > 0) {
-      setShowEmpty(true);
-      toast.error(
-        `${empties.length} طالب بدون علامة — أكمل الحقول باللون الأحمر أو احذف المكوّن.`,
-      );
-      return;
-    }
-    const badSteps = rows.filter((r) => {
-      const v = valueFor(r.student, r.score);
-      return v !== "" && (Number(v) * 2) % 1 !== 0;
-    });
-    if (badSteps.length > 0) {
-      toast.error(`${badSteps.length} علامة يجب أن تكون من مضاعفات ٠.٥`);
-      return;
-    }
-    if (overMax > 0) {
-      toast.error(`${overMax} علامة تتجاوز الحد الأقصى ${maxScore}`);
-      return;
-    }
-    setShowEmpty(false);
-    const payload = {
-      student_group: group,
-      course,
-      component_name: active.component_name,
-      component_type: active.component_type,
-      max_score: active.max_score,
-      weight: active.weight,
-      is_bonus: active.component_type === "Bonus" ? 1 : 0,
-      marks: rows.map((r) => ({
-        student: r.student,
-        student_name: r.student_name,
-        score: valueFor(r.student, r.score),
-      })),
-    };
-    try {
-      const res = await saveMarks.mutateAsync(payload);
-      toast.success(`تم حفظ ${res.created + res.updated} علامة`);
-      if (res.skipped?.length) {
-        toast.warning(`تم تجاوز ${res.skipped.length} علامة تفوق الحد الأقصى`);
-      }
-      setMarks({});
-    } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر حفظ العلامات");
-    }
-  }
-
-  function fillAll(value: string) {
-    const next: Record<string, string> = {};
-    for (const r of rows) next[r.student] = value;
-    setMarks(next);
-  }
-
-  if (sheet.error) return <ErrorState error={sheet.error} onRetry={() => sheet.refetch()} />;
-  if (sheet.isLoading) return <TableSkeleton rows={8} />;
-
-  if (!sheet.data?.scheme) {
-    return (
-      <EmptyBlock
-        title="لا توجد خطة تقييم لهذه المادة"
-        description="أنشئ خطة تقييم أولاً من صفحة خطط التقييم لتحديد المكوّنات وأوزانها."
-        icon={<Settings2 className="size-6" />}
-      />
-    );
-  }
+  const href = `/marks?group=${encodeURIComponent(group)}&course=${encodeURIComponent(course)}`;
 
   return (
-    <>
-      {/* component tabs */}
-      <div className="card-surface mb-4 p-3">
-        <p className="mb-2 text-xs font-semibold text-muted-foreground">
-          مكوّنات التقييم — {sheet.data.scheme.scheme_name}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {components.map((c) => {
-            const isActive = c.component_name === active?.component_name;
-            return (
-              <button
-                key={c.component_name}
-                onClick={() => setComponent(c.component_name)}
-                className={
-                  isActive
-                    ? "rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-primary-foreground"
-                    : "rounded-xl bg-secondary px-3.5 py-2 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
-                }
-              >
-                {c.component_type === "Bonus" && <Sparkles className="ml-1 inline size-3" />}
-                {c.component_name}
-                <span className="mr-1.5 opacity-70">
-                  ({c.component_type === "Bonus" ? "إضافي " : ""}
-                  {c.weight}%)
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <SectionCard
-        title={active ? `${active.component_name} — من ${active.max_score}` : "إدخال العلامات"}
-        description={
-          active
-            ? `${TYPE_AR[active.component_type] ?? active.component_type} • الوزن ${active.weight}%${
-                active.component_type === "Bonus" ? " (خارج الـ100%)" : ""
-              } • ${sheet.data.entered} من ${sheet.data.total} مُدخلة`
-            : ""
-        }
-        actions={
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              step={0.5}
-              min={0}
-              inputMode="decimal"
-              placeholder="تعبئة الكل"
-              onChange={(e) => e.target.value && fillAll(e.target.value)}
-              className="num h-9 w-28 rounded-lg text-center"
-            />
-            <button
-              onClick={() => togglePublish(draftCount > 0)}
-              disabled={publish.isPending || (publishedCount === 0 && draftCount === 0)}
-              title={
-                draftCount > 0
-                  ? "الطلاب لا يرون هذه الدرجات بعد"
-                  : "الدرجات ظاهرة للطلاب — يمكنك سحبها للتعديل"
-              }
-              className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3.5 text-xs font-bold transition-colors disabled:opacity-50 ${
-                draftCount > 0
-                  ? "border-primary bg-primary-soft text-primary hover:bg-primary/10"
-                  : "border-border text-muted-foreground hover:bg-secondary"
-              }`}
-            >
-              {draftCount > 0 ? <Send className="size-3.5" /> : <EyeOff className="size-3.5" />}
-              {publish.isPending
-                ? "…"
-                : draftCount > 0
-                  ? `نشر للطلاب (${draftCount})`
-                  : "سحب من الطلاب"}
-            </button>
-            <button
-              onClick={save}
-              disabled={saveMarks.isPending || rows.length === 0}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground disabled:opacity-60"
-            >
-              <Save className="size-3.5" />
-              {saveMarks.isPending ? "جارٍ الحفظ…" : "حفظ"}
-            </button>
-          </div>
-        }
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      {/* Opening in its own tab is deliberate: a teacher keeps the calculation
+          on this page and the sheet beside it while marking. */}
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="card-surface group flex items-center gap-4 p-5 transition-all hover:-translate-y-0.5 hover:shadow-soft"
       >
-        {overMax > 0 && (
-          <div className="mb-3 rounded-xl border border-destructive/30 bg-destructive-soft px-3 py-2 text-xs font-semibold text-destructive">
-            {overMax} علامة تتجاوز الحد الأقصى ({maxScore}) ولن يتم حفظها.
-          </div>
-        )}
-
-        {/* Why the marks are open again, so the teacher knows this is an
-            appeal and not a mistake. */}
-        {changeLog.data?.reopen && (
-          <div className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs">
-            <p className="font-bold text-amber-800">
-              أُعيد فتح هذه العلامات للتعديل
-            </p>
-            <p className="mt-0.5 text-amber-700">
-              السبب: {changeLog.data.reopen.reason} — بواسطة{" "}
-              {changeLog.data.reopen.by} في{" "}
-              {changeLog.data.reopen.on.slice(0, 16)}
-            </p>
-          </div>
-        )}
-
-        {/* Release date: the school decides when families see these marks. */}
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
-          <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
-          <span className="text-xs font-medium">عرض العلامات لأولياء الأمور بتاريخ:</span>
-          <Input
-            type="date"
-            value={releaseOn}
-            onChange={(e) => setReleaseOn(e.target.value)}
-            className="h-8 w-40 rounded-lg text-xs"
-            dir="ltr"
-          />
-          <button
-            onClick={() => applyRelease(releaseOn)}
-            disabled={scheduleRelease.isPending || !releaseOn}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary disabled:opacity-50"
-          >
-            حفظ الموعد
-          </button>
-          {releaseOn && (
-            <button
-              onClick={() => {
-                setReleaseOn("");
-                void applyRelease("");
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              إلغاء الموعد
-            </button>
-          )}
-          <span className="mr-auto text-[11px] text-muted-foreground">
-            حتى ذلك التاريخ تبقى العلامات مخفية عن الطلاب وأولياء الأمور
+        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-brand-gradient text-primary-foreground">
+          <Table2 className="size-7" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="text-base font-black">فتح ورقة العلامات</span>
+            <ExternalLink className="size-3.5 text-muted-foreground" />
           </span>
-        </div>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            شاشة كاملة على شكل جدول — كل الطلاب وكل المكوّنات معاً، مع النشر والسحب والتعديل
+          </span>
+          <span className="num mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <Pill tone={marked >= capacity && capacity > 0 ? "success" : "muted"}>
+              {marked} / {capacity} علامة
+            </Pill>
+            <Pill tone="muted">{students} طالباً</Pill>
+            <Pill tone="muted">{columns.length} مكوّناً</Pill>
+            {publishedColumns > 0 && <Pill tone="success">{publishedColumns} منشور</Pill>}
+            {excluded > 0 && <Pill tone="danger">{excluded} مستبعد</Pill>}
+          </span>
+        </span>
+      </a>
 
-        {/* Colour key — the meaning of every band used in this screen. */}
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/30 p-2.5">
-          <span className="text-[11px] font-medium text-muted-foreground">دليل الألوان:</span>
-          {GRADE_BANDS.map((b) => (
-            <span
-              key={b.label}
-              className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${b.tone}`}
-            >
-              {b.label} {Math.round(b.min)}–{Math.round(b.max)}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        <button
+          onClick={onCalc}
+          className="card-surface flex items-center gap-3 p-4 text-right transition-all hover:-translate-y-0.5 hover:shadow-soft"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-info-soft text-info">
+            <Settings2 className="size-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold">طريقة الاحتساب</span>
+            <span className="block text-[11px] text-muted-foreground">
+              كيف تكوّنت علامة كل طالب بالتفصيل
             </span>
-          ))}
-          <span className="rounded-md border-2 border-amber-500 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-            عُدّلت بعد الرصد
           </span>
-        </div>
+        </button>
 
-        {rows.length === 0 ? (
-          <EmptyBlock title="لا يوجد طلاب في هذه الشعبة" icon={<Users className="size-6" />} />
-        ) : (
-          <ul className="space-y-2">
-            {rows.map((r) => {
-              const raw = valueFor(r.student, r.score);
-              const num = raw === "" ? null : Number(raw);
-              const overLimit =
-                num != null && num > maxScore && active?.component_type !== "Bonus";
-              // A mark must be a multiple of 0.5 — 7.3 is a typo, and the
-              // server refuses it rather than rounding it away.
-              const badStep = num != null && (num * 2) % 1 !== 0;
-              // Empty is flagged only once a save has been attempted.
-              const missing = showEmpty && raw === "";
-              const invalid = overLimit || badStep || missing;
-              const pct = num != null && maxScore ? (num / maxScore) * 100 : null;
-              return (
-                <li
-                  key={r.student}
-                  className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 rounded-xl border border-border p-3"
-                >
-                  <Avatar name={r.student_name} />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{r.student_name}</p>
-                    <p className="num text-xs text-muted-foreground">{r.student}</p>
-                  </div>
-                  {pct != null && !invalid ? (
-                    <GradeBadge percentage={Math.round(pct * 10) / 10} size="sm" showPercentage />
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                  <div className="flex flex-col items-start gap-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={maxScore}
-                      // Marks are recorded to the nearest half. Without a step
-                      // the browser assumes 1 and rejects "7.5" outright.
-                      step={0.5}
-                      inputMode="decimal"
-                      value={raw}
-                      onChange={(e) => setMarks((p) => ({ ...p, [r.student]: e.target.value }))}
-                      className={
-                        invalid
-                          ? "num h-9 w-24 rounded-lg border-destructive text-center"
-                          : changedStudents.has(r.student)
-                            ? // Edited after it was first entered — usually an
-                              // appeal. Outlined so the correction is obvious
-                              // and an accidental edit to a neighbour is not.
-                              "num h-9 w-24 rounded-lg border-2 border-amber-500 bg-amber-500/10 text-center"
-                            : "num h-9 w-24 rounded-lg text-center"
-                      }
-                      title={
-                        changedStudents.has(r.student)
-                          ? "تم تعديل هذه العلامة بعد إدخالها"
-                          : undefined
-                      }
-                    />
-                    <span className="text-xs text-muted-foreground">/ {maxScore}</span>
-                  </div>
-                  {invalid && (
-                    <span className="text-[10px] font-medium text-destructive">
-                      {missing
-                        ? "لم تُدخل علامة"
-                        : overLimit
-                          ? `الحد الأقصى ${maxScore}`
-                          : "من مضاعفات ٠.٥ فقط"}
-                    </span>
-                  )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+        <button
+          onClick={onLog}
+          className="card-surface flex items-center gap-3 p-4 text-right transition-all hover:-translate-y-0.5 hover:shadow-soft"
+        >
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-warm-soft text-warm-foreground">
+            <History className="size-5" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold">سجل التعديلات</span>
+            <span className="block text-[11px] text-muted-foreground">
+              كل علامة تغيّرت: قبل، بعد، ومن غيّرها
+            </span>
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Every mark that changed after it was first entered. */
+function ChangeLogDialog({
+  group,
+  course,
+  onClose,
+}: {
+  group: string;
+  course: string;
+  onClose: () => void;
+}) {
+  const log = useMarkChangeLog(group, course);
+  const changes = log.data?.changes ?? [];
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-3xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="size-5 text-primary" />
+            سجل تعديلات العلامات
+          </DialogTitle>
+        </DialogHeader>
+
+        {log.data?.reopen && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs">
+            <p className="font-bold text-amber-800">أُعيد فتح هذه العلامات للتعديل</p>
+            <p className="mt-0.5 text-amber-700">
+              السبب: {log.data.reopen.reason} — بواسطة {log.data.reopen.by} في{" "}
+              {log.data.reopen.on.slice(0, 16)}
+            </p>
+          </div>
         )}
-      </SectionCard>
 
-      {/* How these marks are being counted, and the arithmetic it produces. */}
-      {group && course && (
-        <div className="mt-6">
-          <GradeCalculation
-            studentGroup={group}
-            course={course}
-            canEdit={role === "admin" || role === "secretary" || role === "teacher"}
-          />
-        </div>
-      )}
-    </>
+        {log.isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
+        ) : changes.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            لا توجد تعديلات مسجّلة على علامات هذه المادة.
+          </p>
+        ) : (
+          <div className="max-h-[60vh] overflow-auto">
+            <table className="w-full text-right text-xs">
+              <thead className="sticky top-0 bg-card text-[11px] text-muted-foreground">
+                <tr>
+                  <th className="pb-1.5 font-semibold">الطالب</th>
+                  <th className="pb-1.5 font-semibold">المكوّن</th>
+                  <th className="pb-1.5 font-semibold">قبل</th>
+                  <th className="pb-1.5 font-semibold">بعد</th>
+                  <th className="pb-1.5 font-semibold">الفرق</th>
+                  <th className="pb-1.5 font-semibold">بواسطة</th>
+                  <th className="pb-1.5 font-semibold">التاريخ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {changes.map((c) => {
+                  const diff = (c.to ?? 0) - (c.from ?? 0);
+                  return (
+                    <tr key={c.id}>
+                      <td className="py-1.5 font-semibold">{c.studentName}</td>
+                      <td className="py-1.5 text-muted-foreground">{c.component}</td>
+                      <td className="num py-1.5 text-destructive line-through">{c.from ?? "—"}</td>
+                      <td className="num py-1.5 font-bold text-emerald-700">{c.to ?? "—"}</td>
+                      <td
+                        className={`num py-1.5 font-semibold ${
+                          diff > 0 ? "text-emerald-700" : diff < 0 ? "text-destructive" : ""
+                        }`}
+                      >
+                        {diff > 0 ? `+${diff}` : diff}
+                      </td>
+                      <td className="py-1.5 text-muted-foreground">{c.by}</td>
+                      <td className="num py-1.5 text-muted-foreground">{c.at.slice(0, 16)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
+            إغلاق
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -720,9 +507,7 @@ function ImportAssignmentsDialog({
   const busy = importOne.isPending || importCombined.isPending;
 
   function toggle(id: string) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function submit() {
@@ -815,9 +600,7 @@ function ImportAssignmentsDialog({
           </div>
 
           <div>
-            <Label className="mb-2 block text-xs">
-              الواجبات المُصححة ({ready.length})
-            </Label>
+            <Label className="mb-2 block text-xs">الواجبات المُصححة ({ready.length})</Label>
             {isLoading ? (
               <p className="py-6 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
             ) : ready.length === 0 ? (
