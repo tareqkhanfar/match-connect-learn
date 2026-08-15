@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Ban,
   CalendarClock,
+  Check,
   ChevronDown,
   Download,
   Eraser,
@@ -15,6 +16,7 @@ import {
   RotateCcw,
   Save,
   Search,
+  Send,
   TrendingDown,
   TrendingUp,
   Wand2,
@@ -45,6 +47,9 @@ import {
 const cellId = (row: number, col: number) => `mg-${row}-${col}`;
 
 type Column = SchemeComponent & { index: number };
+
+/** One assessment's summary, as the entry sheet reports it. */
+type ColumnStat = NonNullable<ReturnType<typeof useEntrySheet>["data"]>["columns"][number];
 
 /** Marks are entered to the nearest half during the term. */
 function isHalfStep(value: number): boolean {
@@ -89,6 +94,10 @@ export function MarkGrid({
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [scheduleFor, setScheduleFor] = useState<string | null>(null);
   const [releaseOn, setReleaseOn] = useState("");
+  // Publication is decided per assessment but acted on in batches: at the end
+  // of a quarter a teacher releases six papers at once, not one at a time.
+  const [picked, setPicked] = useState<string[]>([]);
+  const [bulkDate, setBulkDate] = useState("");
   const gridRef = useRef<HTMLDivElement>(null);
 
   const term = sheet.data?.academic_term ?? undefined;
@@ -103,7 +112,10 @@ export function MarkGrid({
   const groups = useMemo(() => {
     const out: Array<{ category: string; items: Column[] }> = [];
     components.forEach((c, index) => {
-      const category = c.category || c.quarter || "المكوّنات";
+      // Falling back to the quarter here would print it twice — once as the
+      // quarter band and again as the category beneath it. An assessment with
+      // no category of its own is simply "other marks" for that quarter.
+      const category = c.category || "مكوّنات أخرى";
       const item: Column = { ...c, index };
       const last = out[out.length - 1];
       if (last && last.category === category) last.items.push(item);
@@ -111,6 +123,29 @@ export function MarkGrid({
     });
     return out;
   }, [components]);
+
+  // The quarter sits above the categories, not beside them. A plan carries
+  // both — "الربع الأول" and "علامة اليومي" are different questions about the
+  // same assessment — and collapsing them into one row was hiding the term's
+  // shape: a teacher could not see where one quarter ended and the next began.
+  const quarters = useMemo(() => {
+    const out: Array<{ quarter: string; span: number; groups: number }> = [];
+    groups.forEach((g) => {
+      const quarter = g.items[0]?.quarter || "";
+      const last = out[out.length - 1];
+      if (last && last.quarter === quarter) {
+        last.span += g.items.length;
+        last.groups += 1;
+      } else {
+        out.push({ quarter, span: g.items.length, groups: 1 });
+      }
+    });
+    return out;
+  }, [groups]);
+
+  // With no quarter on any component the row is noise, so it is dropped
+  // rather than shown empty.
+  const hasQuarters = quarters.some((q) => q.quarter);
 
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
@@ -377,6 +412,83 @@ export function MarkGrid({
     }
   }
 
+  /**
+   * Publish or withdraw several assessments in one decision.
+   *
+   * Each one still goes to the server separately — the endpoint owns one
+   * component — but the teacher confirms once, and a failure part-way names
+   * exactly which papers moved and which did not, so the sheet is never left
+   * in a state nobody can describe.
+   */
+  async function bulkPublish(toPublish: boolean) {
+    if (!picked.length) return;
+    const ok = await confirm({
+      title: toPublish
+        ? `نشر ${picked.length} من الاختبارات للطلاب؟`
+        : `سحب ${picked.length} من الاختبارات؟`,
+      description: toPublish
+        ? "ستظهر علامات هذه الاختبارات للطلاب وأولياء الأمور فوراً."
+        : "ستختفي علامات هذه الاختبارات عن الطلاب وأولياء الأمور حتى تُنشر مرة أخرى.",
+    });
+    if (!ok) return;
+
+    const done: string[] = [];
+    const failed: string[] = [];
+    for (const name of picked) {
+      try {
+        await publish.mutateAsync({
+          student_group: group,
+          course,
+          component_name: name,
+          published: toPublish ? 1 : 0,
+          ...(term ? { academic_term: term } : {}),
+        });
+        done.push(name);
+      } catch {
+        failed.push(name);
+      }
+    }
+
+    if (failed.length) {
+      toast.error(
+        `${done.length} نُفِّذت، وتعذّر: ${failed.slice(0, 3).join("، ")}${
+          failed.length > 3 ? "…" : ""
+        }`,
+      );
+    } else {
+      toast.success(
+        toPublish ? `تم نشر ${done.length} اختباراً` : `تم سحب ${done.length} اختباراً`,
+      );
+      setPicked([]);
+    }
+  }
+
+  /** Schedule several assessments to appear on the same day. */
+  async function bulkSchedule() {
+    if (!picked.length || !bulkDate) return;
+    const done: string[] = [];
+    const failed: string[] = [];
+    for (const name of picked) {
+      try {
+        await schedule.mutateAsync({
+          student_group: group,
+          course,
+          component_name: name,
+          release_on: bulkDate,
+        });
+        done.push(name);
+      } catch {
+        failed.push(name);
+      }
+    }
+    if (failed.length) toast.error(`${done.length} جُدولت، وتعذّر ${failed.length}`);
+    else {
+      toast.success(`تم ضبط موعد ظهور ${done.length} اختباراً في ${bulkDate}`);
+      setPicked([]);
+      setBulkDate("");
+    }
+  }
+
   /** A student's running total across everything marked so far. */
   function totalFor(student: string): { earned: number; outOf: number; pct: number | null } {
     let earned = 0;
@@ -553,39 +665,101 @@ export function MarkGrid({
         )}
       </div>
 
+      {canEdit && flat.length > 0 && (
+        <PublishPanel
+          columns={flat}
+          statOf={statOf}
+          quarters={quarters}
+          groups={groups}
+          picked={picked}
+          setPicked={setPicked}
+          bulkDate={bulkDate}
+          setBulkDate={setBulkDate}
+          onPublish={bulkPublish}
+          onSchedule={bulkSchedule}
+          busy={publish.isPending || schedule.isPending}
+        />
+      )}
+
       <div ref={gridRef} className="overflow-auto rounded-xl border border-border">
         <table className="w-full border-collapse text-right text-sm">
           <thead className="sticky top-0 z-20">
-            {/* Parent row: the category from the assessment plan. */}
-            <tr>
-              <th
-                rowSpan={3}
-                className="sticky right-0 z-30 min-w-56 border-b border-l border-border bg-secondary p-2 text-xs font-bold"
-              >
-                الطالب
-              </th>
-              {groups.map((g) => (
+            {/* Top row: the quarter. Each one is walled off from the next so
+                the term reads as its own block of the sheet. */}
+            {hasQuarters && (
+              <tr>
                 <th
-                  key={g.category}
+                  rowSpan={4}
+                  className="sticky right-0 z-30 min-w-56 border-b border-l border-border bg-secondary p-2 text-xs font-bold"
+                >
+                  الطالب
+                </th>
+                {quarters.map((q, i) => (
+                  <th
+                    key={`${q.quarter}-${i}`}
+                    colSpan={q.span}
+                    className={`border-b border-border p-2 text-center text-xs font-black ${
+                      q.quarter
+                        ? "bg-brand-gradient text-primary-foreground"
+                        : "bg-secondary text-muted-foreground"
+                    } ${i > 0 ? "border-r-2 border-r-primary/40" : ""}`}
+                  >
+                    {q.quarter || "غير محدّد"}
+                  </th>
+                ))}
+                <th
+                  rowSpan={4}
+                  className="border-b border-border bg-secondary p-2 text-center text-xs font-bold"
+                >
+                  المجموع
+                </th>
+                {compare.a && compare.b && (
+                  <th
+                    rowSpan={4}
+                    className="border-b border-r border-border bg-secondary p-2 text-center text-xs font-bold"
+                  >
+                    التحسّن
+                  </th>
+                )}
+              </tr>
+            )}
+
+            {/* Category row: the bucket the plan puts the assessment in. */}
+            <tr>
+              {!hasQuarters && (
+                <th
+                  rowSpan={3}
+                  className="sticky right-0 z-30 min-w-56 border-b border-l border-border bg-secondary p-2 text-xs font-bold"
+                >
+                  الطالب
+                </th>
+              )}
+              {groups.map((g, i) => (
+                <th
+                  key={`${g.category}-${i}`}
                   colSpan={g.items.length}
-                  className="border-b border-l border-border bg-secondary p-2 text-center text-xs font-bold"
+                  className="border-b border-l border-border bg-secondary/70 p-2 text-center text-xs font-bold"
                 >
                   {g.category}
                 </th>
               ))}
-              <th
-                rowSpan={3}
-                className="border-b border-border bg-secondary p-2 text-center text-xs font-bold"
-              >
-                المجموع
-              </th>
-              {compare.a && compare.b && (
-                <th
-                  rowSpan={3}
-                  className="border-b border-r border-border bg-secondary p-2 text-center text-xs font-bold"
-                >
-                  التحسّن
-                </th>
+              {!hasQuarters && (
+                <>
+                  <th
+                    rowSpan={3}
+                    className="border-b border-border bg-secondary p-2 text-center text-xs font-bold"
+                  >
+                    المجموع
+                  </th>
+                  {compare.a && compare.b && (
+                    <th
+                      rowSpan={3}
+                      className="border-b border-r border-border bg-secondary p-2 text-center text-xs font-bold"
+                    >
+                      التحسّن
+                    </th>
+                  )}
+                </>
               )}
             </tr>
 
@@ -842,6 +1016,219 @@ export function MarkGrid({
 }
 
 /** Everything that can be done to one assessment, in one place. */
+/**
+ * Publication, gathered in one place.
+ *
+ * Releasing marks is the decision a teacher is most careful about and most
+ * often asked to reverse, so it does not belong buried in a per-column menu.
+ * The assessments are laid out as cards under their quarter — pick some, or a
+ * whole quarter at once, and act. Every card says where it stands, because
+ * "did I publish the midterm?" is the question this panel exists to answer.
+ */
+function PublishPanel({
+  columns,
+  statOf,
+  quarters,
+  groups,
+  picked,
+  setPicked,
+  bulkDate,
+  setBulkDate,
+  onPublish,
+  onSchedule,
+  busy,
+}: {
+  columns: Column[];
+  statOf: (name: string) => ColumnStat | undefined;
+  quarters: Array<{ quarter: string; span: number; groups: number }>;
+  groups: Array<{ category: string; items: Column[] }>;
+  picked: string[];
+  setPicked: (v: string[] | ((p: string[]) => string[])) => void;
+  bulkDate: string;
+  setBulkDate: (v: string) => void;
+  onPublish: (toPublish: boolean) => void;
+  onSchedule: () => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const published = columns.filter((c) => statOf(c.component_name)?.publish_state === "published");
+  const drafts = columns.filter((c) => statOf(c.component_name)?.publish_state === "draft");
+  const scheduled = columns.filter((c) => statOf(c.component_name)?.release_on);
+
+  function toggle(name: string) {
+    setPicked((p) => (p.includes(name) ? p.filter((n) => n !== name) : [...p, name]));
+  }
+
+  // Quarters own a run of categories, so their assessments are the union of
+  // those categories' items — the same walk the header does.
+  function quarterColumns(qi: number): Column[] {
+    let g = 0;
+    for (let i = 0; i < qi; i++) g += quarters[i]!.groups;
+    return groups.slice(g, g + quarters[qi]!.groups).flatMap((x) => x.items);
+  }
+
+  const allPicked = picked.length === columns.length && columns.length > 0;
+
+  return (
+    <div className="card-surface mb-3 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-3 p-3 text-right transition-colors hover:bg-secondary/50"
+      >
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground">
+          <Send className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-black">نشر العلامات للطلاب</span>
+          <span className="num mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <Pill tone="success">{published.length} منشور</Pill>
+            <Pill tone="muted">{drafts.length} مسودة</Pill>
+            {scheduled.length > 0 && <Pill tone="warning">{scheduled.length} مجدول</Pill>}
+          </span>
+        </span>
+        <ChevronDown
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-border p-3">
+          <div className="mb-2.5 flex flex-wrap items-center gap-2 text-[11px]">
+            <button
+              onClick={() => setPicked(allPicked ? [] : columns.map((c) => c.component_name))}
+              className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
+            >
+              {allPicked ? "إلغاء تحديد الكل" : "تحديد الكل"}
+            </button>
+            <button
+              onClick={() => setPicked(drafts.map((c) => c.component_name))}
+              className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
+            >
+              غير المنشورة فقط
+            </button>
+            <button
+              onClick={() => setPicked(published.map((c) => c.component_name))}
+              className="rounded-lg border border-border px-2.5 py-1 font-semibold transition-colors hover:bg-secondary"
+            >
+              المنشورة فقط
+            </button>
+          </div>
+
+          {/* Cards, grouped exactly as the header groups them. */}
+          <div className="space-y-3">
+            {quarters.map((q, qi) => {
+              const cols = quarterColumns(qi);
+              const names = cols.map((c) => c.component_name);
+              const allInQuarter = names.every((n) => picked.includes(n));
+              return (
+                <div key={`${q.quarter}-${qi}`} className="rounded-xl border border-border p-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-black text-primary">
+                      {q.quarter || "غير محدّد"}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setPicked((p) =>
+                          allInQuarter
+                            ? p.filter((n) => !names.includes(n))
+                            : [...new Set([...p, ...names])],
+                        )
+                      }
+                      className="rounded-lg border border-border px-2 py-0.5 text-[10px] font-semibold transition-colors hover:bg-secondary"
+                    >
+                      {allInQuarter ? "إلغاء الربع" : "تحديد الربع"}
+                    </button>
+                  </div>
+                  <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {cols.map((c) => {
+                      const s = statOf(c.component_name);
+                      const on = picked.includes(c.component_name);
+                      return (
+                        <button
+                          key={c.component_name}
+                          onClick={() => toggle(c.component_name)}
+                          className={`flex items-center gap-2 rounded-xl border p-2 text-right transition-all ${
+                            on
+                              ? "border-primary bg-primary-soft"
+                              : "border-border hover:bg-secondary/60"
+                          }`}
+                        >
+                          <span
+                            className={`grid size-4 shrink-0 place-items-center rounded border ${
+                              on
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border"
+                            }`}
+                          >
+                            {on && <Check className="size-3" />}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] font-bold">
+                              {c.component_name}
+                            </span>
+                            <span className="num block text-[10px] text-muted-foreground">
+                              {s ? `${s.marked}/${s.marked + s.missing} مرصودة` : "—"}
+                              {s?.release_on ? ` · يظهر ${s.release_on.slice(0, 10)}` : ""}
+                            </span>
+                          </span>
+                          {s?.publish_state === "published" && <Pill tone="success">منشور</Pill>}
+                          {s?.publish_state === "partial" && <Pill tone="warning">جزئي</Pill>}
+                          {s?.publish_state === "draft" && <Pill tone="muted">مسودة</Pill>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Actions stay disabled until something is picked, so the buttons
+              can never fire on an empty selection. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <span className="text-[11px] font-semibold text-muted-foreground">
+              {picked.length ? `${picked.length} محدَّد` : "لم تحدّد شيئاً"}
+            </span>
+            <button
+              onClick={() => onPublish(true)}
+              disabled={!picked.length || busy}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-40"
+            >
+              <Send className="size-3.5" />
+              نشر للطلاب
+            </button>
+            <button
+              onClick={() => onPublish(false)}
+              disabled={!picked.length || busy}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-destructive/40 px-3.5 text-xs font-bold text-destructive transition-colors hover:bg-destructive-soft disabled:pointer-events-none disabled:opacity-40"
+            >
+              <EyeOff className="size-3.5" />
+              سحب من الطلاب
+            </button>
+            <span className="mr-auto flex items-center gap-1.5">
+              <CalendarClock className="size-3.5 text-muted-foreground" />
+              <input
+                type="date"
+                value={bulkDate}
+                onChange={(e) => setBulkDate(e.target.value)}
+                className="num h-9 rounded-xl border border-border bg-card px-2 text-xs"
+              />
+              <button
+                onClick={onSchedule}
+                disabled={!picked.length || !bulkDate || busy}
+                className="h-9 rounded-xl border border-border px-3 text-xs font-bold transition-colors hover:bg-secondary disabled:pointer-events-none disabled:opacity-40"
+              >
+                جدولة الظهور
+              </button>
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ColumnMenu({
   component,
   stat,
