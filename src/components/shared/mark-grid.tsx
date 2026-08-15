@@ -40,6 +40,7 @@ import {
   usePublishComponent,
   useSaveGrid,
   useScheduleRelease,
+  useSetAggregation,
   type SchemeComponent,
 } from "@/lib/api/hooks";
 
@@ -55,6 +56,54 @@ type ColumnStat = NonNullable<ReturnType<typeof useEntrySheet>["data"]>["columns
 function isHalfStep(value: number): boolean {
   return Math.abs(value * 2 - Math.round(value * 2)) < 0.001;
 }
+
+/**
+ * Combine a category's assessments, mirroring the server's own rule.
+ *
+ * This has to match `apply_aggregation` in api/gradebook.py exactly: the sheet
+ * and the report card showing different numbers for the same student is the
+ * failure this whole screen exists to prevent. Unmarked assessments are left
+ * out by the caller — a paper nobody sat is not a zero.
+ */
+function aggregate(
+  pairs: Array<[number, number]>,
+  mode: string,
+  n: number,
+): { earned: number; outOf: number } {
+  const valid = pairs.filter(([, max]) => max > 0);
+  if (!valid.length) return { earned: 0, outOf: 0 };
+
+  if (mode === "average") {
+    const totalMax = valid.reduce((t, [, max]) => t + max, 0);
+    const mean = valid.reduce((t, [got, max]) => t + got / max, 0) / valid.length;
+    return { earned: Math.round(mean * totalMax * 100) / 100, outOf: totalMax };
+  }
+
+  if ((mode === "best_n" || mode === "worst_drop") && n > 0) {
+    // Ranked by percentage: by raw score a 3/5 would beat a 19/20.
+    const ranked = [...valid].sort((a, b) => b[0] / b[1] - a[0] / a[1]);
+    const keep = mode === "best_n" ? n : Math.max(ranked.length - n, 1);
+    const kept = ranked.slice(0, Math.min(keep, ranked.length));
+    const use = kept.length ? kept : ranked;
+    return {
+      earned: Math.round(use.reduce((t, [got]) => t + got, 0) * 100) / 100,
+      outOf: use.reduce((t, [, max]) => t + max, 0),
+    };
+  }
+
+  return {
+    earned: Math.round(valid.reduce((t, [got]) => t + got, 0) * 100) / 100,
+    outOf: valid.reduce((t, [, max]) => t + max, 0),
+  };
+}
+
+/** How each rule reads to a teacher. */
+const AGGREGATION_AR: Record<string, string> = {
+  sum: "جمع العلامات",
+  average: "متوسط النسب",
+  best_n: "أفضل N",
+  worst_drop: "استبعاد أدنى N",
+};
 
 /**
  * The mark sheet as a spreadsheet.
@@ -100,6 +149,10 @@ export function MarkGrid({
   const [bulkDate, setBulkDate] = useState("");
   const [showPublish, setShowPublish] = useState(false);
   const [calcFor, setCalcFor] = useState<string | null>(null);
+  // Total columns are opt-in: they widen the sheet, and a teacher entering
+  // marks does not always want them between the columns they are typing in.
+  const [showTotals, setShowTotals] = useState(true);
+  const [aggFor, setAggFor] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const term = sheet.data?.academic_term ?? undefined;
@@ -145,7 +198,9 @@ export function MarkGrid({
       const last = out[out.length - 1];
       // A heading with children also draws a total column, which the
       // quarter band above has to span or the header slips out of line.
-      const width = g.items.length + (parents.some((p) => p.component_name === g.category) ? 1 : 0);
+      const width =
+        g.items.length +
+        (showTotals && parents.some((p) => p.component_name === g.category) ? 1 : 0);
       if (last && last.quarter === quarter) {
         last.span += width;
         last.groups += 1;
@@ -154,7 +209,7 @@ export function MarkGrid({
       }
     });
     return out;
-  }, [groups, parents]);
+  }, [groups, parents, showTotals]);
 
   // With no quarter on any component the row is noise, so it is dropped
   // rather than shown empty.
@@ -176,10 +231,10 @@ export function MarkGrid({
     const out: Array<{ kind: "mark"; column: Column } | { kind: "total"; parent: string }> = [];
     groups.forEach((g) => {
       g.items.forEach((column) => out.push({ kind: "mark", column }));
-      if (parentOf(g.category)) out.push({ kind: "total", parent: g.category });
+      if (showTotals && parentOf(g.category)) out.push({ kind: "total", parent: g.category });
     });
     return out;
-  }, [groups, parentOf]);
+  }, [groups, parentOf, showTotals]);
 
   // Shown on the toolbar button so the state of publication is legible
   // without opening anything.
@@ -552,8 +607,7 @@ export function MarkGrid({
     parentName: string,
   ): { earned: number; outOf: number; pct: number | null } {
     const p = parentOf(parentName);
-    let earned = 0;
-    let outOf = 0;
+    const pairs: Array<[number, number]> = [];
     for (const name of p?.children ?? []) {
       if (statOf(name)?.excluded) continue;
       const column = flat.find((c) => c.component_name === name);
@@ -564,11 +618,11 @@ export function MarkGrid({
       // — and it is how this figure came to disagree with the subject grade
       // the server computes, which has always ignored what is not yet marked.
       if (raw === "" || Number.isNaN(Number(raw))) continue;
-      outOf += column.max_score;
-      earned += Number(raw);
+      pairs.push([Number(raw), column.max_score]);
     }
+    const { earned, outOf } = aggregate(pairs, p?.aggregation ?? "sum", p?.aggregation_n ?? 0);
     return {
-      earned: Math.round(earned * 100) / 100,
+      earned,
       outOf,
       pct: outOf ? Math.round((earned / outOf) * 1000) / 10 : null,
     };
@@ -745,6 +799,23 @@ export function MarkGrid({
           تصدير
         </button>
 
+        {parents.length > 0 && (
+          <label
+            className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
+              showTotals ? "border-primary bg-primary-soft text-primary" : "border-border bg-card"
+            }`}
+            title="إظهار عمود مجموع لكل بند رئيسي"
+          >
+            <input
+              type="checkbox"
+              checked={showTotals}
+              onChange={(e) => setShowTotals(e.target.checked)}
+              className="size-3.5 accent-current"
+            />
+            أعمدة المجموع
+          </label>
+        )}
+
         {/* Publication opens over the sheet rather than sitting above it: the
             grid needs its height, and releasing marks is an occasional act,
             not something a teacher keeps on screen while marking. */}
@@ -815,6 +886,32 @@ export function MarkGrid({
         )}
       </div>
 
+      {aggFor && parentOf(aggFor) && (
+        <AggregationDialog
+          parent={parentOf(aggFor)!}
+          course={course}
+          preview={(mode, n) => {
+            // Shown on the first student with marks, so the choice is judged
+            // on a real result rather than in the abstract.
+            const who = rows.find((r) =>
+              (parentOf(aggFor)?.children ?? []).some((c) => valueOf(r.student, c) !== ""),
+            );
+            if (!who) return null;
+            const pairs: Array<[number, number]> = [];
+            for (const name of parentOf(aggFor)?.children ?? []) {
+              if (statOf(name)?.excluded) continue;
+              const col = flat.find((c) => c.component_name === name);
+              const raw = valueOf(who.student, name);
+              if (!col || raw === "" || Number.isNaN(Number(raw))) continue;
+              pairs.push([Number(raw), col.max_score]);
+            }
+            const t = aggregate(pairs, mode, n);
+            return { name: who.student_name ?? who.student, ...t };
+          }}
+          onClose={() => setAggFor(null)}
+        />
+      )}
+
       {calcFor && (
         <CalcDialog
           parent={parentOf(calcFor)}
@@ -881,9 +978,7 @@ export function MarkGrid({
                       const t = quarterTotals.find((x) => x.quarter === (q.quarter || ""));
                       return t && (t.weight || t.max_score) ? (
                         <span className="num mt-0.5 block text-[10px] font-bold opacity-90">
-                          {t.weight ? `وزن ${t.weight}%` : ""}
-                          {t.weight && t.max_score ? " · " : ""}
-                          {t.max_score ? `من ${t.max_score}` : ""}
+                          {t.weight} علامة
                         </span>
                       ) : null;
                     })()}
@@ -922,18 +1017,43 @@ export function MarkGrid({
               {groups.map((g, i) => (
                 <th
                   key={`${g.category}-${i}`}
-                  colSpan={g.items.length + (parentOf(g.category) ? 1 : 0)}
+                  colSpan={g.items.length + (showTotals && parentOf(g.category) ? 1 : 0)}
                   className="border-b border-l border-border bg-secondary/70 p-2 text-center text-xs font-bold"
                 >
-                  <span className="block">{g.category}</span>
                   {(() => {
                     const p = parentOf(g.category);
                     const own = p ?? flat.find((c) => c.component_name === g.category);
-                    return own?.weight ? (
-                      <span className="num mt-0.5 block text-[10px] font-semibold text-muted-foreground">
-                        وزن {own.weight}%{p ? ` · من ${p.children_total}` : ""}
-                      </span>
-                    ) : null;
+                    return (
+                      <>
+                        <span className="flex items-center justify-center gap-1">
+                          <span className="truncate">{g.category}</span>
+                          {p && canEdit && (
+                            <button
+                              onClick={() => setAggFor(g.category)}
+                              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+                              title="كيف تُحتسب علامات هذا البند"
+                              aria-label="آلية احتساب البند"
+                            >
+                              <ChevronDown className="size-3.5" />
+                            </button>
+                          )}
+                        </span>
+                        {own?.weight ? (
+                          <span className="num mt-0.5 block text-[10px] font-semibold text-muted-foreground">
+                            وزن {own.weight}%{p ? ` · من ${p.children_total}` : ""}
+                          </span>
+                        ) : null}
+                        {p && p.aggregation !== "sum" && (
+                          <span className="mt-0.5 block text-[9px] font-bold text-primary">
+                            {p.aggregation === "average"
+                              ? "متوسط النسب"
+                              : p.aggregation === "best_n"
+                                ? `أفضل ${p.aggregation_n}`
+                                : `استبعاد أدنى ${p.aggregation_n}`}
+                          </span>
+                        )}
+                      </>
+                    );
                   })()}
                 </th>
               ))}
@@ -1642,6 +1762,162 @@ function CalcDialog({
             className="h-10 rounded-xl border border-border px-5 text-sm font-semibold transition-colors hover:bg-secondary"
           >
             إغلاق
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * How a category's assessments add up.
+ *
+ * Set four short tests and a school may want all four counted, or the best
+ * three, or the mean of their percentages when one is out of 20 and another
+ * out of 5. The plan had no way to say which, so everything was summed.
+ *
+ * The choice is saved on the plan and applies to every class sitting it — a
+ * teacher who counts the best three means it for the whole cohort. The preview
+ * shows the effect on a real student before anything is written.
+ */
+function AggregationDialog({
+  parent,
+  course,
+  preview,
+  onClose,
+}: {
+  parent: {
+    component_name: string;
+    weight: number;
+    children_total: number;
+    children: string[];
+    aggregation: "sum" | "average" | "best_n" | "worst_drop";
+    aggregation_n: number;
+  };
+  course: string;
+  preview: (mode: string, n: number) => { name: string; earned: number; outOf: number } | null;
+  onClose: () => void;
+}) {
+  const setAggregation = useSetAggregation();
+  const [mode, setMode] = useState(parent.aggregation);
+  const [n, setN] = useState(parent.aggregation_n || Math.max(parent.children.length - 1, 1));
+
+  const needsN = mode === "best_n" || mode === "worst_drop";
+  const shown = preview(mode, needsN ? n : 0);
+  const current = preview(parent.aggregation, parent.aggregation_n);
+  const changed = mode !== parent.aggregation || (needsN && n !== parent.aggregation_n);
+
+  async function apply() {
+    try {
+      const res = await setAggregation.mutateAsync({
+        course,
+        component_name: parent.component_name,
+        mode,
+        ...(needsN ? { n } : {}),
+      });
+      toast.success(res.message_ar || "تم ضبط آلية الاحتساب");
+      onClose();
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر ضبط آلية الاحتساب"));
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wand2 className="size-5 text-primary" />
+            احتساب «{parent.component_name}»
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <p className="rounded-xl bg-secondary/60 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+            هذا البند يضم <span className="num font-bold">{parent.children.length}</span> اختبارات
+            بمجموع <span className="num font-bold">{parent.children_total}</span>، ووزنه في المادة{" "}
+            <span className="num font-bold">{parent.weight}%</span>. اختر كيف تُجمع علامات
+            اختباراته:
+          </p>
+
+          <div className="space-y-1.5">
+            {(["sum", "average", "best_n", "worst_drop"] as const).map((m) => (
+              <label
+                key={m}
+                className={`flex cursor-pointer items-center gap-2 rounded-xl border p-2.5 transition-colors ${
+                  mode === m
+                    ? "border-primary bg-primary-soft"
+                    : "border-border hover:bg-secondary/60"
+                }`}
+              >
+                <input
+                  type="radio"
+                  checked={mode === m}
+                  onChange={() => setMode(m)}
+                  className="size-3.5 accent-current"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold">{AGGREGATION_AR[m]}</span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {m === "sum"
+                      ? "تُجمع كل العلامات المرصودة كما هي"
+                      : m === "average"
+                        ? "متوسط نسب الاختبارات — يساوي بين اختبار من ٥ وآخر من ٢٠"
+                        : m === "best_n"
+                          ? "تُحتسب أعلى N اختبارات فقط"
+                          : "تُستبعد أدنى N اختبارات"}
+                  </span>
+                </span>
+                {(m === "best_n" || m === "worst_drop") && mode === m && (
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.max(parent.children.length, 1)}
+                    value={n}
+                    onChange={(e) => setN(Math.max(1, Number(e.target.value) || 1))}
+                    onClick={(e) => e.preventDefault()}
+                    className="num h-8 w-14 rounded-lg border border-border bg-card text-center text-xs"
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+
+          {shown && (
+            <div className="rounded-xl border border-border p-2.5">
+              <p className="text-[11px] font-bold">أثرها على «{shown.name}»</p>
+              <p className="num mt-1 flex items-center gap-2 text-xs">
+                {current && (
+                  <span className="text-muted-foreground line-through">
+                    {current.earned}/{current.outOf}
+                  </span>
+                )}
+                <span className="font-black text-primary">
+                  {shown.earned}/{shown.outOf}
+                </span>
+                {shown.outOf > 0 && (
+                  <span className="font-bold text-primary">
+                    ({Math.round((shown.earned / shown.outOf) * 1000) / 10}%)
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-5 text-sm font-semibold transition-colors hover:bg-secondary"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={apply}
+            disabled={!changed || setAggregation.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:pointer-events-none disabled:opacity-40"
+          >
+            {setAggregation.isPending ? "جارٍ الحفظ…" : "تطبيق"}
           </button>
         </DialogFooter>
       </DialogContent>

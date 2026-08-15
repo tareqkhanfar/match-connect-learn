@@ -1336,6 +1336,8 @@ export interface EntrySheet {
     quarter: string | null;
     children_total: number;
     children: string[];
+    aggregation: "sum" | "average" | "best_n" | "worst_drop";
+    aggregation_n: number;
   }>;
   /** What each quarter counts for, summed over its headings. */
   quarter_totals: Array<{ quarter: string; weight: number; max_score: number }>;
@@ -1352,6 +1354,25 @@ export interface EntrySheet {
     lowest: number | null;
     average_pct: number | null;
   }>;
+}
+
+/** Change how a category combines the assessments inside it. */
+export function useSetAggregation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      course: string;
+      component_name: string;
+      mode: "sum" | "average" | "best_n" | "worst_drop";
+      n?: number;
+      program?: string;
+    }) =>
+      apiPost<{ component: string; mode: string; n: number; message_ar?: string }>(
+        "gradebook.set_aggregation",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
 }
 
 /** Save every column of the mark sheet in one request. */
