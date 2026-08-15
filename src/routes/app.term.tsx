@@ -23,6 +23,7 @@ import {
   Lock,
   RotateCcw,
   Send,
+  Table2,
   Undo2,
 } from "lucide-react";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
@@ -135,10 +136,7 @@ function TeacherTermView() {
       )}
 
       <div className="mt-5">
-        <SectionCard
-          title="شُعبي وموادي"
-          description={`الفصل: ${data?.academic_term ?? "—"}`}
-        >
+        <SectionCard title="شُعبي وموادي" description={`الفصل: ${data?.academic_term ?? "—"}`}>
           {rows.length === 0 ? (
             <EmptyBlock
               title="لا توجد مواد مسندة إليك"
@@ -211,7 +209,6 @@ function TeacherTermView() {
           )}
         </SectionCard>
       </div>
-
     </>
   );
 }
@@ -224,13 +221,17 @@ function AdminTermView() {
   const publish = usePublishTerm();
   const unpublish = useUnpublishTerm();
   const reopenAppeal = useReopenForAppeal();
-  const [appeal, setAppeal] = useState<
-    { student_group: string; course: string; className: string } | null
-  >(null);
+  const [appeal, setAppeal] = useState<{
+    student_group: string;
+    course: string;
+    className: string;
+  } | null>(null);
   const [appealReason, setAppealReason] = useState("");
-  const [preview, setPreview] = useState<
-    { student_group: string; course: string; className: string } | null
-  >(null);
+  const [preview, setPreview] = useState<{
+    student_group: string;
+    course: string;
+    className: string;
+  } | null>(null);
 
   async function submitAppeal() {
     if (!appeal) return;
@@ -485,6 +486,28 @@ function AdminTermView() {
                                       <Eye className="size-3" />
                                       مشاهدة العلامات
                                     </button>
+                                  )}
+                                  {/* The dialog above shows the arithmetic; the
+                                      sheet shows what the teacher actually did
+                                      — every assessment, every student, what
+                                      was excluded and what was published. It
+                                      opens in its own tab, read-only, so an
+                                      administrator can keep this list open
+                                      beside it while working through a class. */}
+                                  {(s.status === "Submitted" ||
+                                    s.status === "Approved" ||
+                                    s.status === "Published") && (
+                                    <a
+                                      href={`/marks?group=${encodeURIComponent(
+                                        r.student_group,
+                                      )}&course=${encodeURIComponent(s.course)}&view=1`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-secondary"
+                                    >
+                                      <Table2 className="size-3" />
+                                      جدول العلامات كاملاً
+                                    </a>
                                   )}
                                   {s.status === "Submitted" && (
                                     <>

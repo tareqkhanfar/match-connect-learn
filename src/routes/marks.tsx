@@ -1,18 +1,25 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowRight, Loader2, Table2 } from "lucide-react";
+import { ArrowRight, Eye, Loader2, Settings2, Table2 } from "lucide-react";
 import { MarkGrid } from "@/components/shared/mark-grid";
+import { GradeCalculation } from "@/components/shared/grade-calculation";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useApp } from "@/lib/app-context";
 import { useClasses, useSubjects } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/marks")({
   // Opened from the gradebook with a class and subject already chosen.
-  validateSearch: (search: Record<string, unknown>): { group?: string; course?: string } => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { group?: string; course?: string; view?: boolean } => ({
     ...(typeof search["group"] === "string" && search["group"] ? { group: search["group"] } : {}),
     ...(typeof search["course"] === "string" && search["course"]
       ? { course: search["course"] }
       : {}),
+    // Opened from the term workflow by an administrator reviewing what a
+    // teacher submitted. The sheet is the same; nothing on it can be changed.
+    ...(search["view"] === "1" || search["view"] === true ? { view: true } : {}),
   }),
   head: () => ({
     meta: [{ title: "ورقة العلامات — Match Education" }],
@@ -32,15 +39,20 @@ export const Route = createFileRoute("/marks")({
 function MarksWorkspace() {
   const { ready, signedIn, role } = useApp();
   const navigate = useNavigate();
-  const { group: groupFromUrl, course: courseFromUrl } = Route.useSearch();
+  const { group: groupFromUrl, course: courseFromUrl, view } = Route.useSearch();
 
   const [group, setGroup] = useState(groupFromUrl ?? "");
   const [course, setCourse] = useState(courseFromUrl ?? "");
+  const [showCalc, setShowCalc] = useState(false);
 
   const classes = useClasses();
   const subjects = useSubjects();
 
-  const canEdit = role === "admin" || role === "secretary" || role === "teacher";
+  const staff = role === "admin" || role === "secretary" || role === "teacher";
+  // Reviewing is not marking. An administrator opening a submitted sheet is
+  // checking what was done, and a stray keystroke on someone else's marks is
+  // exactly what the review step exists to prevent.
+  const canEdit = staff && !view;
 
   // This route carries its own guard: it does not sit under /app.
   useEffect(() => {
@@ -63,7 +75,7 @@ function MarksWorkspace() {
     );
   }
 
-  if (!canEdit) {
+  if (!staff) {
     return (
       <div className="grid min-h-screen place-items-center bg-background p-6 text-center">
         <div>
@@ -91,7 +103,15 @@ function MarksWorkspace() {
               <Table2 className="size-4" />
             </span>
             <span>
-              <span className="block text-sm font-black leading-tight">ورقة العلامات</span>
+              <span className="flex items-center gap-1.5 text-sm font-black leading-tight">
+                ورقة العلامات
+                {view && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                    <Eye className="size-3" />
+                    اطّلاع فقط
+                  </span>
+                )}
+              </span>
               <span className="block text-[11px] text-muted-foreground">
                 {selectedClass?.student_group_name ?? "—"}
                 {selectedSubject ? ` · ${selectedSubject.course_name}` : ""}
@@ -122,13 +142,24 @@ function MarksWorkspace() {
             />
           </span>
 
-          <button
-            onClick={() => void navigate({ to: "/app/gradebook" })}
-            className="mr-auto inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold transition-colors hover:bg-secondary"
-          >
-            <ArrowRight className="size-3.5" />
-            سجل العلامات
-          </button>
+          <span className="mr-auto flex items-center gap-2">
+            {group && course && (
+              <button
+                onClick={() => setShowCalc(true)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold transition-colors hover:bg-secondary"
+              >
+                <Settings2 className="size-3.5" />
+                طريقة الاحتساب
+              </button>
+            )}
+            <button
+              onClick={() => void navigate({ to: view ? "/app/term" : "/app/gradebook" })}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold transition-colors hover:bg-secondary"
+            >
+              <ArrowRight className="size-3.5" />
+              {view ? "سير الفصل" : "سجل العلامات"}
+            </button>
+          </span>
         </div>
       </header>
 
@@ -141,6 +172,26 @@ function MarksWorkspace() {
           <MarkGrid group={group} course={course} canEdit={canEdit} />
         )}
       </main>
+
+      {showCalc && group && course && (
+        <Dialog open onOpenChange={(v) => !v && setShowCalc(false)}>
+          <DialogContent className="max-w-4xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings2 className="size-5 text-primary" />
+                طريقة احتساب العلامات
+              </DialogTitle>
+            </DialogHeader>
+            {/* The full arithmetic behind every student's subject mark: which
+                assessments counted, which the plan's rule dropped, and what
+                each category came to. This is what an administrator reviewing
+                a submission is actually here to read. */}
+            <div className="max-h-[70vh] overflow-y-auto">
+              <GradeCalculation studentGroup={group} course={course} canEdit={false} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
