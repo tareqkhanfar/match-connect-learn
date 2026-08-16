@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarDays, Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
+import { LessonPlanDialog, PlanMarker } from "@/components/shared/lesson-plan-dialog";
 import {
   Select,
   SelectContent,
@@ -67,6 +68,9 @@ function TimetablePage() {
 
   // A teacher may still look at a whole class, but only by asking for it.
   const [teacherViewsClass, setTeacherViewsClass] = useState(false);
+  // Which lesson's preparation is open. Every role can open one; what they
+  // see inside is the server's decision, not this screen's.
+  const [planFor, setPlanFor] = useState<string | null>(null);
   const showsClassPicker = picksClass || (isTeacher && teacherViewsClass);
 
   useEffect(() => {
@@ -192,8 +196,11 @@ function TimetablePage() {
                       return (
                         <td key={day} className="border-b border-border p-1.5 align-top">
                           {slot ? (
-                            <div
-                              className={`rounded-xl border p-2 ${
+                            <button
+                              type="button"
+                              onClick={() => setPlanFor(slot.id)}
+                              title="اضغط لعرض تحضير الحصة"
+                              className={`w-full rounded-xl border p-2 text-right transition-all hover:-translate-y-0.5 hover:shadow-soft ${
                                 slot.cancelled
                                   ? "border-destructive/40 bg-destructive-soft"
                                   : colorFor(slot.subject)
@@ -220,10 +227,22 @@ function TimetablePage() {
                                   {slot.teacher}
                                 </p>
                               )}
+                              {/* The class, so a teacher can tell two lessons of
+                                  the same subject apart at a glance. */}
+                              {slot.class_name && (
+                                <p className="truncate text-[10px] font-semibold opacity-75">
+                                  {slot.class_name}
+                                </p>
+                              )}
                               {slot.room && (
                                 <p className="num truncate text-[10px] opacity-70">{slot.room}</p>
                               )}
-                            </div>
+                              <PlanMarker
+                                hasPlan={slot.has_plan}
+                                hasHomework={slot.has_homework}
+                                published={slot.plan_published}
+                              />
+                            </button>
                           ) : (
                             <div className="grid h-full min-h-[52px] place-items-center rounded-xl border border-dashed border-border text-[11px] text-muted-foreground">
                               —
@@ -257,6 +276,8 @@ function TimetablePage() {
           </SectionCard>
         </div>
       )}
+
+      {planFor && <LessonPlanDialog courseSchedule={planFor} onClose={() => setPlanFor(null)} />}
     </>
   );
 }

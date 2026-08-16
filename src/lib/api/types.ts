@@ -321,6 +321,18 @@ export interface ScheduleSlot {
    *  through, rather than leaving an unexplained gap in the week. */
   cancelled?: boolean;
   cancelReason?: string | null;
+  /** The section this lesson is for, readable. A teacher's timetable showed
+   *  only the subject, so two lessons of the same subject to different
+   *  sections were indistinguishable. */
+  class_name?: string | null;
+  program?: string | null;
+  batch?: string | null;
+  /** Whether the teacher has prepared this lesson, and whether the family
+   *  may open it. */
+  has_plan?: boolean;
+  plan_published?: boolean;
+  has_homework?: boolean;
+  plan_title?: string | null;
 }
 
 export interface Timetable {

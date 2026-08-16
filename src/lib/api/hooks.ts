@@ -212,6 +212,76 @@ export function useChildOverview(student: Opt<string>) {
   });
 }
 
+// --- Lesson plans ----------------------------------------------------------
+
+export interface LessonPlanView {
+  course_schedule: string;
+  student_group: string;
+  class_name: string;
+  program: string | null;
+  batch: string | null;
+  course: string;
+  teacher: string | null;
+  date: string;
+  can_edit: boolean;
+  plan: {
+    id: string;
+    title: string | null;
+    objectives: string | null;
+    content: string | null;
+    homework: string | null;
+    resources: string | null;
+    notes?: string | null;
+    is_published: boolean;
+    prepared_on: string;
+  } | null;
+}
+
+export function useLessonPlan(courseSchedule: string | undefined) {
+  return useQuery<LessonPlanView>({
+    queryKey: ["lesson-plan", courseSchedule ?? null],
+    queryFn: () =>
+      apiGet<LessonPlanView>("lesson_plans.get_lesson_plan", {
+        course_schedule: courseSchedule!,
+      }),
+    enabled: Boolean(courseSchedule),
+  });
+}
+
+export function useSaveLessonPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      course_schedule: string;
+      title?: string;
+      objectives?: string;
+      content?: string;
+      homework?: string;
+      resources?: string;
+      notes?: string;
+      is_published?: number;
+    }) =>
+      apiPost<{ id: string; course_schedule: string; message_ar?: string }>(
+        "lesson_plans.save_lesson_plan",
+        { payload: vars } as unknown as Record<string, unknown>,
+      ),
+    // The timetable's markers come from the same data, so both refresh.
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export function useDeleteLessonPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { course_schedule: string }) =>
+      apiPost<{ deleted: boolean; message_ar?: string }>(
+        "lesson_plans.delete_lesson_plan",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
 // --- Students --------------------------------------------------------------
 
 export interface StudentListParams {
