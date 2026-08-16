@@ -14,7 +14,12 @@ import {
   Users,
 } from "lucide-react";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
-import { DashboardSkeleton, EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import {
+  DashboardSkeleton,
+  EmptyBlock,
+  ErrorState,
+  TableSkeleton,
+} from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
 import {
@@ -75,7 +80,8 @@ function AdminAppraisalView() {
   const [file, setFile] = useState<string | null>(null);
 
   if (overview.isLoading) return <DashboardSkeleton />;
-  if (overview.error) return <ErrorState error={overview.error} onRetry={() => overview.refetch()} />;
+  if (overview.error)
+    return <ErrorState error={overview.error} onRetry={() => overview.refetch()} />;
 
   const rows = overview.data?.rows ?? [];
   const summary = overview.data?.summary;
@@ -98,7 +104,12 @@ function AdminAppraisalView() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="عدد المعلمين" value={summary?.teachers ?? 0} icon={Users} tone="primary" />
-        <KpiCard label="تمت زيارتهم" value={summary?.observed ?? 0} icon={UserCheck} tone="accent" />
+        <KpiCard
+          label="تمت زيارتهم"
+          value={summary?.observed ?? 0}
+          icon={UserCheck}
+          tone="accent"
+        />
         <KpiCard
           label="بلا زيارات"
           value={summary?.never_observed ?? 0}
@@ -163,7 +174,9 @@ function AdminAppraisalView() {
       </div>
 
       {creating && <ObservationDialog onClose={() => setCreating(false)} />}
-      {viewing && <ObservationDetailDialog observation={viewing} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <ObservationDetailDialog observation={viewing} onClose={() => setViewing(null)} />
+      )}
       {file && (
         <PerformanceDialog
           instructor={file}
@@ -195,7 +208,12 @@ function TeacherAppraisalView() {
       <PageHeader title="ملف أدائي" subtitle="الزيارات الصفية وملاحظات الإدارة على أدائك" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="عدد الزيارات" value={d.summary.observations} icon={ClipboardCheck} tone="primary" />
+        <KpiCard
+          label="عدد الزيارات"
+          value={d.summary.observations}
+          icon={ClipboardCheck}
+          tone="primary"
+        />
         <KpiCard
           label="متوسط التقييم"
           value={d.summary.average_percent != null ? `${d.summary.average_percent}%` : "—"}
@@ -262,7 +280,10 @@ function TeacherAppraisalView() {
               ["العلامات المُدخلة", d.teaching.marks_entered],
               ["الفصول المُرحّلة", d.teaching.terms_submitted],
             ].map(([label, value]) => (
-              <div key={String(label)} className="flex items-center justify-between border-b border-border pb-2">
+              <div
+                key={String(label)}
+                className="flex items-center justify-between border-b border-border pb-2"
+              >
                 <dt className="text-xs text-muted-foreground">{label}</dt>
                 <dd className="num font-bold">{value}</dd>
               </div>
@@ -285,7 +306,9 @@ function TeacherAppraisalView() {
         </SectionCard>
       </div>
 
-      {viewing && <ObservationDetailDialog observation={viewing} onClose={() => setViewing(null)} />}
+      {viewing && (
+        <ObservationDetailDialog observation={viewing} onClose={() => setViewing(null)} />
+      )}
     </>
   );
 }
@@ -294,7 +317,7 @@ function TeacherAppraisalView() {
 
 function ObservationDialog({ onClose }: { onClose: () => void }) {
   const overview = useAppraisalOverview();
-  const teachers = useTeachers({ status: "Active" });  // An observation is scheduled for someone still teaching.
+  const teachers = useTeachers({ status: "Active" }); // An observation is scheduled for someone still teaching.
   const save = useSaveObservation();
 
   const [instructor, setInstructor] = useState("");
@@ -353,7 +376,12 @@ function ObservationDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div className="space-y-1.5">
             <Label>التاريخ</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="num rounded-xl" />
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>نوع الزيارة</Label>
@@ -428,7 +456,10 @@ function ObservationDialog({ onClose }: { onClose: () => void }) {
           >
             {save.isPending ? "جارٍ الحفظ…" : "حفظ كمسودة"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>
@@ -594,7 +625,10 @@ function ObservationDetailDialog({
               {acknowledge.isPending ? "جارٍ التسجيل…" : "اطّلعت على التقييم"}
             </button>
           )}
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إغلاق
           </button>
         </DialogFooter>
@@ -628,11 +662,17 @@ function PerformanceDialog({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 ["الزيارات", data.summary.observations],
-                ["المتوسط", data.summary.average_percent != null ? `${data.summary.average_percent}%` : "—"],
+                [
+                  "المتوسط",
+                  data.summary.average_percent != null ? `${data.summary.average_percent}%` : "—",
+                ],
                 ["الشُعب", data.teaching.classes],
                 ["الطلاب", data.teaching.students],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl border border-border p-3 text-center">
+                <div
+                  key={String(label)}
+                  className="rounded-xl border border-border p-3 text-center"
+                >
                   <p className="text-[11px] text-muted-foreground">{label}</p>
                   <p className="num mt-1 text-lg font-bold">{value}</p>
                 </div>
@@ -665,7 +705,10 @@ function PerformanceDialog({
         )}
 
         <DialogFooter className="sm:justify-start">
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إغلاق
           </button>
         </DialogFooter>

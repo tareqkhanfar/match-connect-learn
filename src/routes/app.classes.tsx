@@ -131,8 +131,18 @@ function ClassesPage() {
   const opts = (xs: string[] | undefined) => (xs ?? []).map((x) => ({ value: x, label: x }));
   const classFilters: FilterDef[] = filterOptions.data
     ? [
-        { kind: "select", field: "program", label: "الصف", options: opts(filterOptions.data.programs) },
-        { kind: "select", field: "batch", label: "الشعبة", options: opts(filterOptions.data.batches) },
+        {
+          kind: "select",
+          field: "program",
+          label: "الصف",
+          options: opts(filterOptions.data.programs),
+        },
+        {
+          kind: "select",
+          field: "batch",
+          label: "الشعبة",
+          options: opts(filterOptions.data.batches),
+        },
         {
           kind: "select",
           field: "academic_year",
@@ -157,20 +167,20 @@ function ClassesPage() {
         actions={
           canManage ? (
             <div className="flex items-center gap-2">
-            <Link
-              to="/app/sections"
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:bg-secondary"
-            >
-              <LayoutGrid className="size-4" />
-              توزيع الطلاب على الشعب
-            </Link>
-            <button
-              onClick={() => setCreating(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
-            >
-              <Plus className="size-4" />
-              إضافة شعبة
-            </button>
+              <Link
+                to="/app/sections"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium transition-colors hover:bg-secondary"
+              >
+                <LayoutGrid className="size-4" />
+                توزيع الطلاب على الشعب
+              </Link>
+              <button
+                onClick={() => setCreating(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
+              >
+                <Plus className="size-4" />
+                إضافة شعبة
+              </button>
             </div>
           ) : null
         }
@@ -290,7 +300,7 @@ function ClassesPage() {
 function ClassDialog({ klass, onClose }: { klass: ClassRow | null; onClose: () => void }) {
   const save = useSaveClass();
   const filtersQuery = useStudentFilters();
-  const teachersQuery = useTeachers({ status: "Active" });  // Assigning a class to a teacher who has left is never intended.
+  const teachersQuery = useTeachers({ status: "Active" }); // Assigning a class to a teacher who has left is never intended.
 
   const [form, setForm] = useState({
     student_group_name: klass?.student_group_name ?? "",
