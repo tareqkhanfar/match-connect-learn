@@ -35,9 +35,10 @@ import { useConfirm } from "@/components/shared/confirm";
 import { errorMessage } from "@/lib/api/error-message";
 import { useApp } from "@/lib/app-context";
 import {
-  useClasses,
   useMarkRepeated,
   usePromote,
+  usePromotionOptions,
+  type PromotionOptions,
   usePromotionPreview,
   usePromotionRules,
   useSavePromotionRules,
@@ -70,20 +71,33 @@ function PromotionPage() {
   const isAdmin = role === "admin";
   const canView = isAdmin || role === "secretary";
 
-  const classes = useClasses();
-  const [group, setGroup] = useState("");
+  const options = usePromotionOptions();
+  const [program, setProgram] = useState("");
+  const [year, setYear] = useState("");
+  const [term, setTerm] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [showRules, setShowRules] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  const preview = usePromotionPreview(group || undefined);
+  const preview = usePromotionPreview({
+    ...(program ? { program } : {}),
+    ...(year ? { academic_year: year } : {}),
+    ...(term ? { academic_term: term } : {}),
+  });
   const data = preview.data;
 
-  // A different class is a different verdict; carrying a selection across
-  // would promote names the administrator never looked at.
+  // The year and term the school is working in, unless the user picks others.
+  useEffect(() => {
+    if (!options.data) return;
+    setYear((v) => v || options.data.default_year || "");
+    setTerm((v) => v || options.data.default_term || "");
+  }, [options.data]);
+
+  // A different grade, year or term is a different cohort; carrying a
+  // selection across would promote names the administrator never looked at.
   useEffect(() => {
     setPicked([]);
-  }, [group]);
+  }, [program, year, term]);
 
   // Eligible students are pre-selected — that is the common case — and the
   // blocked ones are left for a deliberate choice.
@@ -124,28 +138,72 @@ function PromotionPage() {
         }
       />
 
-      <div className="card-surface mb-5 p-4">
-        <Label className="text-xs">الشعبة</Label>
-        <Select value={group} onValueChange={setGroup}>
-          <SelectTrigger className="mt-1.5 h-10 rounded-xl">
-            <SelectValue placeholder="اختر الشعبة" />
-          </SelectTrigger>
-          <SelectContent>
-            {(classes.data ?? []).map((c) => (
-              <SelectItem key={c.name} value={c.name}>
-                <SelectItemLabel code={c.name}>
-                  {c.student_group_name} ({c.students})
-                </SelectItemLabel>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="card-surface mb-5 grid gap-3 p-4 md:grid-cols-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">الصف</Label>
+          <Select value={program} onValueChange={setProgram}>
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="اختر الصف" />
+            </SelectTrigger>
+            <SelectContent>
+              {(options.data?.programs ?? []).map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <SelectItemLabel code={p.level ? `مستوى ${p.level}` : "بلا مستوى"}>
+                    {p.name}
+                  </SelectItemLabel>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">العام الدراسي</Label>
+          <Select
+            value={year}
+            onValueChange={(v) => {
+              setYear(v);
+              // Terms belong to a year: keeping one from another year would
+              // read a cohort that does not exist.
+              setTerm("");
+            }}
+          >
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="اختر العام" />
+            </SelectTrigger>
+            <SelectContent>
+              {(options.data?.years ?? []).map((y) => (
+                <SelectItem key={y} value={y}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">الفصل الدراسي</Label>
+          <Select value={term} onValueChange={setTerm}>
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue placeholder="اختر الفصل" />
+            </SelectTrigger>
+            <SelectContent>
+              {(options.data?.terms ?? [])
+                .filter((t) => !year || t.academic_year === year)
+                .map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <SelectItemLabel code={t.academic_year}>{t.name}</SelectItemLabel>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {!group ? (
+      {!program || !year || !term ? (
         <EmptyBlock
-          title="اختر شعبة للبدء"
-          description="سيُعرض كل طالب مع حالته وأسباب الحجب إن وُجدت."
+          title="اختر الصف والعام والفصل"
+          description="الترفيع يتم للصف كاملاً بكل شُعبه، ضمن عام وفصل محدّدين."
           icon={<ArrowUpFromLine className="size-6" />}
         />
       ) : preview.isLoading ? (
@@ -177,8 +235,8 @@ function PromotionPage() {
           )}
 
           <SectionCard
-            title={`طلاب ${data.class_name}`}
-            description="اضغط على الطالب لتحديده أو إلغاء تحديده"
+            title={`طلاب ${data.program}`}
+            description={`${data.classes.length} شعبة — اضغط على الطالب لتحديده أو إلغاء تحديده`}
           >
             <ul className="space-y-1.5">
               {data.students.map((s) => {
@@ -207,6 +265,9 @@ function PromotionPage() {
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-1.5">
                           <span className="text-sm font-semibold">{s.student_name}</span>
+                          <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            {s.class_name}
+                          </span>
                           {s.eligible ? (
                             <Pill tone="success">مؤهل</Pill>
                           ) : (
@@ -226,7 +287,9 @@ function PromotionPage() {
                           </span>
                         ))}
                       </span>
-                      {isAdmin && !s.eligible && <RepeatButton student={s.student} group={group} />}
+                      {isAdmin && !s.eligible && (
+                        <RepeatButton student={s.student} group={s.student_group} />
+                      )}
                     </button>
                   </li>
                 );
@@ -260,7 +323,7 @@ function PromotionPage() {
 
       {confirming && data && (
         <PromoteDialog
-          group={group}
+          options={options.data}
           data={data}
           students={picked}
           blockedCount={chosenBlocked}
@@ -322,28 +385,36 @@ function RepeatButton({ student, group }: { student: string; group: string }) {
 
 /** The last step: what will happen, and the override if it is needed. */
 function PromoteDialog({
-  group,
+  options,
   data,
   students,
   blockedCount,
   onClose,
 }: {
-  group: string;
+  options: PromotionOptions | undefined;
   data: NonNullable<ReturnType<typeof usePromotionPreview>["data"]>;
   students: string[];
   blockedCount: number;
   onClose: () => void;
 }) {
   const promote = usePromote();
-  const [year, setYear] = useState(data.academic_year);
+  const [year, setYear] = useState("");
+  const [term, setTerm] = useState("");
   const [reason, setReason] = useState("");
+
+  // The destination is a different year from the one being promoted out of,
+  // so nothing is preselected: choosing it is the decision being made.
+  const termsOfYear = (options?.terms ?? []).filter((t) => !year || t.academic_year === year);
 
   async function submit() {
     try {
       const res = await promote.mutateAsync({
-        student_group: group,
+        program: data.program,
         students,
+        academic_year: data.academic_year,
+        academic_term: data.academic_term ?? "",
         new_academic_year: year,
+        new_academic_term: term,
         ...(blockedCount > 0 ? { override: 1, override_reason: reason } : {}),
       });
       toast.success(res.message_ar || `تم ترفيع ${res.promoted_count} طالباً`);
@@ -375,12 +446,43 @@ function PromoteDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>العام الدراسي الجديد</Label>
-            <Input
+            <Select
               value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="num rounded-xl"
-              placeholder="2026-2027"
-            />
+              onValueChange={(v) => {
+                setYear(v);
+                setTerm("");
+              }}
+            >
+              <SelectTrigger className="h-10 rounded-xl">
+                <SelectValue placeholder="اختر العام" />
+              </SelectTrigger>
+              <SelectContent>
+                {(options?.years ?? []).map((y) => (
+                  <SelectItem key={y} value={y}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>الفصل الدراسي الجديد</Label>
+            <Select value={term} onValueChange={setTerm} disabled={!year}>
+              <SelectTrigger className="h-10 rounded-xl">
+                <SelectValue placeholder={year ? "اختر الفصل" : "اختر العام أولاً"} />
+              </SelectTrigger>
+              <SelectContent>
+                {termsOfYear.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              كل تسجيل يُحفظ بعامه وفصله — بدونهما لا يمكن تمييزه لاحقاً.
+            </p>
           </div>
 
           {blockedCount > 0 && (
@@ -412,7 +514,7 @@ function PromoteDialog({
           </button>
           <button
             onClick={submit}
-            disabled={promote.isPending || !year || (blockedCount > 0 && !reason.trim())}
+            disabled={promote.isPending || !year || !term || (blockedCount > 0 && !reason.trim())}
             className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-40"
           >
             {promote.isPending ? "جارٍ الترفيع…" : "تأكيد الترفيع"}

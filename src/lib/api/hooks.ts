@@ -222,9 +222,8 @@ export interface PromotionBlocker {
 }
 
 export interface PromotionPreview {
-  student_group: string;
-  class_name: string;
   program: string;
+  classes: Array<{ name: string; class_name: string }>;
   next_program: string | null;
   next_program_missing: boolean;
   academic_year: string;
@@ -234,6 +233,8 @@ export interface PromotionPreview {
   students: Array<{
     student: string;
     student_name: string;
+    student_group: string;
+    class_name: string;
     eligible: boolean;
     blockers: PromotionBlocker[];
   }>;
@@ -271,11 +272,32 @@ export function useSavePromotionRules() {
   });
 }
 
-export function usePromotionPreview(studentGroup: string | undefined) {
+export interface PromotionOptions {
+  programs: Array<{ id: string; name: string; level: number; next_program: string | null }>;
+  years: string[];
+  terms: Array<{ id: string; name: string; academic_year: string }>;
+  default_year: string | null;
+  default_term: string | null;
+}
+
+export function usePromotionOptions() {
+  return useQuery<PromotionOptions>({
+    queryKey: ["promotion-options"],
+    queryFn: () => apiGet("promotion.options"),
+  });
+}
+
+export function usePromotionPreview(params: {
+  program?: string;
+  academic_year?: string;
+  academic_term?: string;
+}) {
   return useQuery<PromotionPreview>({
-    queryKey: ["promotion-preview", studentGroup ?? null],
-    queryFn: () => apiGet<PromotionPreview>("promotion.preview", { student_group: studentGroup! }),
-    enabled: Boolean(studentGroup),
+    queryKey: ["promotion-preview", params],
+    // A promotion is always read within one year and term; without both the
+    // preview would mix cohorts.
+    queryFn: () => apiGet<PromotionPreview>("promotion.preview", params as Record<string, string>),
+    enabled: Boolean(params.program && params.academic_year && params.academic_term),
   });
 }
 
@@ -283,10 +305,13 @@ export function usePromote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: {
-      student_group: string;
+      program: string;
       students: string[];
+      academic_year: string;
+      academic_term: string;
       new_academic_year: string;
-      new_academic_term?: string;
+      /** Required: a record without a term cannot be told from the other term's. */
+      new_academic_term: string;
       new_program?: string;
       new_batch?: string;
       override?: number;
