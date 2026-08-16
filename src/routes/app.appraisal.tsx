@@ -294,7 +294,7 @@ function TeacherAppraisalView() {
 
 function ObservationDialog({ onClose }: { onClose: () => void }) {
   const overview = useAppraisalOverview();
-  const teachers = useTeachers();
+  const teachers = useTeachers({ status: "Active" });  // An observation is scheduled for someone still teaching.
   const save = useSaveObservation();
 
   const [instructor, setInstructor] = useState("");

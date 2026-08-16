@@ -68,6 +68,9 @@ function StudentsPage() {
   const [section, setSection] = useState("all");
   const [status, setStatus] = useState("all");
   const [gender, setGender] = useState("all");
+  // Enrolment, not fees. Defaults to the students the office works with
+  // daily; a leaver keeps every record and has to remain findable.
+  const [enrolment, setEnrolment] = useState("active");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -79,6 +82,7 @@ function StudentsPage() {
     ...(grade !== "all" ? { program: grade } : {}),
     ...(section !== "all" ? { batch: section } : {}),
     ...(status !== "all" ? { payment_status: status } : {}),
+    enrolment_status: enrolment,
   };
 
   const query = useStudents({ ...apiFilters, page, page_size: pageSize });
@@ -108,7 +112,23 @@ function StudentsPage() {
         >
           <Avatar name={s.name} src={s.image} />
           <div className="min-w-0">
-            <p className="truncate font-semibold hover:text-primary">{s.name}</p>
+            <p className="flex items-center gap-1.5 truncate font-semibold hover:text-primary">
+              <span className="truncate">{s.name}</span>
+              {/* A leaver stays in the directory, so the row has to say so —
+                  otherwise their fees and marks read as a current student's. */}
+              {s.enrolmentStatus === "left" && (
+                <span
+                  className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground"
+                  title={
+                    s.leftOn
+                      ? `غادر في ${s.leftOn}${s.leftReason ? ` — ${s.leftReason}` : ""}`
+                      : "غير مقيّد حالياً"
+                  }
+                >
+                  منسحب
+                </span>
+              )}
+            </p>
             <p className="num text-xs text-muted-foreground">{s.id}</p>
           </div>
         </Link>
@@ -263,6 +283,17 @@ function StudentsPage() {
                 <SelectItem value="أنثى">أنثى</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={enrolment} onValueChange={resetPage(setEnrolment)}>
+              <SelectTrigger className="h-10 w-[150px] rounded-xl">
+                <SelectValue placeholder="حالة القيد" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">الطلاب المقيّدون</SelectItem>
+                <SelectItem value="left">المنسحبون</SelectItem>
+                <SelectItem value="all">الجميع</SelectItem>
+              </SelectContent>
+            </Select>
+
             <Select value={status} onValueChange={resetPage(setStatus)}>
               <SelectTrigger className="h-10 w-[140px] rounded-xl">
                 <SelectValue placeholder="حالة الرسوم" />

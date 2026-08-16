@@ -51,7 +51,12 @@ export interface StudentRow {
   average: number;
   feeTotal: number;
   feePaid: number;
+  /** Fee standing — not enrolment. See `enrolmentStatus`. */
   status: PaymentStatus;
+  active: boolean;
+  enrolmentStatus: "active" | "left";
+  leftOn: string;
+  leftReason: string;
 }
 
 export interface Paginated<T> {

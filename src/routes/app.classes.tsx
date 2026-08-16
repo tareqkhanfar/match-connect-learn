@@ -290,7 +290,7 @@ function ClassesPage() {
 function ClassDialog({ klass, onClose }: { klass: ClassRow | null; onClose: () => void }) {
   const save = useSaveClass();
   const filtersQuery = useStudentFilters();
-  const teachersQuery = useTeachers();
+  const teachersQuery = useTeachers({ status: "Active" });  // Assigning a class to a teacher who has left is never intended.
 
   const [form, setForm] = useState({
     student_group_name: klass?.student_group_name ?? "",

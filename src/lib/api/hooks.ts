@@ -219,6 +219,8 @@ export interface StudentListParams {
   program?: string | undefined;
   batch?: string | undefined;
   payment_status?: string | undefined;
+  /** "active" (default), "left", or "all". */
+  enrolment_status?: string | undefined;
   page?: number | undefined;
   page_size?: number | undefined;
   [key: string]: unknown;
