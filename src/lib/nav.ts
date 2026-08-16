@@ -112,6 +112,13 @@ export const navItems: NavItem[] = [
     group: "الإدارة الأكاديمية",
   },
   {
+    label: "ترفيع الطلاب",
+    to: "/app/promotion",
+    icon: GraduationCap,
+    roles: ["admin", "secretary"],
+    group: "الإدارة الأكاديمية",
+  },
+  {
     label: "المواد الدراسية",
     labelByRole: { teacher: "موادي" },
     to: "/app/subjects",

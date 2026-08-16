@@ -35,6 +35,7 @@ import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
+import { Route as AppPromotionRouteImport } from './routes/app.promotion'
 import { Route as AppQuarterResultsRouteImport } from './routes/app.quarter-results'
 import { Route as AppQuizzesRouteImport } from './routes/app.quizzes'
 import { Route as AppRecordRouteImport } from './routes/app.record'
@@ -188,6 +189,11 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPromotionRoute = AppPromotionRouteImport.update({
+  id: '/promotion',
+  path: '/promotion',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppQuarterResultsRoute = AppQuarterResultsRouteImport.update({
   id: '/quarter-results',
   path: '/quarter-results',
@@ -325,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/promotion': typeof AppPromotionRoute
   '/app/quarter-results': typeof AppQuarterResultsRoute
   '/app/quizzes': typeof AppQuizzesRoute
   '/app/record': typeof AppRecordRoute
@@ -374,6 +381,7 @@ export interface FileRoutesByTo {
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/promotion': typeof AppPromotionRoute
   '/app/quarter-results': typeof AppQuarterResultsRoute
   '/app/quizzes': typeof AppQuizzesRoute
   '/app/record': typeof AppRecordRoute
@@ -425,6 +433,7 @@ export interface FileRoutesById {
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
   '/app/profile': typeof AppProfileRoute
+  '/app/promotion': typeof AppPromotionRoute
   '/app/quarter-results': typeof AppQuarterResultsRoute
   '/app/quizzes': typeof AppQuizzesRoute
   '/app/record': typeof AppRecordRoute
@@ -477,6 +486,7 @@ export interface FileRouteTypes {
     | '/app/health'
     | '/app/library'
     | '/app/profile'
+    | '/app/promotion'
     | '/app/quarter-results'
     | '/app/quizzes'
     | '/app/record'
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/app/health'
     | '/app/library'
     | '/app/profile'
+    | '/app/promotion'
     | '/app/quarter-results'
     | '/app/quizzes'
     | '/app/record'
@@ -576,6 +587,7 @@ export interface FileRouteTypes {
     | '/app/health'
     | '/app/library'
     | '/app/profile'
+    | '/app/promotion'
     | '/app/quarter-results'
     | '/app/quizzes'
     | '/app/record'
@@ -791,6 +803,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/promotion': {
+      id: '/app/promotion'
+      path: '/promotion'
+      fullPath: '/app/promotion'
+      preLoaderRoute: typeof AppPromotionRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/quarter-results': {
       id: '/app/quarter-results'
       path: '/quarter-results'
@@ -971,6 +990,7 @@ interface AppRouteChildren {
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppProfileRoute: typeof AppProfileRoute
+  AppPromotionRoute: typeof AppPromotionRoute
   AppQuarterResultsRoute: typeof AppQuarterResultsRoute
   AppQuizzesRoute: typeof AppQuizzesRoute
   AppRecordRoute: typeof AppRecordRoute
@@ -1019,6 +1039,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppProfileRoute: AppProfileRoute,
+  AppPromotionRoute: AppPromotionRoute,
   AppQuarterResultsRoute: AppQuarterResultsRoute,
   AppQuizzesRoute: AppQuizzesRoute,
   AppRecordRoute: AppRecordRoute,

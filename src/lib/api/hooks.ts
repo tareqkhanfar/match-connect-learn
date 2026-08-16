@@ -212,6 +212,109 @@ export function useChildOverview(student: Opt<string>) {
   });
 }
 
+// --- Promotion -------------------------------------------------------------
+
+export interface PromotionBlocker {
+  check: string;
+  label: string;
+  detail?: string;
+  value?: number;
+}
+
+export interface PromotionPreview {
+  student_group: string;
+  class_name: string;
+  program: string;
+  next_program: string | null;
+  next_program_missing: boolean;
+  academic_year: string;
+  academic_term: string | null;
+  marks_ready: boolean;
+  pending_courses: string[];
+  students: Array<{
+    student: string;
+    student_name: string;
+    eligible: boolean;
+    blockers: PromotionBlocker[];
+  }>;
+  total: number;
+  eligible_count: number;
+  blocked_count: number;
+}
+
+export interface PromotionRule {
+  key: string;
+  label: string;
+  help: string;
+  enabled: number;
+  max_outstanding?: number;
+  min_average?: number;
+  min_attendance?: number;
+  max_failed?: number;
+}
+
+export function usePromotionRules() {
+  return useQuery<{ rules: PromotionRule[] }>({
+    queryKey: ["promotion-rules"],
+    queryFn: () => apiGet("promotion.get_rules"),
+  });
+}
+
+export function useSavePromotionRules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rules: Record<string, Partial<PromotionRule>>) =>
+      apiPost<{ saved: boolean; message_ar?: string }>("promotion.save_rules", {
+        payload: { rules },
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["promotion-rules"] }),
+  });
+}
+
+export function usePromotionPreview(studentGroup: string | undefined) {
+  return useQuery<PromotionPreview>({
+    queryKey: ["promotion-preview", studentGroup ?? null],
+    queryFn: () => apiGet<PromotionPreview>("promotion.preview", { student_group: studentGroup! }),
+    enabled: Boolean(studentGroup),
+  });
+}
+
+export function usePromote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      students: string[];
+      new_academic_year: string;
+      new_academic_term?: string;
+      new_program?: string;
+      new_batch?: string;
+      override?: number;
+      override_reason?: string;
+    }) =>
+      apiPost<{
+        promoted: Array<{ student_name: string; enrollment: string }>;
+        skipped: Array<{ student_name: string; reason: string }>;
+        promoted_count: number;
+        skipped_count: number;
+        message_ar?: string;
+      }>("promotion.promote", { payload: vars } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
+export function useMarkRepeated() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student: string; student_group: string; notes?: string }) =>
+      apiPost<{ enrollment: string; message_ar?: string }>(
+        "promotion.mark_repeated",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
 // --- Lesson plans ----------------------------------------------------------
 
 export interface LessonPlanView {
