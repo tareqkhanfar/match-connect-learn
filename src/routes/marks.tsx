@@ -46,7 +46,7 @@ function MarksWorkspace() {
   const [showCalc, setShowCalc] = useState(false);
 
   const classes = useClasses();
-  const subjects = useSubjects();
+  const subjects = useSubjects(group ? { student_group: group } : {});
 
   const staff = role === "admin" || role === "secretary" || role === "teacher";
   // Reviewing is not marking. An administrator opening a submitted sheet is
@@ -122,7 +122,13 @@ function MarksWorkspace() {
           <span className="w-52">
             <SearchableSelect
               value={group}
-              onChange={setGroup}
+              onChange={(v) => {
+                setGroup(v);
+                // The subject list is per class, so a subject chosen for the
+                // previous one may not exist here — and the sheet would sit
+                // on a pairing the teacher does not teach.
+                setCourse("");
+              }}
               options={(classes.data ?? []).map((c) => ({
                 value: c.name,
                 label: `${c.student_group_name} (${c.students})`,

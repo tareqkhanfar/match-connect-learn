@@ -76,11 +76,13 @@ function GradebookPage() {
   const canEnter = role === "admin" || role === "secretary" || role === "teacher";
 
   const classesQuery = useClasses();
-  const subjectsQuery = useSubjects();
 
   // The term-workflow page links straight to a class/subject.
   const { group: groupFromUrl, course: courseFromUrl } = Route.useSearch();
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  // Subjects follow the chosen class: a teacher is offered what they teach in
+  // it, not every subject of the grade.
+  const subjectsQuery = useSubjects(group ? { student_group: group } : {});
   const [course, setCourse] = useState(courseFromUrl ?? "");
   const [importing, setImporting] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -124,7 +126,14 @@ function GradebookPage() {
       <div className="card-surface mb-5 grid gap-3 p-4 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-xs">الشعبة</Label>
-          <Select value={group} onValueChange={setGroup}>
+          <Select
+            value={group}
+            onValueChange={(v) => {
+              setGroup(v);
+              // A subject picked for another class is not offered here.
+              setCourse("");
+            }}
+          >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="اختر الشعبة" />
             </SelectTrigger>

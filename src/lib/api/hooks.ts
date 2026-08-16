@@ -362,7 +362,14 @@ export function useClassStudents(group: string | undefined) {
 }
 
 export function useSubjects(
-  params: { search?: string; department?: string; program?: string } = {},
+  params: {
+    search?: string;
+    department?: string;
+    program?: string;
+    /** Narrows to the subjects taught in this class — and, for a teacher, to
+     *  the ones they teach in it. */
+    student_group?: string;
+  } = {},
 ) {
   return useQuery<SubjectRow[]>({
     queryKey: ["subjects", params],
