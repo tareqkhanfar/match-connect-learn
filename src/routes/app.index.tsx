@@ -4,6 +4,7 @@ import { AdminDashboard } from "@/components/dashboards/admin-dashboard";
 import { TeacherDashboard } from "@/components/dashboards/teacher-dashboard";
 import { StudentDashboard } from "@/components/dashboards/student-dashboard";
 import { ParentDashboard } from "@/components/dashboards/parent-dashboard";
+import { SurveyBanner } from "@/components/shared/survey-banner";
 
 export const Route = createFileRoute("/app/")({
   head: () => ({
@@ -25,8 +26,20 @@ export const Route = createFileRoute("/app/")({
 
 function DashboardPage() {
   const { role } = useApp();
-  if (role === "teacher") return <TeacherDashboard />;
-  if (role === "student") return <StudentDashboard />;
-  if (role === "parent") return <ParentDashboard />;
-  return <AdminDashboard />;
+  // Mounted once above whichever dashboard is shown, so the notice cannot
+  // drift between the four of them.
+  return (
+    <>
+      <SurveyBanner />
+      {role === "teacher" ? (
+        <TeacherDashboard />
+      ) : role === "student" ? (
+        <StudentDashboard />
+      ) : role === "parent" ? (
+        <ParentDashboard />
+      ) : (
+        <AdminDashboard />
+      )}
+    </>
+  );
 }

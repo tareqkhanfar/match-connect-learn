@@ -3272,6 +3272,20 @@ export function useStudentAlertFile(student: Opt<string>) {
 }
 
 /** Which pages the viewer is blocked from, and why. */
+/** Compulsory surveys the caller still owes an answer to. */
+export function usePendingSurveys() {
+  return useQuery<{
+    surveys: Array<{ id: string; title: string; intro?: string; closes_on: string }>;
+    count: number;
+  }>({
+    queryKey: ["surveys", "pending-required"],
+    queryFn: () => apiGet("surveys.pending_required"),
+    // Answering one has to release the portal on the next screen, not on the
+    // next full reload.
+    staleTime: 30_000,
+  });
+}
+
 export function useMyBlocks() {
   return useQuery<{
     blocked: string[];

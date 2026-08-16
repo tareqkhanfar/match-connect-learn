@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { Ban, ShieldAlert } from "lucide-react";
+import { Ban, ClipboardList, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMyBlocks } from "@/lib/api/hooks";
+import { useMyBlocks, usePendingSurveys } from "@/lib/api/hooks";
 
 /**
  * Stops a blocked student from opening a page a rule has closed.
@@ -14,6 +14,7 @@ export function AccessGuard({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { data } = useMyBlocks();
+  const pending = usePendingSurveys();
 
   // Two kinds of block: named pages, and the whole portal. The second cannot
   // be a list of paths — it has to close routes added after the rule was
@@ -24,6 +25,51 @@ export function AccessGuard({ children }: { children: ReactNode }) {
   const blocked = everything
     ? !allowed.includes(pathname)
     : (data?.blocked ?? []).includes(pathname);
+
+  // A compulsory survey holds everything shut until it is answered. The
+  // survey page itself stays open — otherwise there is no way to answer it and
+  // no way out — as does the alerts page, which may explain the block.
+  const owed = pending.data?.surveys ?? [];
+  const surveyPageOpen = pathname.startsWith("/app/surveys") || pathname === "/app/alerts";
+  if (owed.length > 0 && !surveyPageOpen && !blocked) {
+    const first = owed[0]!;
+    return (
+      <div className="mx-auto max-w-2xl py-10">
+        <div className="card-surface overflow-hidden border-2 border-primary">
+          <div className="bg-primary-soft p-8 text-center">
+            <span className="mx-auto grid size-20 place-items-center rounded-3xl bg-brand-gradient text-white">
+              <ClipboardList className="size-10" />
+            </span>
+            <h1 className="mt-4 text-xl font-black text-primary">📋 استبيان إجباري بانتظارك</h1>
+            <p className="mt-2 text-sm leading-relaxed">
+              لا يمكن متابعة استخدام النظام قبل تعبئة
+              {owed.length > 1 ? ` ${owed.length} استبيانات إجبارية` : " الاستبيان التالي"}.
+            </p>
+          </div>
+
+          <div className="space-y-2 p-6">
+            {owed.map((s2) => (
+              <div key={s2.id} className="rounded-xl border border-border bg-muted/30 p-4">
+                <p className="text-sm font-black">{s2.title}</p>
+                {s2.closes_on && (
+                  <p className="num mt-1 text-xs text-muted-foreground">يغلق في {s2.closes_on}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-border bg-muted/30 p-4">
+            <button
+              onClick={() => void navigate({ to: "/app/surveys" })}
+              className="h-11 w-full rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground"
+            >
+              تعبئة «{first.title}» الآن
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!blocked) return <>{children}</>;
 

@@ -30,6 +30,7 @@ import { Switch } from "@/components/ui/switch";
 import { useApp } from "@/lib/app-context";
 import { isBackOffice } from "@/lib/roles";
 import {
+  useClasses,
   useDeleteSurvey,
   useSaveSurvey,
   useSubmitSurvey,
@@ -104,7 +105,12 @@ function AdminSurveysView() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <KpiCard label="إجمالي الاستبيانات" value={items.length} icon={ClipboardList} tone="primary" />
+        <KpiCard
+          label="إجمالي الاستبيانات"
+          value={items.length}
+          icon={ClipboardList}
+          tone="primary"
+        />
         <KpiCard label="مفتوحة الآن" value={open.length} icon={CheckCircle2} tone="accent" />
         <KpiCard label="إجمالي الإجابات" value={responses} icon={Users} tone="info" />
       </div>
@@ -126,7 +132,11 @@ function AdminSurveysView() {
               <div key={s.id} className="card-surface flex flex-col p-5">
                 <div className="flex items-start justify-between gap-3">
                   <p className="min-w-0 truncate text-sm font-bold">{s.title}</p>
-                  <Pill tone={s.status === "Open" ? "success" : s.status === "Closed" ? "muted" : "info"}>
+                  <Pill
+                    tone={
+                      s.status === "Open" ? "success" : s.status === "Closed" ? "muted" : "info"
+                    }
+                  >
                     {s.status_label}
                   </Pill>
                 </div>
@@ -268,9 +278,7 @@ function AnswerDialog({ survey, onClose }: { survey: string; onClose: () => void
 
   async function send() {
     if (!data) return;
-    const missing = data.questions.filter(
-      (q) => q.required && !(answers[q.idx] || "").trim(),
-    );
+    const missing = data.questions.filter((q) => q.required && !(answers[q.idx] || "").trim());
     if (missing.length) {
       toast.error(`يرجى الإجابة عن ${missing.length} سؤال إلزامي`);
       return;
@@ -390,7 +398,9 @@ function AnswerDialog({ survey, onClose }: { survey: string; onClose: () => void
                             <label
                               key={o}
                               className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
-                                on ? "border-primary bg-primary-soft" : "border-border hover:bg-secondary/40"
+                                on
+                                  ? "border-primary bg-primary-soft"
+                                  : "border-border hover:bg-secondary/40"
                               }`}
                             >
                               <input
@@ -430,7 +440,10 @@ function AnswerDialog({ survey, onClose }: { survey: string; onClose: () => void
           >
             {submit.isPending ? "جارٍ الإرسال…" : "إرسال إجابتي"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>
@@ -468,6 +481,11 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
     closes_on: "",
   });
   const [anonymous, setAnonymous] = useState(true);
+  // Compulsory surveys hold the portal shut, so they cannot be anonymous:
+  // with no respondent recorded nothing could ever mark them answered.
+  const [isRequired, setIsRequired] = useState(false);
+  const [classes, setClasses] = useState<string[]>([]);
+  const classesQuery = useClasses();
   const [intro, setIntro] = useState("");
   const [questions, setQuestions] = useState<DraftQuestion[]>([{ ...BLANK }]);
 
@@ -489,6 +507,9 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
       await save.mutateAsync({
         ...meta,
         anonymous: anonymous ? 1 : 0,
+        ms_is_required: isRequired ? 1 : 0,
+        // Empty means every class, which is what the picker's own hint says.
+        ms_student_groups: meta.audience === "Classes" ? classes.join(",") : "",
         intro,
         questions: valid.map((q) => ({ ...q, required: q.required ? 1 : 0 })),
       });
@@ -520,6 +541,7 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
             <SearchableSelect
               options={[
                 { value: "Students", label: "الطلاب" },
+                { value: "Classes", label: "صفوف محدّدة" },
                 { value: "Teachers", label: "المعلمون" },
                 { value: "Parents", label: "أولياء الأمور" },
                 { value: "All", label: "الجميع" },
@@ -528,6 +550,40 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
               onChange={(v) => setMeta((m) => ({ ...m, audience: v }))}
             />
           </div>
+          {meta.audience === "Classes" && (
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>الصفوف المستهدفة</Label>
+              <div className="flex flex-wrap gap-1.5 rounded-xl border border-border p-2.5">
+                {(classesQuery.data ?? []).map((c) => {
+                  const on = classes.includes(c.name);
+                  return (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() =>
+                        setClasses((prev) =>
+                          on ? prev.filter((x) => x !== c.name) : [...prev, c.name],
+                        )
+                      }
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        on
+                          ? "border-primary bg-primary-soft text-primary"
+                          : "border-border hover:bg-secondary"
+                      }`}
+                    >
+                      {c.student_group_name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {classes.length === 0
+                  ? "لم تختر صفاً — سيصل الاستبيان إلى جميع الصفوف."
+                  : `${classes.length} صفاً محدّداً.`}
+              </p>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label>يغلق في</Label>
             <Input
@@ -549,7 +605,31 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
                 لا يُحفظ اسم المجيب إطلاقاً — يشجّع على الصراحة، لكن يمنع منع التكرار.
               </p>
             </div>
-            <Switch checked={anonymous} onCheckedChange={setAnonymous} />
+            <Switch
+              checked={anonymous}
+              onCheckedChange={(v) => {
+                setAnonymous(v);
+                if (v) setIsRequired(false);
+              }}
+              disabled={isRequired}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-border p-3 sm:col-span-2">
+            <div>
+              <p className="text-sm font-medium">استبيان إجباري</p>
+              <p className="text-[11px] text-muted-foreground">
+                لن يُفتح النظام للمستهدفين قبل تعبئته. لا يمكن أن يكون مجهول الهوية، وإلا تعذّر
+                معرفة من أجاب فيبقى النظام مغلقاً للأبد.
+              </p>
+            </div>
+            <Switch
+              checked={isRequired}
+              onCheckedChange={(v) => {
+                setIsRequired(v);
+                if (v) setAnonymous(false);
+              }}
+            />
           </div>
         </div>
 
@@ -633,7 +713,10 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
           >
             {save.isPending ? "جارٍ الحفظ…" : "نشر الاستبيان"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>
@@ -729,7 +812,10 @@ function ResultsDialog({ survey, onClose }: { survey: string; onClose: () => voi
         )}
 
         <DialogFooter className="sm:justify-start">
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إغلاق
           </button>
         </DialogFooter>
