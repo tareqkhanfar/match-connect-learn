@@ -11,6 +11,7 @@ import { AlertPopup } from "@/components/shared/alert-popup";
 import { ForcePasswordChange } from "@/components/shared/force-password-change";
 import { useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
+import { MobileTabBar } from "./mobile-tabbar";
 import { useApp } from "@/lib/app-context";
 import { roleLabels } from "@/lib/roles";
 
