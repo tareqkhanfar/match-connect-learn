@@ -254,6 +254,36 @@
   unicode-bidi: isolate;
 }
 
+/* Notch / home-indicator insets, for iPhone and Android edge-to-edge. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Mobile feel: no grey tap flash, no rubber-band on the page, comfortable
+   16px inputs so iOS Safari does not zoom on focus. */
+@media (max-width: 1023px) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Wide tables scroll smoothly instead of clipping on a phone. */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    Global interaction polish.
 
