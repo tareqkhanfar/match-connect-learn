@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { DoorOpen, LayoutGrid, Plus, School, Trash2, Users } from "lucide-react";
+import { DoorOpen, Images, LayoutGrid, Plus, School, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
+import { ClassGallery } from "@/components/shared/class-gallery";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
 import { useConfirm } from "@/components/shared/confirm";
@@ -62,6 +63,7 @@ function ClassesPage() {
   const deleteClass = useDeleteClass();
   const [editing, setEditing] = useState<ClassRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [galleryFor, setGalleryFor] = useState<ClassRow | null>(null);
   const classes = data ?? [];
   const canManage = role === "admin" || role === "secretary";
 
@@ -100,6 +102,21 @@ function ClassesPage() {
       numeric: true,
       render: (c) => c.subjects?.length ?? 0,
     },
+    {
+      fieldname: "gallery",
+      label: "المعرض",
+      alwaysVisible: true,
+      render: (c: ClassRow) => (
+        <button
+          onClick={() => setGalleryFor(c)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+          title="صور الرحلات والأنشطة"
+        >
+          <Images className="size-3.5" />
+          الصور
+        </button>
+      ),
+    } as Column<ClassRow>,
     ...(canManage
       ? [
           {
@@ -283,6 +300,24 @@ function ClassesPage() {
           emptyTitle="لا توجد شُعب"
         />
       </div>
+
+      {galleryFor && (
+        <Dialog open onOpenChange={(o) => !o && setGalleryFor(null)}>
+          <DialogContent className="max-w-5xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Images className="size-5 text-primary" />
+                معرض {galleryFor.student_group_name}
+              </DialogTitle>
+            </DialogHeader>
+            {/* Albums of what the class actually did — trips, activities,
+                events — so the year reaches home as more than marks. */}
+            <div className="max-h-[70vh] overflow-y-auto p-1">
+              <ClassGallery studentGroup={galleryFor.name} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {(creating || editing) && (
         <ClassDialog

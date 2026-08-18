@@ -212,6 +212,87 @@ export function useChildOverview(student: Opt<string>) {
   });
 }
 
+// --- Gallery ---------------------------------------------------------------
+
+export interface GalleryAlbumRow {
+  id: string;
+  title: string;
+  student_group: string;
+  class_name: string;
+  event_date: string;
+  description: string | null;
+  cover_image: string | null;
+  photo_count: number;
+  is_published: boolean;
+  academic_year: string | null;
+  academic_term: string | null;
+}
+
+export interface GalleryPhoto {
+  file_url: string;
+  caption: string | null;
+  file_name: string | null;
+  sort_order: number;
+}
+
+export interface GalleryAlbum extends GalleryAlbumRow {
+  can_manage: boolean;
+  photos: GalleryPhoto[];
+}
+
+export function useGalleryAlbums(studentGroup: string | undefined) {
+  return useQuery<{ albums: GalleryAlbumRow[]; can_manage: boolean }>({
+    queryKey: ["gallery-albums", studentGroup ?? null],
+    queryFn: () =>
+      apiGet("gallery.list_albums", studentGroup ? { student_group: studentGroup } : {}),
+  });
+}
+
+export function useGalleryAlbum(album: string | undefined) {
+  return useQuery<GalleryAlbum>({
+    queryKey: ["gallery-album", album ?? null],
+    queryFn: () => apiGet<GalleryAlbum>("gallery.get_album", { album: album! }),
+    enabled: Boolean(album),
+  });
+}
+
+export function useSaveAlbum() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      album?: string;
+      student_group?: string;
+      title?: string;
+      event_date?: string;
+      description?: string;
+      is_published?: number;
+      cover_image?: string;
+      photos?: Array<{
+        file_url: string;
+        caption?: string;
+        file_name?: string;
+        sort_order?: number;
+      }>;
+    }) =>
+      apiPost<{ id: string; photo_count: number; message_ar?: string }>("gallery.save_album", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["gallery-albums"] }),
+  });
+}
+
+export function useDeleteAlbum() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { album: string }) =>
+      apiPost<{ deleted: string; message_ar?: string }>(
+        "gallery.delete_album",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["gallery-albums"] }),
+  });
+}
+
 // --- Promotion -------------------------------------------------------------
 
 export interface PromotionBlocker {
