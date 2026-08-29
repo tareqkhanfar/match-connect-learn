@@ -26,6 +26,7 @@ import { Route as AppCertificatesRouteImport } from './routes/app.certificates'
 import { Route as AppChatRouteImport } from './routes/app.chat'
 import { Route as AppClassesRouteImport } from './routes/app.classes'
 import { Route as AppCommunicationRouteImport } from './routes/app.communication'
+import { Route as AppCommunityRouteImport } from './routes/app.community'
 import { Route as AppDayScheduleRouteImport } from './routes/app.day-schedule'
 import { Route as AppEnrollmentRouteImport } from './routes/app.enrollment'
 import { Route as AppExamsRouteImport } from './routes/app.exams'
@@ -34,6 +35,7 @@ import { Route as AppFinalsRouteImport } from './routes/app.finals'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
+import { Route as AppPrintRequestsRouteImport } from './routes/app.print-requests'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppPromotionRouteImport } from './routes/app.promotion'
 import { Route as AppQuarterResultsRouteImport } from './routes/app.quarter-results'
@@ -144,6 +146,11 @@ const AppCommunicationRoute = AppCommunicationRouteImport.update({
   path: '/communication',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCommunityRoute = AppCommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDayScheduleRoute = AppDayScheduleRouteImport.update({
   id: '/day-schedule',
   path: '/day-schedule',
@@ -182,6 +189,11 @@ const AppHealthRoute = AppHealthRouteImport.update({
 const AppLibraryRoute = AppLibraryRouteImport.update({
   id: '/library',
   path: '/library',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrintRequestsRoute = AppPrintRequestsRouteImport.update({
+  id: '/print-requests',
+  path: '/print-requests',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
@@ -322,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
+  '/app/community': typeof AppCommunityRoute
   '/app/day-schedule': typeof AppDayScheduleRoute
   '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
@@ -330,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
   '/app/quarter-results': typeof AppQuarterResultsRoute
@@ -372,6 +386,7 @@ export interface FileRoutesByTo {
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
+  '/app/community': typeof AppCommunityRoute
   '/app/day-schedule': typeof AppDayScheduleRoute
   '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
@@ -380,6 +395,7 @@ export interface FileRoutesByTo {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
   '/app/quarter-results': typeof AppQuarterResultsRoute
@@ -424,6 +440,7 @@ export interface FileRoutesById {
   '/app/chat': typeof AppChatRoute
   '/app/classes': typeof AppClassesRoute
   '/app/communication': typeof AppCommunicationRoute
+  '/app/community': typeof AppCommunityRoute
   '/app/day-schedule': typeof AppDayScheduleRoute
   '/app/enrollment': typeof AppEnrollmentRoute
   '/app/exams': typeof AppExamsRoute
@@ -432,6 +449,7 @@ export interface FileRoutesById {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
   '/app/quarter-results': typeof AppQuarterResultsRoute
@@ -477,6 +495,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/classes'
     | '/app/communication'
+    | '/app/community'
     | '/app/day-schedule'
     | '/app/enrollment'
     | '/app/exams'
@@ -485,6 +504,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
     | '/app/quarter-results'
@@ -527,6 +547,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/classes'
     | '/app/communication'
+    | '/app/community'
     | '/app/day-schedule'
     | '/app/enrollment'
     | '/app/exams'
@@ -535,6 +556,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
     | '/app/quarter-results'
@@ -578,6 +600,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/classes'
     | '/app/communication'
+    | '/app/community'
     | '/app/day-schedule'
     | '/app/enrollment'
     | '/app/exams'
@@ -586,6 +609,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
     | '/app/quarter-results'
@@ -740,6 +764,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCommunicationRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/community': {
+      id: '/app/community'
+      path: '/community'
+      fullPath: '/app/community'
+      preLoaderRoute: typeof AppCommunityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/day-schedule': {
       id: '/app/day-schedule'
       path: '/day-schedule'
@@ -794,6 +825,13 @@ declare module '@tanstack/react-router' {
       path: '/library'
       fullPath: '/app/library'
       preLoaderRoute: typeof AppLibraryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/print-requests': {
+      id: '/app/print-requests'
+      path: '/print-requests'
+      fullPath: '/app/print-requests'
+      preLoaderRoute: typeof AppPrintRequestsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/profile': {
@@ -981,6 +1019,7 @@ interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppClassesRoute: typeof AppClassesRoute
   AppCommunicationRoute: typeof AppCommunicationRoute
+  AppCommunityRoute: typeof AppCommunityRoute
   AppDayScheduleRoute: typeof AppDayScheduleRoute
   AppEnrollmentRoute: typeof AppEnrollmentRoute
   AppExamsRoute: typeof AppExamsRoute
@@ -989,6 +1028,7 @@ interface AppRouteChildren {
   AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
+  AppPrintRequestsRoute: typeof AppPrintRequestsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppPromotionRoute: typeof AppPromotionRoute
   AppQuarterResultsRoute: typeof AppQuarterResultsRoute
@@ -1030,6 +1070,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppClassesRoute: AppClassesRoute,
   AppCommunicationRoute: AppCommunicationRoute,
+  AppCommunityRoute: AppCommunityRoute,
   AppDayScheduleRoute: AppDayScheduleRoute,
   AppEnrollmentRoute: AppEnrollmentRoute,
   AppExamsRoute: AppExamsRoute,
@@ -1038,6 +1079,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
+  AppPrintRequestsRoute: AppPrintRequestsRoute,
   AppProfileRoute: AppProfileRoute,
   AppPromotionRoute: AppPromotionRoute,
   AppQuarterResultsRoute: AppQuarterResultsRoute,

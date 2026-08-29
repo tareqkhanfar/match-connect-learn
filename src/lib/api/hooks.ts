@@ -212,6 +212,244 @@ export function useChildOverview(student: Opt<string>) {
   });
 }
 
+// --- Print requests --------------------------------------------------------
+
+export interface PrintAttachment {
+  file_url: string;
+  file_name: string | null;
+  file_size: number;
+  pages: number;
+}
+
+export interface PrintRequestRow {
+  id: string;
+  title: string;
+  document_type: string;
+  type_label: string;
+  status: string;
+  status_label: string;
+  status_tone: string;
+  priority: string;
+  urgent: boolean;
+  needed_by: string;
+  student_group: string | null;
+  course: string | null;
+  copies: number;
+  notes: string | null;
+  secretary_notes: string | null;
+  requested_by: string;
+  requested_by_name: string | null;
+  requested_on: string;
+  handled_by_name: string | null;
+  completed_on: string;
+  can_edit: boolean;
+  can_handle: boolean;
+  attachments: PrintAttachment[];
+}
+
+export function usePrintRequests(status?: string) {
+  return useQuery<{
+    requests: PrintRequestRow[];
+    counts: Record<string, number>;
+    statuses: Array<{ value: string; label: string; tone: string }>;
+    types: Array<{ value: string; label: string }>;
+  }>({
+    queryKey: ["print-requests", status ?? "all"],
+    queryFn: () => apiGet("print_requests.list_requests", status ? { status } : {}),
+  });
+}
+
+export function useSavePrintRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      request?: string;
+      title?: string;
+      document_type?: string;
+      priority?: string;
+      needed_by?: string;
+      student_group?: string;
+      course?: string;
+      copies?: number;
+      notes?: string;
+      attachments?: Array<{ file_url: string; file_name?: string; file_size?: number }>;
+    }) =>
+      apiPost<{ id: string; status: string; message_ar?: string }>("print_requests.save_request", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["print-requests"] }),
+  });
+}
+
+export function useSetPrintStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { request: string; status: string; notes?: string }) =>
+      apiPost<{ id: string; status: string; label: string; message_ar?: string }>(
+        "print_requests.set_status",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["print-requests"] }),
+  });
+}
+
+export function useDeletePrintRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { request: string }) =>
+      apiPost<{ deleted: string; message_ar?: string }>(
+        "print_requests.delete_request",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["print-requests"] }),
+  });
+}
+
+// --- Community -------------------------------------------------------------
+
+export interface CommunityPost {
+  id: string;
+  title: string;
+  body: string | null;
+  post_type: string;
+  type_label: string;
+  audience: string;
+  audience_label: string;
+  student_group: string | null;
+  class_name: string | null;
+  student: string | null;
+  student_name: string | null;
+  author_name: string | null;
+  posted_on: string;
+  is_published: boolean;
+  allow_comments: boolean;
+  pinned: boolean;
+  like_count: number;
+  comment_count: number;
+  liked_by_me: boolean;
+  can_edit: boolean;
+  photos: Array<{ file_url: string; caption: string | null }>;
+}
+
+export interface PostComment {
+  id: string;
+  body: string;
+  author: string;
+  author_name: string | null;
+  posted_on: string;
+  parent_comment: string | null;
+  is_hidden: boolean;
+  can_delete: boolean;
+  can_hide: boolean;
+}
+
+export function useCommunityFeed(studentGroup?: string) {
+  return useQuery<{ posts: CommunityPost[]; can_post: boolean }>({
+    queryKey: ["community-feed", studentGroup ?? null],
+    queryFn: () => apiGet("community.feed", studentGroup ? { student_group: studentGroup } : {}),
+  });
+}
+
+export function useCommunityPost(post: string | undefined) {
+  return useQuery<CommunityPost & { comments: PostComment[] }>({
+    queryKey: ["community-post", post ?? null],
+    queryFn: () => apiGet("community.get_post", { post: post! }),
+    enabled: Boolean(post),
+  });
+}
+
+export function useSavePost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      post?: string;
+      title?: string;
+      body?: string;
+      post_type?: string;
+      audience?: string;
+      student_group?: string;
+      student?: string;
+      is_published?: number;
+      allow_comments?: number;
+      pinned?: number;
+      photos?: Array<{ file_url: string; caption?: string }>;
+    }) =>
+      apiPost<{ id: string; message_ar?: string }>("community.save_post", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["community-feed"] }),
+  });
+}
+
+export function useDeletePost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { post: string }) =>
+      apiPost<{ deleted: string; message_ar?: string }>(
+        "community.delete_post",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["community-feed"] }),
+  });
+}
+
+export function useToggleLike() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { post: string }) =>
+      apiPost<{ liked: boolean; like_count: number }>(
+        "community.toggle_like",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["community-feed"] });
+      void qc.invalidateQueries({ queryKey: ["community-post"] });
+    },
+  });
+}
+
+export function useAddComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { post: string; body: string; parent_comment?: string }) =>
+      apiPost<{ id: string; comment_count: number; message_ar?: string }>(
+        "community.add_comment",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["community-feed"] });
+      void qc.invalidateQueries({ queryKey: ["community-post"] });
+    },
+  });
+}
+
+export function useDeleteComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { comment: string }) =>
+      apiPost<{ deleted: string; comment_count: number; message_ar?: string }>(
+        "community.delete_comment",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["community-feed"] });
+      void qc.invalidateQueries({ queryKey: ["community-post"] });
+    },
+  });
+}
+
+export function useHideComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { comment: string; hidden: number; reason?: string }) =>
+      apiPost<{ id: string; hidden: boolean; message_ar?: string }>(
+        "community.hide_comment",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["community-post"] }),
+  });
+}
+
 // --- Gallery ---------------------------------------------------------------
 
 export interface GalleryAlbumRow {
