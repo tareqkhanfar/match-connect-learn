@@ -93,139 +93,136 @@ function MailPage() {
 
   return (
     <>
-      <PageHeader
-        title="البريد"
-        subtitle="رسائل المدرسة — الوارد والصادر والأرشيف"
-        actions={
-          <div className="flex gap-2">
-            {(folders.data?.unread ?? 0) > 0 && (
-              <button
-                onClick={async () => {
-                  try {
-                    const r = await markAll.mutateAsync();
-                    toast.success(r.message_ar || "تم");
-                  } catch (err) {
-                    toast.error(errorMessage(err, "تعذّر التحديث"));
-                  }
-                }}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold hover:bg-secondary"
-              >
-                <CheckCheck className="size-4" />
-                تعليم الكل كمقروء
-              </button>
-            )}
-            <button
-              onClick={() => setComposing({})}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground transition-all hover:-translate-y-0.5"
-            >
-              <PenSquare className="size-4" />
-              رسالة جديدة
-            </button>
-          </div>
-        }
-      />
+      <div className="flex h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card">
+        {/* Toolbar — one row, like every mail client, rather than a page
+            header with buttons floating beside it. */}
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+          <button
+            onClick={() => setComposing({})}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5"
+          >
+            <PenSquare className="size-4" />
+            إنشاء
+          </button>
 
-      <div className="grid gap-3 lg:grid-cols-[190px_minmax(0,360px)_minmax(0,1fr)]">
-        <nav className="card-surface h-fit p-2">
-          <ul className="space-y-0.5">
-            {(folders.data?.folders ?? []).map((f) => {
-              const Icon = FOLDER_ICON[f.key] ?? Inbox;
-              const active = folder === f.key;
-              const unread = f.key === "inbox" ? (folders.data?.unread ?? 0) : 0;
-              return (
-                <li key={f.key}>
-                  <button
-                    onClick={() => {
-                      setFolder(f.key);
-                      setOpenId(null);
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-right text-sm transition-colors ${
-                      active ? "bg-primary-soft font-bold text-primary" : "hover:bg-secondary"
-                    }`}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    <span className="flex-1 truncate">{f.label}</span>
-                    {unread > 0 ? (
-                      <span className="num rounded-md bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                        {unread}
-                      </span>
-                    ) : f.count > 0 ? (
-                      <span className="num text-[10px] text-muted-foreground">{f.count}</span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        <div className="min-w-0">
-          <div className="relative mb-2.5">
-            <Search className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="ابحث في العنوان أو النص أو المرسِل…"
-              className="h-10 rounded-xl pr-9"
+              placeholder="بحث في المراسلات…"
+              className="h-9 rounded-xl border-transparent bg-secondary pr-8 text-xs focus-visible:border-border"
             />
           </div>
 
-          {list.isLoading ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
-          ) : messages.length === 0 ? (
-            <EmptyBlock
-              title={`لا رسائل في ${list.data?.folder_label ?? "هذا المجلد"}`}
-              description="ستظهر الرسائل هنا فور وصولها."
-              icon={<Mail className="size-6" />}
-            />
-          ) : (
-            <ul className="space-y-1.5">
-              {messages.map((m) => (
-                <MailRow
-                  key={m.id}
-                  message={m}
-                  folder={folder}
-                  onOpen={() =>
-                    folder === "drafts" ? setComposing({ draft: m }) : setOpenId(m.id)
-                  }
-                />
-              ))}
-            </ul>
+          {(folders.data?.unread ?? 0) > 0 && (
+            <button
+              onClick={async () => {
+                try {
+                  const r = await markAll.mutateAsync();
+                  toast.success(r.message_ar || "تم");
+                } catch (err) {
+                  toast.error(errorMessage(err, "تعذّر التحديث"));
+                }
+              }}
+              className="hidden h-9 shrink-0 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold hover:bg-secondary sm:inline-flex"
+              title="تعليم كل الرسائل كمقروءة"
+            >
+              <CheckCheck className="size-3.5" />
+              تعليم الكل
+            </button>
           )}
         </div>
 
-        <div className="hidden min-w-0 lg:block">
-          {openId ? (
-            <ReadingPane
-              message={openId}
-              onReply={(m) => setComposing({ reply: m })}
-              onClose={() => setOpenId(null)}
-            />
-          ) : (
-            <div className="card-surface grid h-full min-h-80 place-items-center p-6 text-center">
-              <div className="text-muted-foreground">
-                <Mail className="mx-auto size-10 opacity-40" />
-                <p className="mt-2 text-sm">اختر رسالة لقراءتها</p>
+        <div className="flex min-h-0 flex-1">
+          {/* Folders */}
+          <nav className="hidden w-48 shrink-0 overflow-y-auto border-l border-border p-2 sm:block">
+            <ul className="space-y-0.5">
+              {(folders.data?.folders ?? []).map((f) => {
+                const Icon = FOLDER_ICON[f.key] ?? Inbox;
+                const active = folder === f.key;
+                const unread = f.key === "inbox" ? (folders.data?.unread ?? 0) : 0;
+                return (
+                  <li key={f.key}>
+                    <button
+                      onClick={() => {
+                        setFolder(f.key);
+                        setOpenId(null);
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-right text-[13px] transition-colors ${
+                        active ? "bg-primary-soft font-bold text-primary" : "hover:bg-secondary"
+                      }`}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span className="flex-1 truncate">{f.label}</span>
+                      {unread > 0 ? (
+                        <span className="num rounded bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                          {unread}
+                        </span>
+                      ) : f.count > 0 ? (
+                        <span className="num text-[10px] text-muted-foreground">{f.count}</span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          {/* Message list — dense rows separated by lines, not floating cards. */}
+          <div
+            className={`min-w-0 shrink-0 overflow-y-auto border-l border-border ${
+              openId ? "hidden w-[360px] lg:block" : "w-full lg:w-[360px]"
+            }`}
+          >
+            {list.isLoading ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
+            ) : messages.length === 0 ? (
+              <div className="grid h-full place-items-center p-6 text-center">
+                <div className="text-muted-foreground">
+                  <Mail className="mx-auto size-9 opacity-40" />
+                  <p className="mt-2 text-sm">
+                    لا رسائل في {list.data?.folder_label ?? "هذا المجلد"}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <ul className="divide-y divide-border">
+                {messages.map((m) => (
+                  <MailRow
+                    key={m.id}
+                    message={m}
+                    folder={folder}
+                    selected={openId === m.id}
+                    onOpen={() =>
+                      folder === "drafts" ? setComposing({ draft: m }) : setOpenId(m.id)
+                    }
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Reading pane */}
+          <div className={`min-w-0 flex-1 ${openId ? "" : "hidden lg:block"}`}>
+            {openId ? (
+              <ReadingPane
+                message={openId}
+                onReply={(m) => setComposing({ reply: m })}
+                onClose={() => setOpenId(null)}
+              />
+            ) : (
+              <div className="grid h-full place-items-center p-6 text-center">
+                <div className="text-muted-foreground">
+                  <Mail className="mx-auto size-10 opacity-30" />
+                  <p className="mt-2 text-sm">اختر رسالة لقراءتها</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* On a phone the reading pane takes the screen, which is the only
-          layout that works there. */}
-      {openId && (
-        <div className="lg:hidden">
-          <MessageView
-            message={openId}
-            onClose={() => setOpenId(null)}
-            onReply={(m) => {
-              setOpenId(null);
-              setComposing({ reply: m });
-            }}
-          />
-        </div>
-      )}
       {composing && (
         <Composer
           reply={composing.reply}
@@ -237,22 +234,32 @@ function MailPage() {
   );
 }
 
-/** One row in the list. Unread is bold, as every mail client has taught. */
+/**
+ * One row in the message list.
+ *
+ * Dense and separated by a rule, the way a mail client packs a screenful:
+ * sender, subject, snippet, date, with the actions appearing on hover rather
+ * than taking permanent space. Unread is bold with a dot, which is the
+ * convention every reader already knows.
+ */
 function MailRow({
   message: m,
   folder,
+  selected,
   onOpen,
 }: {
   message: MailMessage;
   folder: string;
+  selected: boolean;
   onOpen: () => void;
 }) {
   const flags = useMailFlags();
-  // An audience send reads as its audience. Listing two hundred guardians in
-  // a row is unreadable and tells the sender nothing they did not know.
-  const people = m.audience_label
+  const who = m.audience_label
     ? `${m.audience_label} (${m.audience_count})`
-    : m.recipients.map((r) => r.name).join("، ");
+    : m.outgoing
+      ? m.recipients.map((r) => r.name).join("، ") || "—"
+      : m.sender_name;
+  const unread = !m.is_read && !m.outgoing;
 
   async function flag(patch: Record<string, number>) {
     try {
@@ -264,182 +271,98 @@ function MailRow({
 
   return (
     <li
-      className={`card-surface flex items-start gap-2 p-2.5 transition-colors hover:bg-secondary/40 ${
-        !m.is_read && !m.outgoing ? "border-r-4 border-r-primary" : ""
+      className={`group relative cursor-pointer transition-colors ${
+        selected
+          ? "bg-primary-soft"
+          : unread
+            ? "bg-card hover:bg-secondary/50"
+            : "hover:bg-secondary/50"
       }`}
     >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          void flag({ is_starred: m.is_starred ? 0 : 1 });
-        }}
-        className="mt-0.5 shrink-0"
-        aria-label="تمييز"
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(e) => e.key === "Enter" && onOpen()}
+        className="flex items-start gap-2 px-3 py-2.5"
       >
-        <Star
-          className={`size-4 ${m.is_starred ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
-        />
-      </button>
+        {/* The unread dot sits where a reader's eye already scans for it. */}
+        <span className="mt-1.5 flex w-2 shrink-0 justify-center">
+          {unread && <span className="size-2 rounded-full bg-primary" />}
+        </span>
 
-      <button onClick={onOpen} className="min-w-0 flex-1 text-right">
-        <span className="flex items-center gap-1.5">
-          <span
-            className={`truncate text-sm ${!m.is_read && !m.outgoing ? "font-black" : "font-semibold"}`}
-          >
-            {m.outgoing ? `إلى: ${people || "—"}` : m.sender_name}
-          </span>
-          {m.my_kind === "cc" && <Pill tone="muted">نسخة</Pill>}
-          {m.my_kind === "bcc" && <Pill tone="muted">مخفية</Pill>}
-          {m.is_draft && <Pill tone="warning">مسودة</Pill>}
-          {m.attachments.length > 0 && (
-            <Paperclip className="size-3 shrink-0 text-muted-foreground" />
-          )}
-        </span>
-        <span className={`block truncate text-xs ${!m.is_read && !m.outgoing ? "font-bold" : ""}`}>
-          {m.subject}
-        </span>
-        <span className="block truncate text-[11px] text-muted-foreground">{m.preview}</span>
-      </button>
-
-      <span className="flex shrink-0 flex-col items-end gap-1">
-        <span className="num text-[10px] text-muted-foreground">
-          {(m.sent_on || "").slice(0, 16)}
-        </span>
-        <span className="flex gap-0.5">
-          {folder !== "trash" && (
-            <button
-              onClick={() => void flag({ is_archived: m.is_archived ? 0 : 1 })}
-              className="rounded-lg p-1 text-muted-foreground hover:bg-secondary"
-              title={m.is_archived ? "إرجاع للوارد" : "أرشفة"}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-1.5">
+            <span
+              className={`min-w-0 flex-1 truncate text-[13px] ${unread ? "font-black" : "font-semibold"}`}
             >
-              {m.is_archived ? (
-                <ArchiveRestore className="size-3.5" />
-              ) : (
-                <Archive className="size-3.5" />
-              )}
-            </button>
-          )}
-          <button
-            onClick={() => void flag({ is_deleted: folder === "trash" ? 0 : 1 })}
-            className="rounded-lg p-1 text-destructive hover:bg-destructive-soft"
-            title={folder === "trash" ? "استعادة" : "نقل للمحذوفات"}
-          >
-            <Trash2 className="size-3.5" />
-          </button>
+              {m.outgoing ? `إلى: ${who}` : who}
+            </span>
+            <span className="num shrink-0 text-[10px] text-muted-foreground">
+              {(m.sent_on || "").slice(5, 16)}
+            </span>
+          </span>
+
+          <span className="flex items-center gap-1.5">
+            <span className={`min-w-0 flex-1 truncate text-xs ${unread ? "font-bold" : ""}`}>
+              {m.subject}
+            </span>
+            {m.my_kind === "cc" && <Pill tone="muted">نسخة</Pill>}
+            {m.is_draft && <Pill tone="warning">مسودة</Pill>}
+            {m.attachments.length > 0 && (
+              <Paperclip className="size-3 shrink-0 text-muted-foreground" />
+            )}
+          </span>
+
+          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+            {m.preview}
+          </span>
         </span>
+      </div>
+
+      {/* Row actions, revealed on hover — permanent buttons on every row make
+          a list of forty look like a control panel. */}
+      <span className="absolute left-2 top-2 hidden gap-0.5 rounded-lg border border-border bg-card p-0.5 shadow-sm group-hover:flex">
+        <button
+          onClick={() => void flag({ is_starred: m.is_starred ? 0 : 1 })}
+          className="rounded p-1 hover:bg-secondary"
+          title={m.is_starred ? "إزالة التمييز" : "تمييز"}
+        >
+          <Star
+            className={`size-3.5 ${m.is_starred ? "fill-amber-400 text-amber-400" : "text-muted-foreground"}`}
+          />
+        </button>
+        {!m.outgoing && (
+          <button
+            onClick={() => void flag({ is_read: m.is_read ? 0 : 1 })}
+            className="rounded p-1 text-muted-foreground hover:bg-secondary"
+            title={m.is_read ? "تعليم كغير مقروءة" : "تعليم كمقروءة"}
+          >
+            {m.is_read ? <Mail className="size-3.5" /> : <MailOpen className="size-3.5" />}
+          </button>
+        )}
+        {folder !== "trash" && (
+          <button
+            onClick={() => void flag({ is_archived: m.is_archived ? 0 : 1 })}
+            className="rounded p-1 text-muted-foreground hover:bg-secondary"
+            title={m.is_archived ? "إرجاع للوارد" : "أرشفة"}
+          >
+            {m.is_archived ? (
+              <ArchiveRestore className="size-3.5" />
+            ) : (
+              <Archive className="size-3.5" />
+            )}
+          </button>
+        )}
+        <button
+          onClick={() => void flag({ is_deleted: folder === "trash" ? 0 : 1 })}
+          className="rounded p-1 text-destructive hover:bg-destructive-soft"
+          title={folder === "trash" ? "استعادة" : "حذف"}
+        >
+          <Trash2 className="size-3.5" />
+        </button>
       </span>
     </li>
-  );
-}
-
-/** Reading one message, with the rest of its thread underneath. */
-function MessageView({
-  message,
-  onClose,
-  onReply,
-}: {
-  message: string;
-  onClose: () => void;
-  onReply: (m: MailMessage) => void;
-}) {
-  const query = useMailMessage(message);
-  const m = query.data;
-
-  return (
-    <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="pl-6">{m?.subject ?? "الرسالة"}</DialogTitle>
-        </DialogHeader>
-
-        {query.isLoading ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
-        ) : !m ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">تعذّر عرض الرسالة.</p>
-        ) : (
-          <div className="max-h-[62vh] space-y-3 overflow-y-auto p-1">
-            <MessageBody m={m} />
-            {(m.thread_messages ?? []).length > 0 && (
-              <div className="space-y-2 border-t border-border pt-3">
-                <p className="text-xs font-bold text-muted-foreground">بقية المحادثة</p>
-                {(m.thread_messages ?? []).map((t) => (
-                  <div key={t.id} className="rounded-xl border border-border p-2.5">
-                    <MessageBody m={t} compact />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <DialogFooter>
-          <button
-            onClick={onClose}
-            className="h-10 rounded-xl border border-border px-5 text-sm font-semibold"
-          >
-            إغلاق
-          </button>
-          {m && (
-            <button
-              onClick={() => onReply(m)}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground"
-            >
-              <CornerUpLeft className="size-4" />
-              رد
-            </button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function MessageBody({ m, compact }: { m: MailMessage; compact?: boolean }) {
-  const to = m.recipients.filter((r) => r.kind === "to");
-  const cc = m.recipients.filter((r) => r.kind === "cc");
-  const bcc = m.recipients.filter((r) => r.kind === "bcc");
-
-  return (
-    <div>
-      <p className="flex flex-wrap items-center gap-1.5 text-xs">
-        <span className="font-bold">{m.sender_name}</span>
-        <span className="num text-muted-foreground">{(m.sent_on || "").slice(0, 16)}</span>
-      </p>
-      <p className="mt-0.5 space-x-2 text-[11px] text-muted-foreground">
-        {m.audience_label ? (
-          <span>
-            إلى: {m.audience_label} <span className="num">({m.audience_count} مستلماً)</span>
-          </span>
-        ) : (
-          to.length > 0 && <span>إلى: {to.map((r) => r.name).join("، ")}</span>
-        )}
-        {cc.length > 0 && <span>· نسخة: {cc.map((r) => r.name).join("، ")}</span>}
-        {/* Only ever populated for the sender and the blind recipient; the
-            server strips it for everyone else. */}
-        {bcc.length > 0 && <span>· مخفية: {bcc.map((r) => r.name).join("، ")}</span>}
-      </p>
-      <div
-        className={`prose prose-sm mt-2 max-w-none leading-relaxed ${compact ? "text-xs" : "text-sm"}`}
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.body ?? "") }}
-      />
-      {m.attachments.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-1.5">
-          {m.attachments.map((a) => (
-            <li key={a.file_url}>
-              <a
-                href={fileUrl(a.file_url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-[11px] font-semibold hover:bg-primary-soft hover:text-primary"
-              >
-                <Paperclip className="size-3" />
-                {a.file_name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 
@@ -458,21 +381,21 @@ function ReadingPane({
 
   if (query.isLoading) {
     return (
-      <div className="card-surface grid h-full min-h-80 place-items-center">
+      <div className="grid h-full place-items-center">
         <p className="text-sm text-muted-foreground">جارٍ التحميل…</p>
       </div>
     );
   }
   if (!m) {
     return (
-      <div className="card-surface grid h-full min-h-80 place-items-center">
+      <div className="grid h-full place-items-center">
         <p className="text-sm text-muted-foreground">تعذّر عرض الرسالة.</p>
       </div>
     );
   }
 
   return (
-    <div className="card-surface flex h-full flex-col">
+    <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-2 border-b border-border p-3.5">
         <h2 className="text-base font-black">{m.subject}</h2>
         <div className="flex shrink-0 gap-1.5">
@@ -506,6 +429,75 @@ function ReadingPane({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The header and body of one message, shared by the pane and the thread. */
+function MessageBody({ m, compact }: { m: MailMessage; compact?: boolean }) {
+  const to = m.recipients.filter((r) => r.kind === "to");
+  const cc = m.recipients.filter((r) => r.kind === "cc");
+  const bcc = m.recipients.filter((r) => r.kind === "bcc");
+
+  return (
+    <div>
+      <div className="flex items-start gap-2.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-brand-gradient text-xs font-black text-primary-foreground">
+          {(m.sender_name || "؟").trim().charAt(0)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-baseline gap-1.5">
+            <span className="text-[13px] font-bold">{m.sender_name}</span>
+            <span className="num text-[11px] text-muted-foreground">
+              {(m.sent_on || "").slice(0, 16)}
+            </span>
+          </p>
+          <p className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
+            {m.audience_label ? (
+              <span>
+                إلى: {m.audience_label} <span className="num">({m.audience_count} مستلماً)</span>
+              </span>
+            ) : (
+              to.length > 0 && <span>إلى: {to.map((r) => r.name).join("، ")}</span>
+            )}
+            {cc.length > 0 && <span>نسخة: {cc.map((r) => r.name).join("، ")}</span>}
+            {/* Only ever populated for the sender and the blind recipient
+                themselves; the server strips it for everyone else. */}
+            {bcc.length > 0 && <span>مخفية: {bcc.map((r) => r.name).join("، ")}</span>}
+          </p>
+        </div>
+      </div>
+
+      <div
+        className={`prose prose-sm mt-3 max-w-none leading-relaxed ${compact ? "text-xs" : "text-sm"}`}
+        dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.body ?? "") }}
+      />
+
+      {m.attachments.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2.5">
+          <p className="mb-1.5 text-[11px] font-bold text-muted-foreground">
+            {m.attachments.length} مرفقاً
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {m.attachments.map((a) => (
+              <li key={a.file_url}>
+                <a
+                  href={fileUrl(a.file_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold hover:bg-secondary"
+                >
+                  <Paperclip className="size-3.5 text-muted-foreground" />
+                  <span className="max-w-40 truncate">{a.file_name}</span>
+                  <span className="num text-[10px] text-muted-foreground">
+                    {Math.round((a.file_size || 0) / 1024)} ك.ب
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
