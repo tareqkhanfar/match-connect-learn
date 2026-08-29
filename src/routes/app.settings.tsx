@@ -3,6 +3,8 @@ import { MessagesSquare, Save, School, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
+import { MailPolicySettings } from "@/components/shared/mail-policy-settings";
+import { useApp } from "@/lib/app-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,6 +43,7 @@ const COUNT_LABELS: Record<string, string> = {
 };
 
 function SettingsPage() {
+  const { role } = useApp();
   const { data, isLoading, error, refetch } = useSettings();
   const saveSettings = useSaveSettings();
   const setOpenMessaging = useSetOpenMessaging();
@@ -204,6 +207,15 @@ function SettingsPage() {
               تُستخدم هذه القيم كافتراضي في التقارير ولوحات التحكم.
             </p>
           </div>
+        </SectionCard>
+      </div>
+
+      <div className="mt-5">
+        <SectionCard
+          title="صلاحيات المراسلة"
+          description="من يستطيع كل دور مراسلته — الشبكة تُطبَّق على البريد فوراً"
+        >
+          <MailPolicySettings canEdit={role === "admin"} />
         </SectionCard>
       </div>
 

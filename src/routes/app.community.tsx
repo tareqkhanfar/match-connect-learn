@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Award,
+  Image as ImageIcon,
   Eye,
   EyeOff,
   Heart,
@@ -104,6 +105,26 @@ function CommunityPage() {
         }
       />
 
+      {canPost && (
+        <div className="mx-auto mb-4 max-w-2xl">
+          <button
+            onClick={() => setComposing("new")}
+            className="card-surface flex w-full items-center gap-3 p-3.5 text-right transition-colors hover:bg-secondary/40"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-gradient text-primary-foreground">
+              <Award className="size-5" />
+            </span>
+            <span className="flex-1 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground">
+              شارك إنجازاً أو نشاطاً…
+            </span>
+            <span className="hidden shrink-0 items-center gap-1 rounded-xl bg-primary-soft px-3 py-2 text-xs font-bold text-primary sm:flex">
+              <ImageIcon className="size-3.5" />
+              صور
+            </span>
+          </button>
+        </div>
+      )}
+
       {query.isLoading ? (
         <TableSkeleton />
       ) : posts.length === 0 ? (
@@ -182,8 +203,8 @@ function PostCard({
   return (
     <li className="card-surface overflow-hidden">
       <div className="flex items-start gap-2.5 p-3.5 pb-2">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-primary-foreground">
-          <Award className="size-5" />
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-gradient text-sm font-black text-primary-foreground">
+          {(p.author_name ?? "؟").trim().charAt(0)}
         </span>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-1.5">
@@ -215,17 +236,42 @@ function PostCard({
 
       {p.photos.length > 0 && (
         <ul className={`grid gap-0.5 ${p.photos.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-          {p.photos.slice(0, 4).map((ph) => (
-            <li key={ph.file_url}>
+          {p.photos.slice(0, 4).map((ph, i) => (
+            <li key={ph.file_url} className="relative">
               <img
                 src={fileUrl(ph.file_url)}
                 alt={ph.caption ?? ""}
                 loading="lazy"
-                className="aspect-video w-full object-cover"
+                className={`w-full object-cover ${
+                  p.photos.length === 1 ? "max-h-96" : "aspect-square"
+                }`}
               />
+              {/* The fourth tile carries the rest rather than hiding them with
+                  no sign there were more. */}
+              {i === 3 && p.photos.length > 4 && (
+                <span className="num absolute inset-0 grid place-items-center bg-black/55 text-lg font-black text-white">
+                  +{p.photos.length - 4}
+                </span>
+              )}
             </li>
           ))}
         </ul>
+      )}
+
+      {(p.like_count > 0 || p.comment_count > 0) && (
+        <div className="num flex items-center gap-3 px-3.5 py-1.5 text-[11px] text-muted-foreground">
+          {p.like_count > 0 && (
+            <span className="flex items-center gap-1">
+              <Heart className="size-3 fill-destructive text-destructive" />
+              {p.like_count}
+            </span>
+          )}
+          {p.comment_count > 0 && (
+            <button onClick={onOpen} className="hover:underline">
+              {p.comment_count} تعليقاً
+            </button>
+          )}
+        </div>
       )}
 
       <div className="flex flex-wrap items-center gap-1.5 border-t border-border p-2">

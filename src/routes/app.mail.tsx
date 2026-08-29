@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RichText, sanitizeHtml } from "@/components/shared/rich-text";
+import { AudiencePicker, type AudienceChoice } from "@/components/shared/audience-picker";
 import { RecipientPicker } from "@/components/shared/recipient-picker";
 import { useConfirm } from "@/components/shared/confirm";
 import { apiUpload, fileUrl } from "@/lib/api/client";
@@ -124,7 +125,7 @@ function MailPage() {
         }
       />
 
-      <div className="grid gap-3 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <div className="grid gap-3 lg:grid-cols-[190px_minmax(0,360px)_minmax(0,1fr)]">
         <nav className="card-surface h-fit p-2">
           <ul className="space-y-0.5">
             {(folders.data?.folders ?? []).map((f) => {
@@ -192,17 +193,38 @@ function MailPage() {
             </ul>
           )}
         </div>
+
+        <div className="hidden min-w-0 lg:block">
+          {openId ? (
+            <ReadingPane
+              message={openId}
+              onReply={(m) => setComposing({ reply: m })}
+              onClose={() => setOpenId(null)}
+            />
+          ) : (
+            <div className="card-surface grid h-full min-h-80 place-items-center p-6 text-center">
+              <div className="text-muted-foreground">
+                <Mail className="mx-auto size-10 opacity-40" />
+                <p className="mt-2 text-sm">اختر رسالة لقراءتها</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* On a phone the reading pane takes the screen, which is the only
+          layout that works there. */}
       {openId && (
-        <MessageView
-          message={openId}
-          onClose={() => setOpenId(null)}
-          onReply={(m) => {
-            setOpenId(null);
-            setComposing({ reply: m });
-          }}
-        />
+        <div className="lg:hidden">
+          <MessageView
+            message={openId}
+            onClose={() => setOpenId(null)}
+            onReply={(m) => {
+              setOpenId(null);
+              setComposing({ reply: m });
+            }}
+          />
+        </div>
       )}
       {composing && (
         <Composer
@@ -226,7 +248,11 @@ function MailRow({
   onOpen: () => void;
 }) {
   const flags = useMailFlags();
-  const people = m.recipients.map((r) => r.name).join("، ");
+  // An audience send reads as its audience. Listing two hundred guardians in
+  // a row is unreadable and tells the sender nothing they did not know.
+  const people = m.audience_label
+    ? `${m.audience_label} (${m.audience_count})`
+    : m.recipients.map((r) => r.name).join("، ");
 
   async function flag(patch: Record<string, number>) {
     try {
@@ -380,7 +406,13 @@ function MessageBody({ m, compact }: { m: MailMessage; compact?: boolean }) {
         <span className="num text-muted-foreground">{(m.sent_on || "").slice(0, 16)}</span>
       </p>
       <p className="mt-0.5 space-x-2 text-[11px] text-muted-foreground">
-        {to.length > 0 && <span>إلى: {to.map((r) => r.name).join("، ")}</span>}
+        {m.audience_label ? (
+          <span>
+            إلى: {m.audience_label} <span className="num">({m.audience_count} مستلماً)</span>
+          </span>
+        ) : (
+          to.length > 0 && <span>إلى: {to.map((r) => r.name).join("، ")}</span>
+        )}
         {cc.length > 0 && <span>· نسخة: {cc.map((r) => r.name).join("، ")}</span>}
         {/* Only ever populated for the sender and the blind recipient; the
             server strips it for everyone else. */}
@@ -411,6 +443,73 @@ function MessageBody({ m, compact }: { m: MailMessage; compact?: boolean }) {
   );
 }
 
+/** The message beside the list, as a mail client shows it. */
+function ReadingPane({
+  message,
+  onReply,
+  onClose,
+}: {
+  message: string;
+  onReply: (m: MailMessage) => void;
+  onClose: () => void;
+}) {
+  const query = useMailMessage(message);
+  const m = query.data;
+
+  if (query.isLoading) {
+    return (
+      <div className="card-surface grid h-full min-h-80 place-items-center">
+        <p className="text-sm text-muted-foreground">جارٍ التحميل…</p>
+      </div>
+    );
+  }
+  if (!m) {
+    return (
+      <div className="card-surface grid h-full min-h-80 place-items-center">
+        <p className="text-sm text-muted-foreground">تعذّر عرض الرسالة.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card-surface flex h-full flex-col">
+      <div className="flex items-start justify-between gap-2 border-b border-border p-3.5">
+        <h2 className="text-base font-black">{m.subject}</h2>
+        <div className="flex shrink-0 gap-1.5">
+          <button
+            onClick={() => onReply(m)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground"
+          >
+            <CornerUpLeft className="size-3.5" />
+            رد
+          </button>
+          <button
+            onClick={onClose}
+            className="grid size-9 place-items-center rounded-xl border border-border hover:bg-secondary"
+            aria-label="إغلاق"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
+        <MessageBody m={m} />
+        {(m.thread_messages ?? []).length > 0 && (
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-xs font-bold text-muted-foreground">بقية المحادثة</p>
+            {(m.thread_messages ?? []).map((t) => (
+              <div key={t.id} className="rounded-xl border border-border p-2.5">
+                <MessageBody m={t} compact />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Writing a message. */
 function Composer({
   reply,
@@ -426,11 +525,17 @@ function Composer({
   const confirm = useConfirm();
   const input = useRef<HTMLInputElement>(null);
 
-  const [to, setTo] = useState<string[]>(
-    reply
+  // A reply goes back to one person, so it starts in the named-people mode
+  // with the sender filled in; a fresh message starts on the audience.
+  const [choice, setChoice] = useState<AudienceChoice>({
+    groups: [],
+    users: reply
       ? [reply.sender]
       : (draft?.recipients ?? []).filter((r) => r.kind === "to").map((r) => r.user),
-  );
+    ...(draft?.audience_key
+      ? { audience: draft.audience_key, audienceLabel: draft.audience_label ?? undefined }
+      : {}),
+  });
   const [cc, setCc] = useState<string[]>(
     (draft?.recipients ?? []).filter((r) => r.kind === "cc").map((r) => r.user),
   );
@@ -476,8 +581,8 @@ function Composer({
   }
 
   async function submit(asDraft: boolean) {
-    if (!asDraft && to.length === 0) {
-      toast.error("أضف مستلماً واحداً على الأقل");
+    if (!asDraft && !choice.audience && choice.users.length === 0) {
+      toast.error("اختر جمهوراً أو أضف مستلماً واحداً على الأقل");
       return;
     }
     if (!asDraft && !subject.trim()) {
@@ -489,9 +594,10 @@ function Composer({
         ...(draft ? { message: draft.id } : {}),
         subject,
         body,
-        to,
+        to: choice.users,
         cc,
         bcc,
+        ...(choice.audience ? { audience: choice.audience, audience_groups: choice.groups } : {}),
         is_draft: asDraft ? 1 : 0,
         ...(reply ? { reply_to: reply.id } : {}),
         attachments: files.map((f) => ({
@@ -534,7 +640,7 @@ function Composer({
         </DialogHeader>
 
         <div className="max-h-[62vh] space-y-2.5 overflow-y-auto p-1">
-          <RecipientPicker label="إلى" value={to} onChange={setTo} />
+          <AudiencePicker value={choice} onChange={setChoice} />
           {showCc ? (
             <>
               <RecipientPicker label="نسخة" value={cc} onChange={setCc} />

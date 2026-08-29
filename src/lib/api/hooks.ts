@@ -239,6 +239,10 @@ export interface MailMessage {
   is_starred: boolean;
   is_archived: boolean;
   my_kind: string | null;
+  /** Set when the message went to an audience rather than named people. */
+  audience_key: string | null;
+  audience_label: string | null;
+  audience_count: number;
   thread_messages?: MailMessage[];
 }
 
@@ -290,6 +294,8 @@ export function useSendMail() {
       to?: string[];
       cc?: string[];
       bcc?: string[];
+      audience?: string;
+      audience_groups?: string[];
       reply_to?: string;
       is_draft?: number;
       attachments?: Array<{ file_url: string; file_name?: string; file_size?: number }>;
@@ -356,6 +362,47 @@ export interface RecipientResult {
   national_id: string | null;
   kind: string | null;
   image: string | null;
+}
+
+export interface MailAudience {
+  key: string;
+  label: string;
+  scope: "mine" | "all";
+  kind: string;
+}
+
+export function useMyAudiences() {
+  return useQuery<{
+    audiences: MailAudience[];
+    groups: Array<{ id: string; label: string }>;
+  }>({
+    queryKey: ["mail-audiences"],
+    queryFn: () => apiGet("mail_policy.my_audiences"),
+  });
+}
+
+export function useMailPolicy() {
+  return useQuery<{
+    roles: Array<{ key: string; label: string; allowed: string[] }>;
+    audiences: Array<{ key: string; label: string; scope: string; kind: string }>;
+  }>({
+    queryKey: ["mail-policy"],
+    queryFn: () => apiGet("mail_policy.get_settings"),
+  });
+}
+
+export function useSaveMailPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (policy: Record<string, string[]>) =>
+      apiPost<{ saved: boolean; message_ar?: string }>("mail_policy.save_settings", {
+        payload: { policy },
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mail-policy"] });
+      void qc.invalidateQueries({ queryKey: ["mail-audiences"] });
+    },
+  });
 }
 
 export function useRecipientSearch(q: string) {
