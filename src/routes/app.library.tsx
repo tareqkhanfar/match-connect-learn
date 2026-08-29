@@ -62,7 +62,10 @@ function LibraryPage() {
 
   return (
     <>
-      <PageHeader title={byRole(role, "المكتبة", { student: "مكتبتي", parent: "استعارات الأبناء" })} subtitle="فهرس الكتب وإعارات الطلاب" />
+      <PageHeader
+        title={byRole(role, "المكتبة", { student: "مكتبتي", parent: "استعارات الأبناء" })}
+        subtitle="فهرس الكتب وإعارات الطلاب"
+      />
       <Tabs defaultValue="books" dir="rtl">
         <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
           <TabsTrigger value="books" className="rounded-lg">

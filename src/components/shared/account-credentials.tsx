@@ -73,8 +73,7 @@ export function AccountCredentials({
   async function resetPassword() {
     const ok = await confirm({
       title: "إعادة تعيين كلمة المرور؟",
-      description:
-        "ستتوقف كلمة المرور الحالية عن العمل فوراً، وستظهر الجديدة مرة واحدة فقط.",
+      description: "ستتوقف كلمة المرور الحالية عن العمل فوراً، وستظهر الجديدة مرة واحدة فقط.",
     });
     if (!ok) return;
     try {

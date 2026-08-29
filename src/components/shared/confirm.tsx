@@ -104,7 +104,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           </DialogHeader>
 
           {options?.description && (
-            <p className="text-[15px] leading-relaxed text-muted-foreground">{options.description}</p>
+            <p className="text-[15px] leading-relaxed text-muted-foreground">
+              {options.description}
+            </p>
           )}
           {options?.body}
 
@@ -136,8 +138,5 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
  */
 export function useConfirm() {
   const ctx = useContext(ConfirmContext);
-  return (
-    ctx ??
-    (async (options: ConfirmOptions) => window.confirm(options.title))
-  );
+  return ctx ?? (async (options: ConfirmOptions) => window.confirm(options.title));
 }

@@ -51,7 +51,6 @@ export const Route = createFileRoute("/app/teachers/")({
 });
 
 function TeachersPage() {
-
   const confirm = useConfirm();
   const [q, setQ] = useState("");
   const [filterValues, setFilterValues] = useState<FilterValues>({});
@@ -250,108 +249,112 @@ function TeachersPage() {
         />
       ) : (
         <>
-      <div className="relative mb-5 max-w-md">
-        <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="ابحث بالاسم أو القسم..."
-          className="h-11 rounded-xl bg-card pr-9"
-        />
-      </div>
+          <div className="relative mb-5 max-w-md">
+            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="ابحث بالاسم أو القسم..."
+              className="h-11 rounded-xl bg-card pr-9"
+            />
+          </div>
 
-      {error ? (
-        <ErrorState error={error} onRetry={() => refetch()} />
-      ) : isLoading ? (
-        <TableSkeleton rows={6} />
-      ) : list.length === 0 ? (
-        <EmptyBlock
-          title="لا يوجد معلمون"
-          description="لم نجد أي معلم يطابق البحث."
-          icon={<GraduationCap className="size-6" />}
-        />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {list.map((t) => (
-            <div
-              key={t.id}
-              className="card-surface p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card"
-            >
-              <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
-                <Avatar name={t.instructor_name} className="size-12 rounded-2xl text-sm" />
-                <Link
-                  to="/app/teachers/$instructorId"
-                  params={{ instructorId: t.id }}
-                  className="min-w-0"
+          {error ? (
+            <ErrorState error={error} onRetry={() => refetch()} />
+          ) : isLoading ? (
+            <TableSkeleton rows={6} />
+          ) : list.length === 0 ? (
+            <EmptyBlock
+              title="لا يوجد معلمون"
+              description="لم نجد أي معلم يطابق البحث."
+              icon={<GraduationCap className="size-6" />}
+            />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {list.map((t) => (
+                <div
+                  key={t.id}
+                  className="card-surface p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card"
                 >
-                  <p className="truncate font-bold hover:text-primary">{t.instructor_name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{t.department ?? "—"}</p>
-                </Link>
-                {t.status && (
-                  <Pill tone={t.status === "Active" ? "success" : "muted"}>
-                    {t.status === "Active" ? "نشِط" : t.status}
-                  </Pill>
-                )}
-              </div>
-
-              {(t.phone || t.email) && (
-                <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-                  {t.phone && (
-                    <p className="num flex items-center gap-2">
-                      <Phone className="size-3.5" />
-                      {t.phone}
-                    </p>
-                  )}
-                  {t.email && (
-                    <p className="flex items-center gap-2 truncate" dir="ltr">
-                      <Mail className="size-3.5" />
-                      {t.email}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-4 border-t border-border pt-3">
-                <p className="mb-2 text-xs font-semibold text-muted-foreground">الصفوف المسندة</p>
-                {t.classes.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">لم يتم إسناد أي شعبة</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {t.classes.map((c) => (
-                      <Pill key={c} tone="primary">
-                        {c}
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
+                    <Avatar name={t.instructor_name} className="size-12 rounded-2xl text-sm" />
+                    <Link
+                      to="/app/teachers/$instructorId"
+                      params={{ instructorId: t.id }}
+                      className="min-w-0"
+                    >
+                      <p className="truncate font-bold hover:text-primary">{t.instructor_name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t.department ?? "—"}
+                      </p>
+                    </Link>
+                    {t.status && (
+                      <Pill tone={t.status === "Active" ? "success" : "muted"}>
+                        {t.status === "Active" ? "نشِط" : t.status}
                       </Pill>
-                    ))}
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div className="mt-4 border-t border-border pt-3 text-center">
-                <p className="text-[11px] text-muted-foreground">عدد الشُعب</p>
-                <p className="num text-sm font-bold">{t.classes_count}</p>
-              </div>
+                  {(t.phone || t.email) && (
+                    <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                      {t.phone && (
+                        <p className="num flex items-center gap-2">
+                          <Phone className="size-3.5" />
+                          {t.phone}
+                        </p>
+                      )}
+                      {t.email && (
+                        <p className="flex items-center gap-2 truncate" dir="ltr">
+                          <Mail className="size-3.5" />
+                          {t.email}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-              {canManage && (
-                <div className="mt-3 flex gap-2 border-t border-border pt-3">
-                  <button
-                    onClick={() => setEditing(t)}
-                    className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
-                  >
-                    تعديل
-                  </button>
-                  <button
-                    onClick={() => removeTeacher(t)}
-                    className="rounded-lg bg-secondary px-2.5 py-1.5 text-destructive hover:bg-destructive-soft"
-                    aria-label="حذف"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <div className="mt-4 border-t border-border pt-3">
+                    <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                      الصفوف المسندة
+                    </p>
+                    {t.classes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">لم يتم إسناد أي شعبة</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {t.classes.map((c) => (
+                          <Pill key={c} tone="primary">
+                            {c}
+                          </Pill>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 border-t border-border pt-3 text-center">
+                    <p className="text-[11px] text-muted-foreground">عدد الشُعب</p>
+                    <p className="num text-sm font-bold">{t.classes_count}</p>
+                  </div>
+
+                  {canManage && (
+                    <div className="mt-3 flex gap-2 border-t border-border pt-3">
+                      <button
+                        onClick={() => setEditing(t)}
+                        className="flex-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                      >
+                        تعديل
+                      </button>
+                      <button
+                        onClick={() => removeTeacher(t)}
+                        className="rounded-lg bg-secondary px-2.5 py-1.5 text-destructive hover:bg-destructive-soft"
+                        aria-label="حذف"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
         </>
       )}
 

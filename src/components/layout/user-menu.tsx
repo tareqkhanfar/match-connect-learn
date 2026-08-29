@@ -1,13 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-  ChevronDown,
-  LogOut,
-  Moon,
-  Settings,
-  Sun,
-  User as UserIcon,
-  LifeBuoy,
-} from "lucide-react";
+import { ChevronDown, LogOut, Moon, Settings, Sun, User as UserIcon, LifeBuoy } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,

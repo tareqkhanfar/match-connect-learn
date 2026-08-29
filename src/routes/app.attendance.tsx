@@ -54,9 +54,7 @@ export const Route = createFileRoute("/app/attendance")({
   }),
   // A link may preselect the group, e.g. from the teacher's class list.
   validateSearch: (search: Record<string, unknown>): { group?: string } => ({
-    ...(typeof search["group"] === "string" && search["group"]
-      ? { group: search["group"] }
-      : {}),
+    ...(typeof search["group"] === "string" && search["group"] ? { group: search["group"] } : {}),
   }),
   component: AttendancePage,
 });
@@ -101,7 +99,6 @@ function MyAttendanceView() {
   return (
     <>
       <PageHeader title="الحضور والغياب" subtitle="سجل الحضور الخاص بك" />
-
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="أيام الحضور" value={summary?.present ?? 0} icon={Check} tone="accent" />
@@ -216,7 +213,9 @@ function StaffAttendanceView() {
     setEdits({});
   }, [groupId, date]);
 
-  const rows = sheetQuery.data?.students ?? [];
+  // `?? []` builds a new array every render, so every memo downstream
+  // recomputed on each one. Memoised so the identity is stable.
+  const rows = useMemo(() => sheetQuery.data?.students ?? [], [sheetQuery.data]);
   const marks = useMemo(() => {
     const out: Record<string, Status> = {};
     for (const r of rows) {
@@ -398,8 +397,7 @@ function StaffAttendanceView() {
                       // "Excused", so it lights that button rather than leaving
                       // the row looking unmarked.
                       const active =
-                        current === state ||
-                        (state === "Excused" && current === "Leave");
+                        current === state || (state === "Excused" && current === "Leave");
                       return (
                         <button
                           key={state}

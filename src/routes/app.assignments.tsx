@@ -25,11 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { RichText, RichTextView } from "@/components/shared/rich-text";
-import {
-  FileList,
-  FileUpload,
-  type UploadedFile,
-} from "@/components/shared/file-upload";
+import { FileList, FileUpload, type UploadedFile } from "@/components/shared/file-upload";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole } from "@/lib/roles";
@@ -73,9 +69,7 @@ function AssignmentsPage() {
 
   // A family sees the child chosen in the header.
   const viewed = useViewedStudent();
-  const { data, isLoading, error, refetch } = useAssignments(
-    viewed ? { student: viewed } : {},
-  );
+  const { data, isLoading, error, refetch } = useAssignments(viewed ? { student: viewed } : {});
   const assignments = data ?? [];
 
   const [gradingFor, setGradingFor] = useState<string | null>(null);
@@ -85,7 +79,11 @@ function AssignmentsPage() {
   return (
     <>
       <PageHeader
-        title={byRole(role, "الواجبات", { teacher: "واجبات صفوفي", student: "واجباتي", parent: "واجبات الأبناء" })}
+        title={byRole(role, "الواجبات", {
+          teacher: "واجبات صفوفي",
+          student: "واجباتي",
+          parent: "واجبات الأبناء",
+        })}
         subtitle={`${assignments.length} واجباً`}
         actions={
           isStaff ? (
@@ -363,9 +361,7 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
   async function send() {
     try {
       const result = await submit.mutateAsync({ assignment, content, files });
-      toast.success(
-        result.status === "Late" ? "تم التسليم متأخرًا" : "تم تسليم الواجب بنجاح",
-      );
+      toast.success(result.status === "Late" ? "تم التسليم متأخرًا" : "تم تسليم الواجب بنجاح");
       onClose();
     } catch (err) {
       const message =
@@ -383,7 +379,9 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
           </DialogTitle>
         </DialogHeader>
 
-        {isLoading && <p className="py-6 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>}
+        {isLoading && (
+          <p className="py-6 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
+        )}
         {error && (
           <p className="py-6 text-center text-sm text-destructive">تعذّر تحميل تفاصيل الواجب.</p>
         )}
@@ -472,11 +470,7 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
                 </div>
                 <div>
                   <Label className="mb-2 block">المرفقات</Label>
-                  <FileUpload
-                    files={files}
-                    onChange={setFiles}
-                    disabled={submit.isPending}
-                  />
+                  <FileUpload files={files} onChange={setFiles} disabled={submit.isPending} />
                 </div>
                 {existing && (
                   <p className="text-xs text-muted-foreground">

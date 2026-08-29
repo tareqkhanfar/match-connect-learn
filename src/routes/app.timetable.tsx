@@ -92,7 +92,9 @@ function TimetablePage() {
           : {},
   );
 
-  const days = timetableQuery.data?.days ?? {};
+  // `?? []` builds a new array every render, so every memo downstream
+  // recomputed on each one. Memoised so the identity is stable.
+  const days = useMemo(() => timetableQuery.data?.days ?? {}, [timetableQuery.data]);
 
   // Build the period rows from the distinct start times present in the week.
   const periods = useMemo(() => {

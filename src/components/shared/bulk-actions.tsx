@@ -53,9 +53,7 @@ export function BulkActions({
     } else {
       // Partial success is the common case (a row is still linked elsewhere),
       // so say what got through rather than reporting a blanket failure.
-      toast.warning(
-        `نجح ${done} وفشل ${result.failed.length} — ${result.failed[0]?.reason ?? ""}`,
-      );
+      toast.warning(`نجح ${done} وفشل ${result.failed.length} — ${result.failed[0]?.reason ?? ""}`);
     }
     onDone();
   }

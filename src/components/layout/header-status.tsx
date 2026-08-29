@@ -87,11 +87,7 @@ export function HeaderStatus() {
               : "border-border text-muted-foreground hover:bg-secondary"
           }`}
         >
-          {lowTime ? (
-            <ShieldAlert className="size-3.5" />
-          ) : (
-            <ShieldCheck className="size-3.5" />
-          )}
+          {lowTime ? <ShieldAlert className="size-3.5" /> : <ShieldCheck className="size-3.5" />}
           <span className="tabular-nums">{remainingLabel(remaining)}</span>
         </Link>
       )}

@@ -330,7 +330,9 @@ function ChildFocus({
         <SectionCard
           title="علامات الفصل"
           description={
-            d.grade ? `${d.grade.label} ${d.grade.emoji} — ${d.grade.percentage}%` : "لا توجد علامات"
+            d.grade
+              ? `${d.grade.label} ${d.grade.emoji} — ${d.grade.percentage}%`
+              : "لا توجد علامات"
           }
           actions={<BookOpenCheck className="size-4 text-muted-foreground" />}
         >
@@ -361,10 +363,7 @@ function ChildFocus({
                   )}
                   <ul className="mt-3 space-y-1.5 border-t border-border pt-2.5">
                     {sub.components.map((c) => (
-                      <li
-                        key={c.id}
-                        className="flex items-center justify-between gap-3 text-xs"
-                      >
+                      <li key={c.id} className="flex items-center justify-between gap-3 text-xs">
                         <span className="truncate text-muted-foreground">
                           {c.component_name}
                           <span className="mr-1.5 opacity-60">({c.type_label})</span>

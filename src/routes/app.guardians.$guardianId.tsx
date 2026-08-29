@@ -81,11 +81,7 @@ function GuardianProfile() {
       {/* Identity ------------------------------------------------------- */}
       <div className="mt-6 card-surface p-5">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-          <Avatar
-            name={profile.name}
-            src={profile.image}
-            className="size-20 rounded-2xl text-xl"
-          />
+          <Avatar name={profile.name} src={profile.image} className="size-20 rounded-2xl text-xl" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-bold">{profile.name}</h2>
@@ -110,11 +106,7 @@ function GuardianProfile() {
               />
               <Field
                 label="هاتف بديل"
-                value={
-                  profile.altPhone ? (
-                    <span dir="ltr">{profile.altPhone}</span>
-                  ) : null
-                }
+                value={profile.altPhone ? <span dir="ltr">{profile.altPhone}</span> : null}
               />
               <Field
                 label="البريد"

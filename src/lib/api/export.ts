@@ -307,20 +307,17 @@ export async function uploadStudentPhoto(student: string, file: File): Promise<s
   body.append("student", student);
   body.append("file", file);
 
-  const res = await fetch(
-    `${base}/api/method/match_schools.api.students.upload_student_photo`,
-    {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "X-Frappe-CSRF-Token":
-          (typeof window !== "undefined" &&
-            (window as unknown as { csrf_token?: string }).csrf_token) ||
-          "",
-      },
-      body,
+  const res = await fetch(`${base}/api/method/match_schools.api.students.upload_student_photo`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "X-Frappe-CSRF-Token":
+        (typeof window !== "undefined" &&
+          (window as unknown as { csrf_token?: string }).csrf_token) ||
+        "",
     },
-  );
+    body,
+  });
 
   const payload = await res.json().catch(() => null);
   const envelope = payload?.message;

@@ -15,18 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  MonthView,
-  WeekView,
-  toKey,
-  type CalendarEntry,
-} from "@/components/shared/calendar-views";
-import {
-  useDeleteHoliday,
-  useHolidays,
-  useSaveHoliday,
-  type HolidayRow,
-} from "@/lib/api/hooks";
+import { MonthView, WeekView, toKey, type CalendarEntry } from "@/components/shared/calendar-views";
+import { useDeleteHoliday, useHolidays, useSaveHoliday, type HolidayRow } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/calendar")({
   head: () => ({
@@ -59,7 +49,9 @@ function CalendarPage() {
   const [view, setView] = useState<"month" | "week" | "list">("month");
   const [cursor, setCursor] = useState(() => new Date());
 
-  const holidays = query.data?.holidays ?? [];
+  // `?? []` builds a new array every render, so every memo downstream
+  // recomputed on each one. Memoised so the identity is stable.
+  const holidays = useMemo(() => query.data?.holidays ?? [], [query.data]);
   const canEdit = query.data?.canEdit ?? false;
 
   const { upcoming, past, weekly, oneOff } = useMemo(() => {
@@ -144,7 +136,12 @@ function CalendarPage() {
       />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="إجمالي أيام العطل" value={holidays.length} icon={CalendarDays} tone="primary" />
+        <KpiCard
+          label="إجمالي أيام العطل"
+          value={holidays.length}
+          icon={CalendarDays}
+          tone="primary"
+        />
         <KpiCard label="عطل قادمة" value={upcoming.length} icon={PartyPopper} tone="accent" />
         <KpiCard label="عطل رسمية" value={oneOff.length} icon={CalendarOff} tone="warm" />
         <KpiCard label="عطل أسبوعية" value={weekly.length} icon={CalendarDays} tone="info" />
@@ -256,7 +253,10 @@ function CalendarPage() {
                     >
                       <td className="py-2.5 pl-4">
                         <span className="font-medium">{niceDate(h.date)}</span>
-                        <span className="block text-[11px] tabular-nums text-muted-foreground" dir="ltr">
+                        <span
+                          className="block text-[11px] tabular-nums text-muted-foreground"
+                          dir="ltr"
+                        >
                           {h.date}
                         </span>
                       </td>

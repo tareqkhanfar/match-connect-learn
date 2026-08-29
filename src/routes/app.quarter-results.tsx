@@ -9,12 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GradeBadge } from "@/components/shared/grade-badge";
 import { downloadQuarterCard } from "@/lib/api/export";
-import {
-  useMyGroups,
-  useQuarterResults,
-  useQuarters,
-  useSubjects,
-} from "@/lib/api/hooks";
+import { useMyGroups, useQuarterResults, useQuarters, useSubjects } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/quarter-results")({
   head: () => ({

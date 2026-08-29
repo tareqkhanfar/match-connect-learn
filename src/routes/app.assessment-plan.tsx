@@ -116,10 +116,7 @@ function AssessmentPlanPage() {
   }
 
   function addCategory(quarter: string) {
-    setDraft((prev) => [
-      ...prev,
-      { quarter, name: "", type: "Exam", weight: "", children: [] },
-    ]);
+    setDraft((prev) => [...prev, { quarter, name: "", type: "Exam", weight: "", children: [] }]);
   }
 
   function addAssessment(index: number) {
@@ -144,9 +141,7 @@ function AssessmentPlanPage() {
       // Categories are written in the quarter's own marks: a 40-mark quarter
       // has categories adding to 40, not to 100.
       if (Math.abs(used - q.totalMarks) > 0.01) {
-        toast.error(
-          `${q.name}: مجموع العلامات ${used} — يجب أن يكون ${q.totalMarks}`,
-        );
+        toast.error(`${q.name}: مجموع العلامات ${used} — يجب أن يكون ${q.totalMarks}`);
         return;
       }
     }
@@ -222,10 +217,7 @@ function AssessmentPlanPage() {
 
           {!course ? (
             <div className="mt-6">
-              <EmptyBlock
-                title="اختر مادة لعرض خطتها"
-                icon={<Layers className="size-6" />}
-              />
+              <EmptyBlock title="اختر مادة لعرض خطتها" icon={<Layers className="size-6" />} />
             </div>
           ) : planQuery.isLoading && !loaded ? (
             <div className="mt-6">
@@ -275,9 +267,7 @@ function AssessmentPlanPage() {
                             category={c}
                             onChange={(patch) => update(i, patch)}
                             onAddAssessment={() => addAssessment(i)}
-                            onRemove={() =>
-                              setDraft((prev) => prev.filter((_, idx) => idx !== i))
-                            }
+                            onRemove={() => setDraft((prev) => prev.filter((_, idx) => idx !== i))}
                           />
                         ))}
                       </div>
@@ -471,9 +461,7 @@ function QuarterEditor({ canEdit }: { canEdit: boolean }) {
 
   useEffect(() => {
     if (!query.data) return;
-    setRows(
-      query.data.quarters.map((q) => ({ name: q.name, totalMarks: String(q.totalMarks) })),
-    );
+    setRows(query.data.quarters.map((q) => ({ name: q.name, totalMarks: String(q.totalMarks) })));
   }, [query.data]);
 
   const total = rows.reduce((sum, r) => sum + (Number(r.totalMarks) || 0), 0);
@@ -491,7 +479,10 @@ function QuarterEditor({ canEdit }: { canEdit: boolean }) {
     if (!ok) return;
     try {
       const res = await save.mutateAsync({
-        quarters: cleaned.map((r) => ({ name: r.name.trim(), totalMarks: Number(r.totalMarks) || 0 })),
+        quarters: cleaned.map((r) => ({
+          name: r.name.trim(),
+          totalMarks: Number(r.totalMarks) || 0,
+        })),
       });
       toast.success(res.message_ar || "تم الحفظ");
       setEditing(false);
@@ -537,9 +528,7 @@ function QuarterEditor({ canEdit }: { canEdit: boolean }) {
       {query.isLoading ? (
         <TableSkeleton rows={2} />
       ) : rows.length === 0 && !editing ? (
-        <p className="py-3 text-center text-xs text-muted-foreground">
-          لم يتم تقسيم الفصل بعد.
-        </p>
+        <p className="py-3 text-center text-xs text-muted-foreground">لم يتم تقسيم الفصل بعد.</p>
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -550,7 +539,9 @@ function QuarterEditor({ canEdit }: { canEdit: boolean }) {
                     <Input
                       value={r.name}
                       onChange={(e) =>
-                        setRows((p) => p.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))
+                        setRows((p) =>
+                          p.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                        )
                       }
                       placeholder="مثال: الربع الأول"
                       className="h-8 rounded-lg text-sm"

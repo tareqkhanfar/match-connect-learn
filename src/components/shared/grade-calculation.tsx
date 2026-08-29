@@ -117,9 +117,7 @@ export function GradeCalculation({
                   key={s.student}
                   student={s}
                   open={expanded === s.student}
-                  onToggle={() =>
-                    setExpanded((prev) => (prev === s.student ? null : s.student))
-                  }
+                  onToggle={() => setExpanded((prev) => (prev === s.student ? null : s.student))}
                 />
               ))}
             </tbody>
@@ -136,7 +134,14 @@ function RuleRow({
   busy,
   onApply,
 }: {
-  category: { name: string; quarter: string; weight: number; rule: string; ruleN: number; assessments: number };
+  category: {
+    name: string;
+    quarter: string;
+    weight: number;
+    rule: string;
+    ruleN: number;
+    assessments: number;
+  };
   modes: Array<{ value: string; label: string }>;
   busy: boolean;
   onApply: (mode: string, n: number) => void;
@@ -238,10 +243,16 @@ function StudentRows({
                   </p>
                   <div className="mt-1.5 space-y-1.5">
                     {q.categories.map((c) => (
-                      <div key={c.category} className="rounded-lg border border-border bg-card p-2.5">
+                      <div
+                        key={c.category}
+                        className="rounded-lg border border-border bg-card p-2.5"
+                      >
                         <p className="flex flex-wrap items-center gap-1.5 text-xs">
                           <span className="font-semibold">{c.category}</span>
-                          <Pill tone="muted">{c.ruleLabel}{c.rule === "best" ? ` ${c.ruleN}` : ""}</Pill>
+                          <Pill tone="muted">
+                            {c.ruleLabel}
+                            {c.rule === "best" ? ` ${c.ruleN}` : ""}
+                          </Pill>
                           <span className="text-muted-foreground">
                             {c.percent}% × {c.weight} علامة = <b>{c.earned}</b>
                           </span>

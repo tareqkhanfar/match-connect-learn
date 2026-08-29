@@ -62,10 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  const kids = useMemo(
-    () => sessionQuery.data?.scope?.children ?? [],
-    [sessionQuery.data],
-  );
+  const kids = useMemo(() => sessionQuery.data?.scope?.children ?? [], [sessionQuery.data]);
 
   // Restore the last choice, but only if that child is still attached to this
   // guardian — a stale id would silently scope every screen to nothing.

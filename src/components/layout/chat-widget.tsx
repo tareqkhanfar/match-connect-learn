@@ -360,9 +360,7 @@ function Bubble({ message }: { message: ConversationMessage }) {
     <div className={`flex ${message.outgoing ? "justify-start" : "justify-end"}`}>
       <div
         className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
-          message.outgoing
-            ? "bg-primary-soft text-primary"
-            : "border border-border bg-background"
+          message.outgoing ? "bg-primary-soft text-primary" : "border border-border bg-background"
         }`}
       >
         {!message.outgoing && (
@@ -454,7 +452,9 @@ function ComposePanel({ onBack, onSent }: { onBack: () => void; onSent: () => vo
                 onClick={() => setTarget(t)}
                 disabled={disabled}
                 className={`rounded-md px-2 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 ${
-                  target === t ? "bg-card shadow-soft" : "text-muted-foreground hover:text-foreground"
+                  target === t
+                    ? "bg-card shadow-soft"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {meta.label}

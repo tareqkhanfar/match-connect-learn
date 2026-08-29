@@ -12,11 +12,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import {
-  useMarkNotificationRead,
-  useNotifications,
-  type NotificationItem,
-} from "@/lib/api/hooks";
+import { useMarkNotificationRead, useNotifications, type NotificationItem } from "@/lib/api/hooks";
 
 const ICON_BY_CATEGORY: Record<string, LucideIcon> = {
   message: MessageSquare,

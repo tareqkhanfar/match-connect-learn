@@ -423,11 +423,7 @@ function ActivityCard({
               disabled={!a.open || register.isPending}
               className="w-full rounded-lg bg-brand-gradient px-3 py-2 text-xs font-bold text-primary-foreground transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {!a.open
-                ? "التسجيل مغلق"
-                : a.full
-                  ? "مكتمل — الانضمام لقائمة الانتظار"
-                  : "سجّل الآن"}
+              {!a.open ? "التسجيل مغلق" : a.full ? "مكتمل — الانضمام لقائمة الانتظار" : "سجّل الآن"}
             </button>
           </div>
         )}
@@ -505,7 +501,11 @@ function ActivityDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>عنوان النشاط</Label>
-            <Input value={form.title} onChange={(e) => set("title", e.target.value)} className="rounded-xl" />
+            <Input
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+              className="rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -519,7 +519,10 @@ function ActivityDialog({
           <div className="space-y-1.5">
             <Label>الحالة</Label>
             <SearchableSelect
-              options={(options.data?.statuses ?? []).map((t) => ({ value: t.code, label: t.label }))}
+              options={(options.data?.statuses ?? []).map((t) => ({
+                value: t.code,
+                label: t.label,
+              }))}
               value={form.status}
               onChange={(v) => set("status", v)}
             />
@@ -527,30 +530,57 @@ function ActivityDialog({
 
           <div className="space-y-1.5">
             <Label>تاريخ البداية</Label>
-            <Input type="date" value={form.start_date} onChange={(e) => set("start_date", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="date"
+              value={form.start_date}
+              onChange={(e) => set("start_date", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>تاريخ النهاية</Label>
-            <Input type="date" value={form.end_date} onChange={(e) => set("end_date", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="date"
+              value={form.end_date}
+              onChange={(e) => set("end_date", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>من الساعة</Label>
-            <Input type="time" value={form.from_time} onChange={(e) => set("from_time", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="time"
+              value={form.from_time}
+              onChange={(e) => set("from_time", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>إلى الساعة</Label>
-            <Input type="time" value={form.to_time} onChange={(e) => set("to_time", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="time"
+              value={form.to_time}
+              onChange={(e) => set("to_time", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>المكان</Label>
-            <Input value={form.location} onChange={(e) => set("location", e.target.value)} className="rounded-xl" />
+            <Input
+              value={form.location}
+              onChange={(e) => set("location", e.target.value)}
+              className="rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>المشرف</Label>
             <SearchableSelect
-              options={(options.data?.supervisors ?? []).map((s) => ({ value: s.id, label: s.name }))}
+              options={(options.data?.supervisors ?? []).map((s) => ({
+                value: s.id,
+                label: s.name,
+              }))}
               value={form.supervisor}
               onChange={(v) => set("supervisor", v)}
               placeholder="اختر المشرف"
@@ -561,11 +591,23 @@ function ActivityDialog({
 
           <div className="space-y-1.5">
             <Label>السعة (0 = غير محدودة)</Label>
-            <Input type="number" min={0} value={form.capacity} onChange={(e) => set("capacity", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="number"
+              min={0}
+              value={form.capacity}
+              onChange={(e) => set("capacity", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>الرسوم</Label>
-            <Input type="number" min={0} value={form.fee} onChange={(e) => set("fee", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="number"
+              min={0}
+              value={form.fee}
+              onChange={(e) => set("fee", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -582,7 +624,12 @@ function ActivityDialog({
           </div>
           <div className="space-y-1.5">
             <Label>آخر موعد للتسجيل</Label>
-            <Input type="date" value={form.registration_deadline} onChange={(e) => set("registration_deadline", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="date"
+              value={form.registration_deadline}
+              onChange={(e) => set("registration_deadline", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
 
           {form.target_audience === "Program" && (
@@ -630,7 +677,10 @@ function ActivityDialog({
           >
             {save.isPending ? "جارٍ الحفظ…" : "حفظ"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>
@@ -690,7 +740,10 @@ function ParticipantsDialog({ activity, onClose }: { activity: ActivityRow; onCl
             ) : (
               <ul className="divide-y divide-border">
                 {data!.rows.map((r) => (
-                  <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5">
+                  <li
+                    key={r.id}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5"
+                  >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{r.student_name}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -702,9 +755,7 @@ function ParticipantsDialog({ activity, onClose }: { activity: ActivityRow; onCl
                       <input
                         type="checkbox"
                         checked={attended[r.id] ?? r.attended}
-                        onChange={(e) =>
-                          setAttended((s) => ({ ...s, [r.id]: e.target.checked }))
-                        }
+                        onChange={(e) => setAttended((s) => ({ ...s, [r.id]: e.target.checked }))}
                         className="size-4 accent-primary"
                       />
                       حضر
@@ -724,7 +775,10 @@ function ParticipantsDialog({ activity, onClose }: { activity: ActivityRow; onCl
           >
             {markAttendance.isPending ? "جارٍ الحفظ…" : "حفظ الحضور"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إغلاق
           </button>
         </DialogFooter>

@@ -82,8 +82,8 @@ export function CredentialsDialog({
           <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warm-soft p-3 text-xs text-warm-foreground">
             <ShieldAlert className="mt-0.5 size-4 shrink-0" />
             <p className="leading-relaxed">
-              احتفظ بهذه البيانات الآن — لن تتمكن المدرسة من عرض كلمة المرور مرة أخرى بعد إغلاق
-              هذه النافذة. عند فقدانها يمكن إصدار كلمة مرور جديدة.
+              احتفظ بهذه البيانات الآن — لن تتمكن المدرسة من عرض كلمة المرور مرة أخرى بعد إغلاق هذه
+              النافذة. عند فقدانها يمكن إصدار كلمة مرور جديدة.
             </p>
           </div>
         </div>

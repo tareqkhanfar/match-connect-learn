@@ -63,7 +63,10 @@ function TransportPage() {
 
   return (
     <>
-      <PageHeader title={byRole(role, "النقل المدرسي", { student: "نقلي المدرسي", parent: "نقل الأبناء" })} subtitle="الخطوط والمحطات وإسناد الطلاب" />
+      <PageHeader
+        title={byRole(role, "النقل المدرسي", { student: "نقلي المدرسي", parent: "نقل الأبناء" })}
+        subtitle="الخطوط والمحطات وإسناد الطلاب"
+      />
       <Tabs defaultValue="routes" dir="rtl">
         <TabsList className="mb-4 h-auto flex-wrap rounded-xl p-1">
           <TabsTrigger value="routes" className="rounded-lg">

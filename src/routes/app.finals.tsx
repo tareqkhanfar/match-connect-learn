@@ -94,7 +94,10 @@ function FinalsPage() {
         </div>
       ) : !data?.periods.length ? (
         <div className="mt-6">
-          <EmptyBlock title="لا توجد علامات مسجّلة لهذا الطالب" icon={<Award className="size-6" />} />
+          <EmptyBlock
+            title="لا توجد علامات مسجّلة لهذا الطالب"
+            icon={<Award className="size-6" />}
+          />
         </div>
       ) : (
         <>

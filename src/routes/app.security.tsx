@@ -137,12 +137,7 @@ function SecurityPage() {
       />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="آخر دخول سابق"
-          value={last ? ago(last.at) : "—"}
-          icon={Clock}
-          tone="info"
-        />
+        <KpiCard label="آخر دخول سابق" value={last ? ago(last.at) : "—"} icon={Clock} tone="info" />
         <KpiCard label="من عنوان" value={last?.ip || "—"} icon={ShieldCheck} tone="accent" />
         <KpiCard
           label="الأجهزة المتصلة"
@@ -221,9 +216,7 @@ function SecurityPage() {
 
       {isBackOffice && (
         <div className="mt-6">
-          <SectionCard
-            title={`محاولات الدخول الفاشلة على مستوى المدرسة (آخر ${days} أيام)`}
-          >
+          <SectionCard title={`محاولات الدخول الفاشلة على مستوى المدرسة (آخر ${days} أيام)`}>
             {failed.error ? (
               <ErrorState error={failed.error} onRetry={() => failed.refetch()} />
             ) : failed.isLoading ? (

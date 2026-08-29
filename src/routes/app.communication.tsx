@@ -77,7 +77,10 @@ function CommunicationPage() {
   return (
     <>
       <PageHeader
-        title={byRole(role, "التواصل والإعلانات", { student: "الإعلانات والرسائل", parent: "الإعلانات والرسائل" })}
+        title={byRole(role, "التواصل والإعلانات", {
+          student: "الإعلانات والرسائل",
+          parent: "الإعلانات والرسائل",
+        })}
         subtitle="لوحة الإعلانات والرسائل"
         actions={
           <>

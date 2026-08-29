@@ -110,15 +110,15 @@ function StaffQuizView() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="إجمالي الاختبارات" value={items.length} icon={FileQuestion} tone="primary" />
+        <KpiCard
+          label="إجمالي الاختبارات"
+          value={items.length}
+          icon={FileQuestion}
+          tone="primary"
+        />
         <KpiCard label="منشورة الآن" value={published.length} icon={Play} tone="accent" />
         <KpiCard label="محاولات الطلاب" value={totalSubmissions} icon={CheckCircle2} tone="info" />
-        <KpiCard
-          label="بانتظار تصحيح يدوي"
-          value={0}
-          icon={Clock}
-          tone="warm"
-        />
+        <KpiCard label="بانتظار تصحيح يدوي" value={0} icon={Clock} tone="warm" />
       </div>
 
       <div className="mt-5">
@@ -145,7 +145,11 @@ function StaffQuizView() {
                   </div>
                   <Pill
                     tone={
-                      q.status === "Published" ? "success" : q.status === "Closed" ? "muted" : "info"
+                      q.status === "Published"
+                        ? "success"
+                        : q.status === "Closed"
+                          ? "muted"
+                          : "info"
                     }
                   >
                     {q.status_label}
@@ -222,7 +226,12 @@ function StudentQuizView() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="متاح الآن" value={available.length} icon={Play} tone="accent" />
         <KpiCard label="اختبارات أنهيتها" value={done.length} icon={CheckCircle2} tone="primary" />
-        <KpiCard label="متوسط نتائجك" value={best !== null ? `${best}%` : "—"} icon={Trophy} tone="info" />
+        <KpiCard
+          label="متوسط نتائجك"
+          value={best !== null ? `${best}%` : "—"}
+          icon={Trophy}
+          tone="info"
+        />
         <KpiCard label="إجمالي الاختبارات" value={items.length} icon={FileQuestion} tone="warm" />
       </div>
 
@@ -299,10 +308,7 @@ function StudentQuizCard({
             <span className="text-muted-foreground">أفضل نتيجة</span>
             <span className="num font-bold">{q.best}%</span>
           </div>
-          <ProgressBar
-            value={q.best}
-            tone={q.best >= q.pass_mark ? "success" : "danger"}
-          />
+          <ProgressBar value={q.best} tone={q.best >= q.pass_mark ? "success" : "danger"} />
           {last && (
             <p className="mt-2 text-[11px] text-muted-foreground">
               {last.status_label} • المحاولة {last.attempt} من {q.attempts_allowed}
@@ -458,12 +464,12 @@ function SitQuizDialog({ paper, onClose }: { paper: QuizPaper; onClose: () => vo
                           type="radio"
                           name={`q-${question.idx}`}
                           checked={answers[question.idx] === o.key}
-                          onChange={() =>
-                            setAnswers((a) => ({ ...a, [question.idx]: o.key }))
-                          }
+                          onChange={() => setAnswers((a) => ({ ...a, [question.idx]: o.key }))}
                           className="size-4 accent-primary"
                         />
-                        <span className="num shrink-0 font-bold text-muted-foreground">{o.key}</span>
+                        <span className="num shrink-0 font-bold text-muted-foreground">
+                          {o.key}
+                        </span>
                         <span className="text-sm">{o.text}</span>
                       </label>
                     ))
@@ -581,7 +587,9 @@ function ResultView({
             <li
               key={a.idx}
               className={`rounded-xl border p-3 ${
-                a.is_correct ? "border-success/40 bg-success-soft/30" : "border-destructive/40 bg-destructive-soft/30"
+                a.is_correct
+                  ? "border-success/40 bg-success-soft/30"
+                  : "border-destructive/40 bg-destructive-soft/30"
               }`}
             >
               <div className="flex items-start gap-2">
@@ -711,7 +719,11 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>عنوان الاختبار</Label>
-            <Input value={meta.title} onChange={(e) => setField("title", e.target.value)} className="rounded-xl" />
+            <Input
+              value={meta.title}
+              onChange={(e) => setField("title", e.target.value)}
+              className="rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>المادة</Label>
@@ -737,15 +749,34 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div className="space-y-1.5">
             <Label>المدة (دقيقة)</Label>
-            <Input type="number" min={1} value={meta.time_limit_minutes} onChange={(e) => setField("time_limit_minutes", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="number"
+              min={1}
+              value={meta.time_limit_minutes}
+              onChange={(e) => setField("time_limit_minutes", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>عدد المحاولات</Label>
-            <Input type="number" min={1} value={meta.attempts_allowed} onChange={(e) => setField("attempts_allowed", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="number"
+              min={1}
+              value={meta.attempts_allowed}
+              onChange={(e) => setField("attempts_allowed", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>درجة النجاح (%)</Label>
-            <Input type="number" min={0} max={100} value={meta.pass_mark} onChange={(e) => setField("pass_mark", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={meta.pass_mark}
+              onChange={(e) => setField("pass_mark", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>إظهار الإجابات</Label>
@@ -761,21 +792,38 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div className="space-y-1.5">
             <Label>يفتح في</Label>
-            <Input type="datetime-local" value={meta.opens_on} onChange={(e) => setField("opens_on", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="datetime-local"
+              value={meta.opens_on}
+              onChange={(e) => setField("opens_on", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>يغلق في</Label>
-            <Input type="datetime-local" value={meta.closes_on} onChange={(e) => setField("closes_on", e.target.value)} className="num rounded-xl" />
+            <Input
+              type="datetime-local"
+              value={meta.closes_on}
+              onChange={(e) => setField("closes_on", e.target.value)}
+              className="num rounded-xl"
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>تعليمات للطلاب</Label>
-            <RichText value={instructions} onChange={setInstructions} placeholder="تعليمات الاختبار…" minHeight={80} />
+            <RichText
+              value={instructions}
+              onChange={setInstructions}
+              placeholder="تعليمات الاختبار…"
+              minHeight={80}
+            />
           </div>
         </div>
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <Label>الأسئلة ({questions.length}) — المجموع {totalMarks} درجة</Label>
+            <Label>
+              الأسئلة ({questions.length}) — المجموع {totalMarks} درجة
+            </Label>
             <button
               onClick={() => setQuestions((qs) => [...qs, { ...BLANK }])}
               className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
@@ -820,10 +868,22 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
                       updateQuestion(i, {
                         question_type: v,
                         ...(v === "True/False"
-                          ? { option_a: "صح", option_b: "خطأ", option_c: "", option_d: "", correct_answer: "A" }
+                          ? {
+                              option_a: "صح",
+                              option_b: "خطأ",
+                              option_c: "",
+                              option_d: "",
+                              correct_answer: "A",
+                            }
                           : {}),
                         ...(v === "Short Answer"
-                          ? { option_a: "", option_b: "", option_c: "", option_d: "", correct_answer: "" }
+                          ? {
+                              option_a: "",
+                              option_b: "",
+                              option_c: "",
+                              option_d: "",
+                              correct_answer: "",
+                            }
                           : {}),
                       })
                     }
@@ -862,7 +922,9 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
                               className="size-4 accent-primary"
                               title="الإجابة الصحيحة"
                             />
-                            <span className="num w-4 text-xs font-bold text-muted-foreground">{key}</span>
+                            <span className="num w-4 text-xs font-bold text-muted-foreground">
+                              {key}
+                            </span>
                             <Input
                               value={String(q[field] ?? "")}
                               onChange={(e) => updateQuestion(i, { [field]: e.target.value })}
@@ -897,7 +959,10 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
           >
             حفظ كمسودة
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>
@@ -923,9 +988,7 @@ function QuizResultsDialog({ quiz, onClose }: { quiz: string; onClose: () => voi
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-right">
-            نتائج {data?.quiz.title ?? "الاختبار"}
-          </DialogTitle>
+          <DialogTitle className="text-right">نتائج {data?.quiz.title ?? "الاختبار"}</DialogTitle>
         </DialogHeader>
 
         {isLoading || !data ? (
@@ -939,7 +1002,10 @@ function QuizResultsDialog({ quiz, onClose }: { quiz: string; onClose: () => voi
                 ["ناجحون", data.summary.passed],
                 ["بانتظار التصحيح", data.summary.needs_review],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl border border-border p-3 text-center">
+                <div
+                  key={String(label)}
+                  className="rounded-xl border border-border p-3 text-center"
+                >
                   <p className="text-[11px] text-muted-foreground">{label}</p>
                   <p className="num mt-1 text-lg font-bold">{value}</p>
                 </div>
@@ -964,7 +1030,9 @@ function QuizResultsDialog({ quiz, onClose }: { quiz: string; onClose: () => voi
                         </div>
                         <ProgressBar
                           value={q.percent}
-                          tone={q.percent >= 70 ? "success" : q.percent >= 40 ? "warning" : "danger"}
+                          tone={
+                            q.percent >= 70 ? "success" : q.percent >= 40 ? "warning" : "danger"
+                          }
                         />
                       </li>
                     ))}
@@ -979,7 +1047,10 @@ function QuizResultsDialog({ quiz, onClose }: { quiz: string; onClose: () => voi
               ) : (
                 <ul className="divide-y divide-border">
                   {data.attempts.map((a) => (
-                    <li key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5">
+                    <li
+                      key={a.id}
+                      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5"
+                    >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold">{a.student_name}</p>
                         <p className="num text-[11px] text-muted-foreground">
@@ -990,7 +1061,9 @@ function QuizResultsDialog({ quiz, onClose }: { quiz: string; onClose: () => voi
                         {a.needs_review && <Pill tone="warning">يحتاج تصحيح</Pill>}
                         <span
                           className={`num rounded-lg px-2.5 py-1 text-xs font-bold ${
-                            a.passed ? "bg-success-soft text-success" : "bg-destructive-soft text-destructive"
+                            a.passed
+                              ? "bg-success-soft text-success"
+                              : "bg-destructive-soft text-destructive"
                           }`}
                         >
                           {a.percentage}%
@@ -1018,7 +1091,10 @@ function QuizResultsDialog({ quiz, onClose }: { quiz: string; onClose: () => voi
         )}
 
         <DialogFooter className="sm:justify-start">
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إغلاق
           </button>
         </DialogFooter>

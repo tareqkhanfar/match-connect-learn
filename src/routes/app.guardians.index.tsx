@@ -240,12 +240,7 @@ function GuardiansPage() {
         exportTitle="أولياء الأمور"
         bulkDoctype="Guardian"
         bulkActions={(selected, clear) => (
-          <BulkActions
-            doctype="Guardian"
-            selected={selected}
-            onDone={clear}
-            noun="ولي أمر"
-          />
+          <BulkActions doctype="Guardian" selected={selected} onDone={clear} noun="ولي أمر" />
         )}
         emptyTitle="لا يوجد أولياء أمور"
         emptyDescription="أضف ولي أمر واربطه بأبنائه."

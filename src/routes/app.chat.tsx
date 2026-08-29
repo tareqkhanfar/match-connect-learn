@@ -28,7 +28,10 @@ export const Route = createFileRoute("/app/chat")({
   head: () => ({
     meta: [
       { title: "المحادثات — Match Education" },
-      { name: "description", content: "صفحة المحادثات الكاملة بين المعلمين والطلاب وأولياء الأمور." },
+      {
+        name: "description",
+        content: "صفحة المحادثات الكاملة بين المعلمين والطلاب وأولياء الأمور.",
+      },
     ],
   }),
   component: ChatPage,
@@ -405,7 +408,11 @@ function ComposeDialog({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-1.5">
             <Label>الموضوع (اختياري)</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded-xl" />
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -432,7 +439,10 @@ function ComposeDialog({ onClose }: { onClose: () => void }) {
             <Paperclip className="size-4" />
             إرفاق
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>

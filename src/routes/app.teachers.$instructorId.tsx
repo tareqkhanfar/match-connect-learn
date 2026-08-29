@@ -160,18 +160,35 @@ function TeacherProfile() {
         <KpiCard label="الشُعب" value={summary.groups} icon={BookOpen} tone="primary" />
         <KpiCard label="الطلاب" value={summary.students} icon={Users} tone="accent" />
         <KpiCard label="الحصص المجدولة" value={summary.lessons} icon={CalendarDays} tone="info" />
-        <KpiCard label="حصص أسبوعية" value={summary.periodsPerWeek} icon={ClipboardList} tone="warm" />
+        <KpiCard
+          label="حصص أسبوعية"
+          value={summary.periodsPerWeek}
+          icon={ClipboardList}
+          tone="warm"
+        />
       </div>
 
       <div className="mt-6">
         <Tabs defaultValue="groups" dir="rtl">
           <TabsList className="mb-4 h-auto flex-wrap justify-start rounded-xl p-1">
-            <TabsTrigger value="groups" className="rounded-lg">الشُعب والطلاب</TabsTrigger>
-            <TabsTrigger value="timetable" className="rounded-lg">الجدول</TabsTrigger>
-            <TabsTrigger value="load" className="rounded-lg">النصاب</TabsTrigger>
-            <TabsTrigger value="assignments" className="rounded-lg">الواجبات</TabsTrigger>
-            <TabsTrigger value="observations" className="rounded-lg">الملاحظات الصفية</TabsTrigger>
-            <TabsTrigger value="documents" className="rounded-lg">المستندات</TabsTrigger>
+            <TabsTrigger value="groups" className="rounded-lg">
+              الشُعب والطلاب
+            </TabsTrigger>
+            <TabsTrigger value="timetable" className="rounded-lg">
+              الجدول
+            </TabsTrigger>
+            <TabsTrigger value="load" className="rounded-lg">
+              النصاب
+            </TabsTrigger>
+            <TabsTrigger value="assignments" className="rounded-lg">
+              الواجبات
+            </TabsTrigger>
+            <TabsTrigger value="observations" className="rounded-lg">
+              الملاحظات الصفية
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="rounded-lg">
+              المستندات
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="groups">
@@ -186,7 +203,9 @@ function TeacherProfile() {
                     g.program ?? "—",
                     g.academicYear ?? "—",
                     <span className="tabular-nums">{g.students}</span>,
-                    <Pill tone={g.active ? "success" : "muted"}>{g.active ? "نشطة" : "معطّلة"}</Pill>,
+                    <Pill tone={g.active ? "success" : "muted"}>
+                      {g.active ? "نشطة" : "معطّلة"}
+                    </Pill>,
                     <Link
                       to="/app/classes"
                       className="flex items-center gap-1 text-xs text-primary hover:underline"

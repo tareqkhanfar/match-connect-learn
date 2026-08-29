@@ -101,9 +101,7 @@ function filterItems(children: React.ReactNode, query: string): React.ReactNode 
         const props = child.props as { children?: React.ReactNode };
         const inner = filterItems(props.children, query);
         const kept = React.Children.toArray(inner).filter(Boolean);
-        const hasItems = kept.some(
-          (c) => React.isValidElement(c) && c.type === SelectItem,
-        );
+        const hasItems = kept.some((c) => React.isValidElement(c) && c.type === SelectItem);
         return hasItems ? React.cloneElement(child, {}, inner) : null;
       }
 

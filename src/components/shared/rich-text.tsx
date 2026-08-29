@@ -145,8 +145,25 @@ export function RichText({
 /** Tags and attributes a submission is allowed to carry. */
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
-    "p", "br", "b", "strong", "i", "em", "u", "s", "h3", "h4",
-    "ul", "ol", "li", "blockquote", "div", "span", "a", "code", "pre",
+    "p",
+    "br",
+    "b",
+    "strong",
+    "i",
+    "em",
+    "u",
+    "s",
+    "h3",
+    "h4",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "div",
+    "span",
+    "a",
+    "code",
+    "pre",
   ],
   ALLOWED_ATTR: ["href", "target", "rel", "dir"],
 };

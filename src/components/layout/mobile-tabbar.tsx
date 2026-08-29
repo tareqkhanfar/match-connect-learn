@@ -42,8 +42,7 @@ export function MobileTabBar({ onOpenMore }: { onOpenMore: () => void }) {
     >
       <ul className="grid grid-cols-5">
         {picked.slice(0, 4).map((item) => {
-          const active =
-            item.to === "/app" ? pathname === "/app" : pathname.startsWith(item.to);
+          const active = item.to === "/app" ? pathname === "/app" : pathname.startsWith(item.to);
           return (
             <li key={item.to}>
               <Link
@@ -61,9 +60,7 @@ export function MobileTabBar({ onOpenMore }: { onOpenMore: () => void }) {
                 >
                   <item.icon className="size-[19px]" />
                 </span>
-                <span className="max-w-full truncate leading-none">
-                  {labelFor(item, role)}
-                </span>
+                <span className="max-w-full truncate leading-none">{labelFor(item, role)}</span>
               </Link>
             </li>
           );

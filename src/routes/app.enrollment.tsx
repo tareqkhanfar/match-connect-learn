@@ -1,14 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  BookOpenCheck,
-  CheckCircle2,
-  GraduationCap,
-  Plus,
-  Trash2,
-  UserCheck,
-} from "lucide-react";
+import { BookOpenCheck, CheckCircle2, GraduationCap, Plus, Trash2, UserCheck } from "lucide-react";
 import { KpiCard, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
@@ -127,9 +120,7 @@ function EnrollmentPage() {
         <EmptyBlock
           title={search || program ? "لا توجد نتائج مطابقة" : "لا توجد تسجيلات"}
           description={
-            search || program
-              ? "جرّب بحثاً آخر أو غيّر البرنامج."
-              : "سجّل طالباً في برنامج لتبدأ."
+            search || program ? "جرّب بحثاً آخر أو غيّر البرنامج." : "سجّل طالباً في برنامج لتبدأ."
           }
           icon={<BookOpenCheck className="size-6" />}
         />
@@ -315,11 +306,7 @@ function EnrollmentDialog({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-1.5">
             <Label>تاريخ التسجيل</Label>
-            <Input
-              type="date"
-              value={enrolledOn}
-              onChange={(e) => setEnrolledOn(e.target.value)}
-            />
+            <Input type="date" value={enrolledOn} onChange={(e) => setEnrolledOn(e.target.value)} />
           </div>
         </div>
 
@@ -364,13 +351,7 @@ function EnrollmentDialog({ onClose }: { onClose: () => void }) {
 
 /* ---------------------------------------------------------------- detail */
 
-function DetailDialog({
-  enrollment,
-  onClose,
-}: {
-  enrollment: string;
-  onClose: () => void;
-}) {
+function DetailDialog({ enrollment, onClose }: { enrollment: string; onClose: () => void }) {
   const query = useEnrollmentDetail(enrollment);
   const submit = useSubmitEnrollment();
   const cancel = useCancelEnrollment();

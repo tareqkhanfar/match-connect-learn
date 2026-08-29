@@ -142,7 +142,12 @@ function ResourcesPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <KpiCard label="إجمالي المصادر" value={query.data?.total ?? 0} icon={BookOpen} tone="primary" />
+        <KpiCard
+          label="إجمالي المصادر"
+          value={query.data?.total ?? 0}
+          icon={BookOpen}
+          tone="primary"
+        />
         <KpiCard label="عدد المواد" value={subjects.length} icon={FileText} tone="info" />
         <KpiCard label="فيديوهات" value={videos} icon={Video} tone="accent" />
       </div>
@@ -246,7 +251,9 @@ function ResourceCard({
   return (
     <div className="flex flex-col rounded-xl border border-border p-4 transition-all hover:-translate-y-0.5 hover:shadow-card">
       <div className="flex items-start gap-3">
-        <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${TONES[item.type] ?? ""}`}>
+        <span
+          className={`grid size-10 shrink-0 place-items-center rounded-xl ${TONES[item.type] ?? ""}`}
+        >
           <Icon className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -383,7 +390,11 @@ function ResourceDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>العنوان</Label>
-            <Input value={form.title} onChange={(e) => set("title", e.target.value)} className="rounded-xl" />
+            <Input
+              value={form.title}
+              onChange={(e) => set("title", e.target.value)}
+              className="rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -417,7 +428,11 @@ function ResourceDialog({
           </div>
           <div className="space-y-1.5">
             <Label>الوحدة / الموضوع</Label>
-            <Input value={form.topic} onChange={(e) => set("topic", e.target.value)} className="rounded-xl" />
+            <Input
+              value={form.topic}
+              onChange={(e) => set("topic", e.target.value)}
+              className="rounded-xl"
+            />
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
@@ -433,7 +448,12 @@ function ResourceDialog({
 
           <div className="space-y-1.5 sm:col-span-2">
             <Label>الوصف</Label>
-            <RichText value={description} onChange={setDescription} placeholder="شرح مختصر…" minHeight={80} />
+            <RichText
+              value={description}
+              onChange={setDescription}
+              placeholder="شرح مختصر…"
+              minHeight={80}
+            />
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
@@ -450,7 +470,10 @@ function ResourceDialog({
           >
             {save.isPending ? "جارٍ الحفظ…" : "نشر للطلاب"}
           </button>
-          <button onClick={onClose} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold">
+          <button
+            onClick={onClose}
+            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
+          >
             إلغاء
           </button>
         </DialogFooter>

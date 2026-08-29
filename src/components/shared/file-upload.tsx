@@ -23,10 +23,33 @@ const MAX_BYTES = 15 * 1024 * 1024;
 
 /** Must mirror ALLOWED_EXTENSIONS in the backend, so we fail fast client-side. */
 const ALLOWED = new Set([
-  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "rtf", "odt",
-  "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg",
-  "zip", "rar", "7z",
-  "mp3", "wav", "m4a", "mp4", "webm", "mov",
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "txt",
+  "csv",
+  "rtf",
+  "odt",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "bmp",
+  "svg",
+  "zip",
+  "rar",
+  "7z",
+  "mp3",
+  "wav",
+  "m4a",
+  "mp4",
+  "webm",
+  "mov",
 ]);
 
 function extensionOf(name: string) {
@@ -187,7 +210,13 @@ export function FileUpload({
 }
 
 /** Read-only list of attachments, with download links. */
-export function FileList({ files, empty = "لا توجد مرفقات." }: { files: UploadedFile[]; empty?: string }) {
+export function FileList({
+  files,
+  empty = "لا توجد مرفقات.",
+}: {
+  files: UploadedFile[];
+  empty?: string;
+}) {
   if (!files.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
     <ul className="space-y-2">

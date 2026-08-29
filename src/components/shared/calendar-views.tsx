@@ -224,7 +224,9 @@ export function WeekView({
               ].join(" ")}
             >
               <p className="text-[11px] font-medium text-muted-foreground">{WEEKDAYS_AR[i]}</p>
-              <p className={`mt-0.5 text-lg font-bold tabular-nums ${isToday ? "text-primary" : ""}`}>
+              <p
+                className={`mt-0.5 text-lg font-bold tabular-nums ${isToday ? "text-primary" : ""}`}
+              >
                 {d.getDate()}
               </p>
               {entry ? (

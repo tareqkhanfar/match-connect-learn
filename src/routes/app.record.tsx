@@ -171,7 +171,10 @@ function StaffRecordView() {
           ) : detail.isLoading ? (
             <TableSkeleton rows={8} />
           ) : !detail.data?.periods.length ? (
-            <EmptyBlock title="لا توجد علامات مسجّلة لهذا الطالب" icon={<Award className="size-6" />} />
+            <EmptyBlock
+              title="لا توجد علامات مسجّلة لهذا الطالب"
+              icon={<Award className="size-6" />}
+            />
           ) : (
             <RecordBody data={detail.data} />
           )}
@@ -280,7 +283,6 @@ function PersonalRecordView() {
           ) : null
         }
       />
-
 
       {!student ? (
         <EmptyBlock title="لا يوجد سجل لعرضه" icon={<GraduationCap className="size-6" />} />

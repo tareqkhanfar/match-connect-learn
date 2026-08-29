@@ -21,11 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
-import {
-  TableFilters,
-  type FilterDef,
-  type FilterValues,
-} from "@/components/shared/table-filters";
+import { TableFilters, type FilterDef, type FilterValues } from "@/components/shared/table-filters";
 import { downloadExport, type ExportDataset } from "@/lib/api/export";
 import { cn } from "@/lib/utils";
 
@@ -241,20 +237,14 @@ export function DataTable<T>({
       {/* Filters sit above the toolbar: they change what the table contains,
           while the toolbar acts on what is already shown. */}
       {filters && filters.length > 0 && onFiltersChange && (
-        <TableFilters
-          filters={filters}
-          values={filterValues ?? {}}
-          onChange={onFiltersChange}
-        />
+        <TableFilters filters={filters} values={filterValues ?? {}} onChange={onFiltersChange} />
       )}
 
       {/* While rows are selected the bulk bar replaces the toolbar, so the
           available actions are unambiguous. */}
       {selectable && selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary-soft px-3 py-2">
-          <span className="num text-sm font-semibold text-primary">
-            {selected.size} محدد
-          </span>
+          <span className="num text-sm font-semibold text-primary">{selected.size} محدد</span>
           <button
             onClick={clearSelection}
             className="rounded-lg px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
@@ -400,35 +390,35 @@ export function DataTable<T>({
                 {rows.map((row) => {
                   const key = rowKey(row);
                   return (
-                  <tr
-                    key={key}
-                    className={cn(
-                      "transition-colors hover:bg-secondary/40",
-                      selected.has(key) && "bg-primary-soft/40",
-                    )}
-                  >
-                    {selectable && (
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          aria-label="تحديد الصف"
-                          checked={selected.has(key)}
-                          onChange={() => toggleRow(key)}
-                          className="size-4 cursor-pointer accent-primary"
-                        />
-                      </td>
-                    )}
-                    {visibleColumns.map((c) => (
-                      <td
-                        key={c.fieldname}
-                        className={cn("px-4 py-3", c.numeric && "num text-left")}
-                      >
-                        {c.render
-                          ? c.render(row)
-                          : (((row as Record<string, unknown>)[c.fieldname] as ReactNode) ?? "—")}
-                      </td>
-                    ))}
-                  </tr>
+                    <tr
+                      key={key}
+                      className={cn(
+                        "transition-colors hover:bg-secondary/40",
+                        selected.has(key) && "bg-primary-soft/40",
+                      )}
+                    >
+                      {selectable && (
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label="تحديد الصف"
+                            checked={selected.has(key)}
+                            onChange={() => toggleRow(key)}
+                            className="size-4 cursor-pointer accent-primary"
+                          />
+                        </td>
+                      )}
+                      {visibleColumns.map((c) => (
+                        <td
+                          key={c.fieldname}
+                          className={cn("px-4 py-3", c.numeric && "num text-left")}
+                        >
+                          {c.render
+                            ? c.render(row)
+                            : (((row as Record<string, unknown>)[c.fieldname] as ReactNode) ?? "—")}
+                        </td>
+                      ))}
+                    </tr>
                   );
                 })}
               </tbody>

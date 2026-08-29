@@ -51,13 +51,7 @@ function Empty({ title }: { title: string }) {
 }
 
 /** A plain table; every tab uses the same one so the page reads consistently. */
-function Table({
-  head,
-  rows,
-}: {
-  head: string[];
-  rows: Array<Array<React.ReactNode>>;
-}) {
+function Table({ head, rows }: { head: string[]; rows: Array<Array<React.ReactNode>> }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-right text-sm">
@@ -85,7 +79,6 @@ function Table({
     </div>
   );
 }
-
 
 /**
  * The week as a grid: periods down the side, days across the top.
@@ -250,9 +243,7 @@ function StudentProfile() {
                 {profile.active ? "نشط" : "غير نشط"}
               </Pill>
               {profile.hasLogin && <Pill tone="info">لديه حساب دخول</Pill>}
-              {openAlerts.length > 0 && (
-                <Pill tone="danger">{openAlerts.length} تنبيه مفتوح</Pill>
-              )}
+              {openAlerts.length > 0 && <Pill tone="danger">{openAlerts.length} تنبيه مفتوح</Pill>}
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -299,7 +290,12 @@ function StudentProfile() {
 
       {/* Headline numbers ----------------------------------------------- */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="نسبة الحضور" value={`${attendance.rate}%`} icon={CalendarDays} tone="info" />
+        <KpiCard
+          label="نسبة الحضور"
+          value={`${attendance.rate}%`}
+          icon={CalendarDays}
+          tone="info"
+        />
         <KpiCard
           label="المعدل العام"
           value={grades.average !== null ? `${grades.average}%` : "—"}
@@ -333,16 +329,36 @@ function StudentProfile() {
       <div className="mt-6">
         <Tabs defaultValue="academics" dir="rtl">
           <TabsList className="mb-4 h-auto flex-wrap justify-start rounded-xl p-1">
-            <TabsTrigger value="academics" className="rounded-lg">الأكاديمي</TabsTrigger>
-            <TabsTrigger value="attendance" className="rounded-lg">الحضور</TabsTrigger>
-            <TabsTrigger value="assignments" className="rounded-lg">الواجبات والاختبارات</TabsTrigger>
-            <TabsTrigger value="behaviour" className="rounded-lg">السلوك</TabsTrigger>
-            <TabsTrigger value="health" className="rounded-lg">الصحة</TabsTrigger>
-            <TabsTrigger value="billing" className="rounded-lg">المالية</TabsTrigger>
-            <TabsTrigger value="services" className="rounded-lg">الخدمات</TabsTrigger>
-            <TabsTrigger value="timetable" className="rounded-lg">الجدول</TabsTrigger>
-            <TabsTrigger value="family" className="rounded-lg">الأسرة والتسجيل</TabsTrigger>
-            <TabsTrigger value="documents" className="rounded-lg">المستندات</TabsTrigger>
+            <TabsTrigger value="academics" className="rounded-lg">
+              الأكاديمي
+            </TabsTrigger>
+            <TabsTrigger value="attendance" className="rounded-lg">
+              الحضور
+            </TabsTrigger>
+            <TabsTrigger value="assignments" className="rounded-lg">
+              الواجبات والاختبارات
+            </TabsTrigger>
+            <TabsTrigger value="behaviour" className="rounded-lg">
+              السلوك
+            </TabsTrigger>
+            <TabsTrigger value="health" className="rounded-lg">
+              الصحة
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="rounded-lg">
+              المالية
+            </TabsTrigger>
+            <TabsTrigger value="services" className="rounded-lg">
+              الخدمات
+            </TabsTrigger>
+            <TabsTrigger value="timetable" className="rounded-lg">
+              الجدول
+            </TabsTrigger>
+            <TabsTrigger value="family" className="rounded-lg">
+              الأسرة والتسجيل
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="rounded-lg">
+              المستندات
+            </TabsTrigger>
           </TabsList>
 
           {/* --- Academics --- */}
@@ -413,7 +429,12 @@ function StudentProfile() {
               <KpiCard label="حاضر" value={attendance.present} icon={CalendarDays} tone="accent" />
               <KpiCard label="غائب" value={attendance.absent} icon={CalendarDays} tone="warm" />
               <KpiCard label="متأخر" value={attendance.late} icon={CalendarDays} tone="primary" />
-              <KpiCard label="إجمالي الأيام" value={attendance.total} icon={CalendarDays} tone="info" />
+              <KpiCard
+                label="إجمالي الأيام"
+                value={attendance.total}
+                icon={CalendarDays}
+                tone="info"
+              />
             </div>
             <SectionCard title="آخر سجلات الحضور">
               {attendance.recent.length === 0 ? (
@@ -425,7 +446,11 @@ function StudentProfile() {
                     d(a.date),
                     <Pill
                       tone={
-                        a.status === "Present" ? "success" : a.status === "Absent" ? "danger" : "warning"
+                        a.status === "Present"
+                          ? "success"
+                          : a.status === "Absent"
+                            ? "danger"
+                            : "warning"
                       }
                     >
                       {a.status === "Present" ? "حاضر" : a.status === "Absent" ? "غائب" : a.status}
@@ -440,8 +465,18 @@ function StudentProfile() {
           {/* --- Assignments & quizzes --- */}
           <TabsContent value="assignments" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
-              <KpiCard label="واجبات مُسلّمة" value={assignments.submitted} icon={ClipboardList} tone="info" />
-              <KpiCard label="واجبات مُصححة" value={assignments.graded} icon={ClipboardList} tone="accent" />
+              <KpiCard
+                label="واجبات مُسلّمة"
+                value={assignments.submitted}
+                icon={ClipboardList}
+                tone="info"
+              />
+              <KpiCard
+                label="واجبات مُصححة"
+                value={assignments.graded}
+                icon={ClipboardList}
+                tone="accent"
+              />
               <KpiCard
                 label="متوسط الواجبات"
                 value={assignments.averagePercent !== null ? `${assignments.averagePercent}%` : "—"}
@@ -478,7 +513,9 @@ function StudentProfile() {
                     q.attempt,
                     `${q.score} / ${q.total}`,
                     <span className="tabular-nums">{q.percentage}%</span>,
-                    <Pill tone={q.passed ? "success" : "danger"}>{q.passed ? "ناجح" : "راسب"}</Pill>,
+                    <Pill tone={q.passed ? "success" : "danger"}>
+                      {q.passed ? "ناجح" : "راسب"}
+                    </Pill>,
                     d(q.submittedOn),
                   ])}
                 />
@@ -489,8 +526,18 @@ function StudentProfile() {
           {/* --- Behaviour --- */}
           <TabsContent value="behaviour" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
-              <KpiCard label="نقاط إيجابية" value={behaviour.positivePoints} icon={Smile} tone="accent" />
-              <KpiCard label="نقاط سلبية" value={behaviour.negativePoints} icon={AlertTriangle} tone="warm" />
+              <KpiCard
+                label="نقاط إيجابية"
+                value={behaviour.positivePoints}
+                icon={Smile}
+                tone="accent"
+              />
+              <KpiCard
+                label="نقاط سلبية"
+                value={behaviour.negativePoints}
+                icon={AlertTriangle}
+                tone="warm"
+              />
               <KpiCard label="الصافي" value={behaviour.net} icon={Award} tone="primary" />
             </div>
             <SectionCard title="سجل السلوك">
@@ -498,7 +545,15 @@ function StudentProfile() {
                 <Empty title="لا توجد ملاحظات سلوكية" />
               ) : (
                 <Table
-                  head={["التاريخ", "النوع", "الفئة", "النقاط", "الوصف", "الإجراء", "أُبلغ ولي الأمر"]}
+                  head={[
+                    "التاريخ",
+                    "النوع",
+                    "الفئة",
+                    "النقاط",
+                    "الوصف",
+                    "الإجراء",
+                    "أُبلغ ولي الأمر",
+                  ]}
                   rows={behaviour.records.map((b) => [
                     d(b.date),
                     b.type ?? "—",
@@ -508,7 +563,11 @@ function StudentProfile() {
                     </span>,
                     <span className="text-muted-foreground">{b.description || "—"}</span>,
                     b.action ?? "—",
-                    b.parentNotified ? <Pill tone="success">نعم</Pill> : <Pill tone="muted">لا</Pill>,
+                    b.parentNotified ? (
+                      <Pill tone="success">نعم</Pill>
+                    ) : (
+                      <Pill tone="muted">لا</Pill>
+                    ),
                   ])}
                 />
               )}
@@ -523,8 +582,14 @@ function StudentProfile() {
               ) : (
                 <div className="grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
                   <Field label="فصيلة الدم" value={health.record.bloodGroup} />
-                  <Field label="الطول" value={health.record.heightCm ? `${health.record.heightCm} سم` : null} />
-                  <Field label="الوزن" value={health.record.weightKg ? `${health.record.weightKg} كغ` : null} />
+                  <Field
+                    label="الطول"
+                    value={health.record.heightCm ? `${health.record.heightCm} سم` : null}
+                  />
+                  <Field
+                    label="الوزن"
+                    value={health.record.weightKg ? `${health.record.weightKg} كغ` : null}
+                  />
                   <Field label="آخر فحص" value={d(health.record.lastCheckup)} />
                   <Field label="أمراض مزمنة" value={health.record.conditions} />
                   <Field label="الحساسية" value={health.record.allergies} />
@@ -552,7 +617,11 @@ function StudentProfile() {
                     v.complaint ?? "—",
                     v.treatment ?? "—",
                     v.outcome ?? "—",
-                    v.parentNotified ? <Pill tone="success">نعم</Pill> : <Pill tone="muted">لا</Pill>,
+                    v.parentNotified ? (
+                      <Pill tone="success">نعم</Pill>
+                    ) : (
+                      <Pill tone="muted">لا</Pill>
+                    ),
                   ])}
                 />
               )}
@@ -562,9 +631,24 @@ function StudentProfile() {
           {/* --- Billing --- */}
           <TabsContent value="billing" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
-              <KpiCard label="إجمالي المفوتر" value={money(billing.billed)} icon={CreditCard} tone="info" />
-              <KpiCard label="المدفوع" value={money(billing.paid)} icon={CreditCard} tone="accent" />
-              <KpiCard label="المتبقي" value={money(billing.outstanding)} icon={CreditCard} tone="warm" />
+              <KpiCard
+                label="إجمالي المفوتر"
+                value={money(billing.billed)}
+                icon={CreditCard}
+                tone="info"
+              />
+              <KpiCard
+                label="المدفوع"
+                value={money(billing.paid)}
+                icon={CreditCard}
+                tone="accent"
+              />
+              <KpiCard
+                label="المتبقي"
+                value={money(billing.outstanding)}
+                icon={CreditCard}
+                tone="warm"
+              />
             </div>
             <SectionCard title="الفواتير">
               {billing.invoices.length === 0 ? (
@@ -606,7 +690,11 @@ function StudentProfile() {
                   head={["الكتاب", "الحالة", "تاريخ الإعارة", "الاستحقاق", "الإرجاع"]}
                   rows={services.library.map((l) => [
                     <span className="font-medium">{l.book}</span>,
-                    l.overdue ? <Pill tone="danger">متأخر</Pill> : <Pill tone="muted">{l.status}</Pill>,
+                    l.overdue ? (
+                      <Pill tone="danger">متأخر</Pill>
+                    ) : (
+                      <Pill tone="muted">{l.status}</Pill>
+                    ),
                     d(l.issued),
                     d(l.due),
                     l.returned ? d(l.returned) : "—",
@@ -667,8 +755,12 @@ function StudentProfile() {
                   rows={timetable.slice(0, 20).map((t) => [
                     d(t.date),
                     <span className="font-medium">{t.course}</span>,
-                    <span dir="ltr" className="tabular-nums">{t.from}</span>,
-                    <span dir="ltr" className="tabular-nums">{t.to}</span>,
+                    <span dir="ltr" className="tabular-nums">
+                      {t.from}
+                    </span>,
+                    <span dir="ltr" className="tabular-nums">
+                      {t.to}
+                    </span>,
                     t.instructor ?? "—",
                     t.room ?? "—",
                   ])}

@@ -185,9 +185,7 @@ function ProfilePage() {
               <div className="space-y-1.5">
                 <Label>البريد الإلكتروني</Label>
                 <Input value={p.email} disabled className="rounded-xl" />
-                <p className="text-[11px] text-muted-foreground">
-                  يغيّره مدير المدرسة فقط.
-                </p>
+                <p className="text-[11px] text-muted-foreground">يغيّره مدير المدرسة فقط.</p>
               </div>
             </div>
           </SectionCard>
@@ -201,7 +199,10 @@ function ProfilePage() {
                 {Object.entries(linked)
                   .filter(([k, v]) => k !== "type" && v !== null && v !== "")
                   .map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between gap-3 border-b border-border pb-2">
+                    <div
+                      key={k}
+                      className="flex items-center justify-between gap-3 border-b border-border pb-2"
+                    >
                       <dt className="text-xs text-muted-foreground">{LINKED_LABELS[k] ?? k}</dt>
                       <dd className="num truncate text-sm font-medium">{String(v)}</dd>
                     </div>
@@ -222,9 +223,7 @@ function ProfilePage() {
                   </div>
                   <Switch
                     checked={prefs[f.key] === "1"}
-                    onCheckedChange={(on) =>
-                      setPrefs((s) => ({ ...s, [f.key]: on ? "1" : "0" }))
-                    }
+                    onCheckedChange={(on) => setPrefs((s) => ({ ...s, [f.key]: on ? "1" : "0" }))}
                   />
                 </li>
               ))}

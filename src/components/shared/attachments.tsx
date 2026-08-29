@@ -24,7 +24,9 @@ function when(value: string): string {
 
 /** A recognisable icon per file family, so a list of scans is scannable. */
 function iconFor(extension: string) {
-  if (["jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "tif", "tiff"].includes(extension))
+  if (
+    ["jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "tif", "tiff"].includes(extension)
+  )
     return FileImage;
   if (["xls", "xlsx", "csv"].includes(extension)) return FileSpreadsheet;
   if (extension === "zip") return FileArchive;
@@ -78,9 +80,7 @@ export function Attachments({
         toast.error(`${file.name}: الحجم يتجاوز ${Math.round(maxBytes / 1024 / 1024)} ميجابايت`);
         continue;
       }
-      const extension = file.name.includes(".")
-        ? file.name.split(".").pop()!.toLowerCase()
-        : "";
+      const extension = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
       if (allowed.length > 0 && !allowed.includes(extension)) {
         toast.error(`${file.name}: نوع الملف غير مدعوم`);
         continue;
@@ -129,9 +129,7 @@ export function Attachments({
               </span>
             )}
           </p>
-          {description && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-          )}
+          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
         </div>
 
         {canWrite && (

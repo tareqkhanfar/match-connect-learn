@@ -156,7 +156,9 @@ function SectionsPage() {
   const swap = useSwapStudents();
   const distribute = useDistributeStudents();
 
-  const sections = view.data?.sections ?? [];
+  // `?? []` builds a new array every render, so every memo downstream
+  // recomputed on each one. Memoised so the identity is stable.
+  const sections = useMemo(() => view.data?.sections ?? [], [view.data]);
   const unassigned = view.data?.unassigned ?? [];
 
   /** Which section each selected student currently sits in. */
@@ -173,7 +175,10 @@ function SectionsPage() {
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      // An if reads as the branch it is; a ternary used for its side effects
+      // is one refactor away from silently dropping a call.
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -181,7 +186,10 @@ function SectionsPage() {
   function selectAll(section: SectionInfo, checked: boolean) {
     setSelected((prev) => {
       const next = new Set(prev);
-      for (const s of section.students) checked ? next.add(s.id) : next.delete(s.id);
+      for (const s of section.students) {
+        if (checked) next.add(s.id);
+        else next.delete(s.id);
+      }
       return next;
     });
   }
@@ -282,26 +290,42 @@ function SectionsPage() {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
           <Label>الصف</Label>
-          <Select value={program} onValueChange={(v) => { setProgram(v); setSelected(new Set()); }}>
+          <Select
+            value={program}
+            onValueChange={(v) => {
+              setProgram(v);
+              setSelected(new Set());
+            }}
+          >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="اختر الصف" />
             </SelectTrigger>
             <SelectContent>
               {(options.data?.programs ?? []).map((p) => (
-                <SelectItem key={p} value={p}>{p}</SelectItem>
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1.5">
           <Label>العام الدراسي</Label>
-          <Select value={year} onValueChange={(v) => { setYear(v); setSelected(new Set()); }}>
+          <Select
+            value={year}
+            onValueChange={(v) => {
+              setYear(v);
+              setSelected(new Set());
+            }}
+          >
             <SelectTrigger className="h-10 rounded-xl">
               <SelectValue placeholder="الكل" />
             </SelectTrigger>
             <SelectContent>
               {(options.data?.academicYears ?? []).map((y) => (
-                <SelectItem key={y} value={y}>{y}</SelectItem>
+                <SelectItem key={y} value={y}>
+                  {y}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -321,13 +345,30 @@ function SectionsPage() {
           <ErrorState error={view.error} onRetry={() => view.refetch()} />
         </div>
       ) : view.isLoading ? (
-        <div className="mt-6"><TableSkeleton rows={5} /></div>
+        <div className="mt-6">
+          <TableSkeleton rows={5} />
+        </div>
       ) : (
         <>
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <KpiCard label="عدد الشعب" value={view.data?.totals.sections ?? 0} icon={LayoutGrid} tone="primary" />
-            <KpiCard label="طلاب موزعون" value={view.data?.totals.placed ?? 0} icon={Users} tone="accent" />
-            <KpiCard label="بانتظار التوزيع" value={view.data?.totals.unassigned ?? 0} icon={UserPlus} tone="warm" />
+            <KpiCard
+              label="عدد الشعب"
+              value={view.data?.totals.sections ?? 0}
+              icon={LayoutGrid}
+              tone="primary"
+            />
+            <KpiCard
+              label="طلاب موزعون"
+              value={view.data?.totals.placed ?? 0}
+              icon={Users}
+              tone="accent"
+            />
+            <KpiCard
+              label="بانتظار التوزيع"
+              value={view.data?.totals.unassigned ?? 0}
+              icon={UserPlus}
+              tone="warm"
+            />
           </div>
 
           {/* Action bar appears only when something is selected --------- */}
@@ -538,7 +579,9 @@ function SectionDialog({
               </SelectTrigger>
               <SelectContent>
                 {batches.map((b) => (
-                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                  <SelectItem key={b} value={b}>
+                    {b}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

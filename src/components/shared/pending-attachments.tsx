@@ -6,8 +6,28 @@ import { uploadAttachment } from "@/lib/api/export";
 const MAX_BYTES = 15 * 1024 * 1024;
 
 const ALLOWED = [
-  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv", "rtf", "odt",
-  "jpg", "jpeg", "png", "webp", "gif", "bmp", "heic", "heif", "tif", "tiff", "zip",
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "txt",
+  "csv",
+  "rtf",
+  "odt",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "bmp",
+  "heic",
+  "heif",
+  "tif",
+  "tiff",
+  "zip",
 ];
 
 function sizeLabel(bytes: number): string {
@@ -42,9 +62,7 @@ export function PendingAttachments({
   function add(incoming: FileList | File[]) {
     const accepted: File[] = [];
     for (const file of Array.from(incoming)) {
-      const extension = file.name.includes(".")
-        ? file.name.split(".").pop()!.toLowerCase()
-        : "";
+      const extension = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
       if (!ALLOWED.includes(extension)) {
         toast.error(`${file.name}: نوع الملف غير مدعوم`);
         continue;
@@ -142,11 +160,7 @@ export function PendingAttachments({
  * the save: the application itself is the important record, and a document
  * can be added again from the record afterwards.
  */
-export async function uploadPending(
-  doctype: string,
-  name: string,
-  files: File[],
-): Promise<number> {
+export async function uploadPending(doctype: string, name: string, files: File[]): Promise<number> {
   let uploaded = 0;
   for (const file of files) {
     try {
