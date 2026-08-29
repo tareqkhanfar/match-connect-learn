@@ -35,6 +35,7 @@ import { Route as AppFinalsRouteImport } from './routes/app.finals'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
+import { Route as AppMailRouteImport } from './routes/app.mail'
 import { Route as AppPrintRequestsRouteImport } from './routes/app.print-requests'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppPromotionRouteImport } from './routes/app.promotion'
@@ -191,6 +192,11 @@ const AppLibraryRoute = AppLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMailRoute = AppMailRouteImport.update({
+  id: '/mail',
+  path: '/mail',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPrintRequestsRoute = AppPrintRequestsRouteImport.update({
   id: '/print-requests',
   path: '/print-requests',
@@ -343,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/mail': typeof AppMailRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
@@ -395,6 +402,7 @@ export interface FileRoutesByTo {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/mail': typeof AppMailRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
@@ -449,6 +457,7 @@ export interface FileRoutesById {
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
+  '/app/mail': typeof AppMailRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
@@ -504,6 +513,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/mail'
     | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
@@ -556,6 +566,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/mail'
     | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
@@ -609,6 +620,7 @@ export interface FileRouteTypes {
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
+    | '/app/mail'
     | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
@@ -827,6 +839,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLibraryRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/mail': {
+      id: '/app/mail'
+      path: '/mail'
+      fullPath: '/app/mail'
+      preLoaderRoute: typeof AppMailRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/print-requests': {
       id: '/app/print-requests'
       path: '/print-requests'
@@ -1028,6 +1047,7 @@ interface AppRouteChildren {
   AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
+  AppMailRoute: typeof AppMailRoute
   AppPrintRequestsRoute: typeof AppPrintRequestsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppPromotionRoute: typeof AppPromotionRoute
@@ -1079,6 +1099,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
+  AppMailRoute: AppMailRoute,
   AppPrintRequestsRoute: AppPrintRequestsRoute,
   AppProfileRoute: AppProfileRoute,
   AppPromotionRoute: AppPromotionRoute,

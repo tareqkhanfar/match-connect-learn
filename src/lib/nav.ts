@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   GraduationCap,
+  Mail,
   Users2,
   Printer,
   School,
@@ -112,6 +113,13 @@ export const navItems: NavItem[] = [
     icon: School,
     roles: ["admin", "secretary"],
     group: "الإدارة الأكاديمية",
+  },
+  {
+    label: "البريد",
+    to: "/app/mail",
+    icon: Mail,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المتابعة اليومية",
   },
   {
     label: "مجتمع المدرسة",

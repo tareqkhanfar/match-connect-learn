@@ -212,6 +212,168 @@ export function useChildOverview(student: Opt<string>) {
   });
 }
 
+// --- Mail -----------------------------------------------------------------
+
+export interface MailRecipient {
+  user: string;
+  name: string;
+  kind: "to" | "cc" | "bcc";
+}
+
+export interface MailMessage {
+  id: string;
+  subject: string;
+  thread: string | null;
+  sender: string;
+  sender_name: string;
+  sent_on: string;
+  is_draft: boolean;
+  reply_to: string | null;
+  about_student: string | null;
+  recipients: MailRecipient[];
+  attachments: Array<{ file_url: string; file_name: string | null; file_size: number }>;
+  outgoing: boolean;
+  preview?: string;
+  body?: string;
+  is_read: boolean;
+  is_starred: boolean;
+  is_archived: boolean;
+  my_kind: string | null;
+  thread_messages?: MailMessage[];
+}
+
+export function useMailFolders() {
+  return useQuery<{
+    unread: number;
+    counts: Record<string, number>;
+    folders: Array<{ key: string; label: string; count: number }>;
+  }>({
+    queryKey: ["mail-folders"],
+    queryFn: () => apiGet("mail.folders"),
+    // The envelope badge has to notice new mail without a reload.
+    refetchInterval: 60_000,
+  });
+}
+
+export function useMailList(folder: string, search?: string, unreadOnly?: boolean) {
+  return useQuery<{
+    messages: MailMessage[];
+    folder: string;
+    folder_label: string;
+    total: number;
+  }>({
+    queryKey: ["mail-list", folder, search ?? "", unreadOnly ?? false],
+    queryFn: () =>
+      apiGet("mail.list_messages", {
+        folder,
+        ...(search ? { search } : {}),
+        ...(unreadOnly ? { unread_only: 1 } : {}),
+      }),
+  });
+}
+
+export function useMailMessage(message: string | undefined) {
+  return useQuery<MailMessage>({
+    queryKey: ["mail-message", message ?? null],
+    queryFn: () => apiGet<MailMessage>("mail.get_message", { message: message! }),
+    enabled: Boolean(message),
+  });
+}
+
+export function useSendMail() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      message?: string;
+      subject?: string;
+      body?: string;
+      to?: string[];
+      cc?: string[];
+      bcc?: string[];
+      reply_to?: string;
+      is_draft?: number;
+      attachments?: Array<{ file_url: string; file_name?: string; file_size?: number }>;
+    }) =>
+      apiPost<{ id: string; is_draft: boolean; recipients: number; message_ar?: string }>(
+        "mail.save_message",
+        { payload: vars } as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mail-list"] });
+      void qc.invalidateQueries({ queryKey: ["mail-folders"] });
+    },
+  });
+}
+
+export function useMailFlags() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      message: string;
+      is_read?: number;
+      is_starred?: number;
+      is_archived?: number;
+      is_deleted?: number;
+    }) => apiPost<{ id: string }>("mail.set_flags", vars as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mail-list"] });
+      void qc.invalidateQueries({ queryKey: ["mail-folders"] });
+    },
+  });
+}
+
+export function useMarkAllRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiPost<{ marked: number; message_ar?: string }>("mail.mark_all_read", {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mail-list"] });
+      void qc.invalidateQueries({ queryKey: ["mail-folders"] });
+    },
+  });
+}
+
+export function useDeleteDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { message: string }) =>
+      apiPost<{ deleted: string; message_ar?: string }>(
+        "mail.delete_draft",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mail-list"] });
+      void qc.invalidateQueries({ queryKey: ["mail-folders"] });
+    },
+  });
+}
+
+export interface RecipientResult {
+  user: string;
+  name: string;
+  email: string;
+  record: string | null;
+  national_id: string | null;
+  kind: string | null;
+  image: string | null;
+}
+
+export function useRecipientSearch(q: string) {
+  return useQuery<{ results: RecipientResult[] }>({
+    queryKey: ["mail-recipients", q],
+    queryFn: () => apiGet("mail.search_recipients", q ? { q } : {}),
+  });
+}
+
+export function useRecipientGroups() {
+  return useQuery<{
+    groups: Array<{ key: string; label: string; count: number; users: string[] }>;
+  }>({
+    queryKey: ["mail-groups"],
+    queryFn: () => apiGet("mail.recipient_groups"),
+  });
+}
+
 // --- Print requests --------------------------------------------------------
 
 export interface PrintAttachment {

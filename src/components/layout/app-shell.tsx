@@ -1,5 +1,6 @@
 import { Menu, Moon, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
+import { MailBadge } from "./mail-badge";
 import { HeaderStatus } from "./header-status";
 import { PeriodSwitcher } from "./period-switcher";
 import { SchoolBrand, HolidayBanner } from "./school-brand";
@@ -68,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Moon className="size-[18px]" />
                 )}
               </button>
+              <MailBadge />
               <NotificationBell />
               <UserMenu />
             </div>
