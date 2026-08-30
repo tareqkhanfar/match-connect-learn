@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { useConfirm } from "@/components/shared/confirm";
 import { EvaluationFormBuilder } from "@/components/shared/evaluation-form-builder";
+import { EvaluationGrid } from "@/components/shared/evaluation-grid";
 import { errorMessage } from "@/lib/api/error-message";
 import { groupSearch } from "@/lib/preselect";
 import {
@@ -125,87 +126,10 @@ function FillTab({
 }) {
   const forms = useEvaluationForms();
   const classes = useClasses();
-  const grid = useEvaluationGrid(formId || undefined, group || undefined);
-  const saveGrid = useSaveEvaluationGrid();
-  const publish = usePublishEvaluations();
-
-  // Edits live here until saved, so a slow connection never loses a column
-  // of typing and the sheet does not jump under the teacher's hands.
-  const [draft, setDraft] = useState<
-    Record<string, Record<string, { value?: string; note?: string; score?: number }>>
-  >({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    setDraft({});
-    setNotes({});
-  }, [formId, group]);
-
-  const form = grid.data?.form;
-  const criteria = form?.criteria ?? [];
-  const scale = form?.scale ?? [];
-  const students = grid.data?.students ?? [];
-  const saved = grid.data?.answers ?? {};
-
-  const dirty = Object.keys(draft).length > 0 || Object.keys(notes).length > 0;
-
-  function valueFor(student: string, key: string): string {
-    return draft[student]?.[key]?.value ?? saved[student]?.[key]?.value ?? "";
-  }
-
-  function setValue(student: string, key: string, value: string) {
-    setDraft((prev) => ({
-      ...prev,
-      [student]: { ...(prev[student] ?? {}), [key]: { ...(prev[student]?.[key] ?? {}), value } },
-    }));
-  }
-
-  async function submit() {
-    const rows: Record<string, { values: Record<string, { value?: string }>; notes?: string }> = {};
-    for (const student of students) {
-      const edits = draft[student.id];
-      const note = notes[student.id];
-      if (!edits && note === undefined) continue;
-      // Everything the pupil has, not only what changed: the server rewrites
-      // the answer set, so sending a partial row would erase the rest.
-      const values: Record<string, { value?: string }> = {};
-      for (const c of criteria) {
-        const v = valueFor(student.id, c.key);
-        if (v) values[c.key] = { value: v };
-      }
-      rows[student.id] = { values, ...(note !== undefined ? { notes: note } : {}) };
-    }
-    if (Object.keys(rows).length === 0) {
-      toast.error("لا توجد تغييرات لحفظها.");
-      return;
-    }
-    try {
-      const res = await saveGrid.mutateAsync({ form: formId, student_group: group, rows });
-      toast.success(`تم حفظ تقييم ${res.saved} طالباً.`);
-      setDraft({});
-      setNotes({});
-    } catch (e) {
-      toast.error(errorMessage(e, "تعذّر الحفظ."));
-    }
-  }
-
-  async function togglePublish(show: boolean) {
-    const entries = students.map((s) => s.entry).filter((e): e is string => Boolean(e));
-    if (entries.length === 0) {
-      toast.error("لا توجد تقييمات محفوظة بعد.");
-      return;
-    }
-    try {
-      await publish.mutateAsync({ entries, is_published: show ? 1 : 0 });
-      toast.success(show ? "أصبحت التقييمات ظاهرة للأهالي." : "تم إخفاء التقييمات.");
-    } catch (e) {
-      toast.error(errorMessage(e, "تعذّر التحديث."));
-    }
-  }
 
   return (
     <>
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto]">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <div>
           <Label className="text-xs">النموذج</Label>
           <Select value={formId} onValueChange={setFormId}>
@@ -238,16 +162,6 @@ function FillTab({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end gap-2">
-          <button
-            onClick={() => void submit()}
-            disabled={!dirty || saveGrid.isPending}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground disabled:opacity-40"
-          >
-            <Save className="size-4" />
-            حفظ
-          </button>
-        </div>
       </div>
 
       {!formId || !group ? (
@@ -256,143 +170,8 @@ function FillTab({
           description="سيظهر جدول التقييم: الطلاب في الصفوف والبنود في الأعمدة."
           icon={<ClipboardList className="size-6" />}
         />
-      ) : grid.isLoading ? (
-        <TableSkeleton rows={6} />
-      ) : students.length === 0 ? (
-        <EmptyBlock
-          title="لا يوجد طلاب في هذه الشعبة"
-          icon={<ClipboardList className="size-6" />}
-        />
       ) : (
-        <SectionCard
-          title={form?.title ?? "التقييم"}
-          description={
-            form?.scale_type === "مقياس"
-              ? `اختر لكل بند: ${scale.map((s) => s.label).join(" / ")}`
-              : "أدخل القيمة لكل بند."
-          }
-          actions={
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => void togglePublish(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
-              >
-                <Eye className="size-3.5" />
-                إظهار للأهالي
-              </button>
-              <button
-                onClick={() => void togglePublish(false)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
-              >
-                <EyeOff className="size-3.5" />
-                إخفاء
-              </button>
-            </div>
-          }
-        >
-          {/* Wide sheets scroll inside their own box; the page never does. */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-max border-collapse text-sm">
-              <thead>
-                {(form?.categories.length ?? 0) > 0 && (
-                  <tr>
-                    <th className="sticky right-0 z-10 bg-card" />
-                    {form!.categories.map((cat) => {
-                      const span = criteria.filter((c) => c.category === cat).length;
-                      return (
-                        <th
-                          key={cat}
-                          colSpan={span}
-                          className="border-b border-s border-border bg-secondary/60 px-2 py-1.5 text-center text-[11px] font-bold"
-                        >
-                          {cat}
-                        </th>
-                      );
-                    })}
-                    {criteria.some((c) => !c.category) && (
-                      <th
-                        colSpan={criteria.filter((c) => !c.category).length}
-                        className="border-b border-s border-border bg-secondary/60 px-2 py-1.5 text-center text-[11px] font-bold"
-                      >
-                        بنود عامة
-                      </th>
-                    )}
-                    <th className="border-b border-s border-border bg-secondary/60" />
-                  </tr>
-                )}
-                <tr>
-                  <th className="sticky right-0 z-10 min-w-44 border-b border-border bg-card px-2 py-2 text-start text-xs font-bold">
-                    الطالب
-                  </th>
-                  {criteria.map((c) => (
-                    <th
-                      key={c.key}
-                      className="w-32 border-b border-s border-border px-1.5 py-2 align-bottom text-[11px] font-semibold"
-                      title={c.help_text ?? c.item}
-                    >
-                      <span className="line-clamp-3">{c.item}</span>
-                    </th>
-                  ))}
-                  <th className="w-24 border-b border-s border-border px-2 py-2 text-[11px] font-bold">
-                    المجموع
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s) => (
-                  <tr key={s.id} className="hover:bg-secondary/30">
-                    <td className="sticky right-0 z-10 border-b border-border bg-card px-2 py-1.5">
-                      <span className="block truncate text-xs font-semibold">{s.name}</span>
-                      {s.is_published && (
-                        <span className="text-[10px] text-success">ظاهر للأهل</span>
-                      )}
-                    </td>
-                    {criteria.map((c) => (
-                      <td key={c.key} className="border-b border-s border-border p-1">
-                        {form?.scale_type === "علامة رقمية" ? (
-                          <Input
-                            type="number"
-                            value={valueFor(s.id, c.key)}
-                            onChange={(e) => setValue(s.id, c.key, e.target.value)}
-                            className="h-8 text-center text-xs"
-                          />
-                        ) : form?.scale_type === "نص" ? (
-                          <Input
-                            value={valueFor(s.id, c.key)}
-                            onChange={(e) => setValue(s.id, c.key, e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                        ) : (
-                          <select
-                            value={valueFor(s.id, c.key)}
-                            onChange={(e) => setValue(s.id, c.key, e.target.value)}
-                            className={cn(
-                              "h-8 w-full rounded-lg border border-border bg-background px-1 text-center text-xs",
-                              valueFor(s.id, c.key) && "font-semibold",
-                            )}
-                          >
-                            <option value="">—</option>
-                            {scale.map((o) => (
-                              <option key={o.label} value={o.label}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                    ))}
-                    <td className="num border-b border-s border-border px-2 py-1.5 text-center text-xs font-bold">
-                      {s.entry ? `${s.total}` : "—"}
-                      {s.entry && form?.max_total ? (
-                        <span className="text-muted-foreground">/{form.max_total}</span>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
+        <EvaluationGrid form={formId} studentGroup={group} />
       )}
     </>
   );

@@ -28,6 +28,7 @@ import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useConfirm } from "@/components/shared/confirm";
 import { EvaluationFormBuilder } from "@/components/shared/evaluation-form-builder";
+import { EvaluationGrid } from "@/components/shared/evaluation-grid";
 import { errorMessage } from "@/lib/api/error-message";
 import {
   useBehaviour,
@@ -627,68 +628,8 @@ function BehaviourAssessTab() {
   const classes = useClasses();
   const [formId, setFormId] = useState("");
   const [group, setGroup] = useState("");
-  const grid = useEvaluationGrid(formId || undefined, group || undefined);
-  const saveGrid = useSaveEvaluationGrid();
-  const publish = usePublishEvaluations();
-
-  const [draft, setDraft] = useState<Record<string, Record<string, string>>>({});
-
-  useEffect(() => {
-    setDraft({});
-  }, [formId, group]);
-
-  const form = grid.data?.form;
-  const criteria = form?.criteria ?? [];
-  const scale = form?.scale ?? [];
-  const students = grid.data?.students ?? [];
-  const saved = grid.data?.answers ?? {};
-  const dirty = Object.keys(draft).length > 0;
 
   const active = (forms.data?.forms ?? []).filter((f) => f.is_active);
-
-  function valueFor(student: string, key: string): string {
-    return draft[student]?.[key] ?? saved[student]?.[key]?.value ?? "";
-  }
-
-  async function submit() {
-    const rows: Record<string, { values: Record<string, { value?: string }> }> = {};
-    for (const s of students) {
-      if (!draft[s.id]) continue;
-      // The server replaces the answer set, so a partial row would erase the
-      // criteria the teacher did not touch this time.
-      const values: Record<string, { value?: string }> = {};
-      for (const c of criteria) {
-        const v = valueFor(s.id, c.key);
-        if (v) values[c.key] = { value: v };
-      }
-      rows[s.id] = { values };
-    }
-    if (Object.keys(rows).length === 0) {
-      toast.error("لا توجد تغييرات لحفظها");
-      return;
-    }
-    try {
-      const res = await saveGrid.mutateAsync({ form: formId, student_group: group, rows });
-      toast.success(`تم حفظ تقييم ${res.saved} طالباً`);
-      setDraft({});
-    } catch (e) {
-      toast.error(errorMessage(e, "تعذّر الحفظ"));
-    }
-  }
-
-  async function setVisible(show: boolean) {
-    const entries = students.map((s) => s.entry).filter((e): e is string => Boolean(e));
-    if (entries.length === 0) {
-      toast.error("لا توجد تقييمات محفوظة بعد");
-      return;
-    }
-    try {
-      await publish.mutateAsync({ entries, is_published: show ? 1 : 0 });
-      toast.success(show ? "أصبحت التقييمات ظاهرة للأهالي" : "تم إخفاء التقييمات");
-    } catch (e) {
-      toast.error(errorMessage(e, "تعذّر التحديث"));
-    }
-  }
 
   if (active.length === 0 && !forms.isLoading) {
     return (
@@ -702,7 +643,7 @@ function BehaviourAssessTab() {
 
   return (
     <>
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto]">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <div>
           <Label className="text-xs">النموذج</Label>
           <Select value={formId} onValueChange={setFormId}>
@@ -733,15 +674,6 @@ function BehaviourAssessTab() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end gap-2">
-          <button
-            onClick={() => void submit()}
-            disabled={!dirty || saveGrid.isPending}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground disabled:opacity-40"
-          >
-            حفظ
-          </button>
-        </div>
       </div>
 
       {!formId || !group ? (
@@ -750,143 +682,8 @@ function BehaviourAssessTab() {
           description="سيظهر جدول التقييم: الطلاب في الصفوف والمعايير في الأعمدة."
           icon={<ClipboardList className="size-6" />}
         />
-      ) : grid.isLoading ? (
-        <TableSkeleton rows={6} />
-      ) : students.length === 0 ? (
-        <EmptyBlock
-          title="لا يوجد طلاب في هذه الشعبة"
-          icon={<ClipboardList className="size-6" />}
-        />
       ) : (
-        <div className="card-surface p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-bold">{form?.title}</p>
-              <p className="text-[11px] text-muted-foreground">
-                {form?.scale_type === "مقياس"
-                  ? scale.map((o) => o.label).join(" / ")
-                  : "أدخل القيمة لكل معيار"}
-              </p>
-            </div>
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => void setVisible(true)}
-                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
-              >
-                إظهار للأهالي
-              </button>
-              <button
-                onClick={() => void setVisible(false)}
-                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
-              >
-                إخفاء
-              </button>
-            </div>
-          </div>
-
-          {/* Wide sheets scroll inside their own box; the page never does. */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-max border-collapse text-sm">
-              <thead>
-                {(form?.categories.length ?? 0) > 0 && (
-                  <tr>
-                    <th className="sticky right-0 z-10 bg-card" />
-                    {form!.categories.map((cat) => (
-                      <th
-                        key={cat}
-                        colSpan={criteria.filter((c) => c.category === cat).length}
-                        className="border-b border-s border-border bg-secondary/60 px-2 py-1.5 text-center text-[11px] font-bold"
-                      >
-                        {cat}
-                      </th>
-                    ))}
-                    {criteria.some((c) => !c.category) && (
-                      <th
-                        colSpan={criteria.filter((c) => !c.category).length}
-                        className="border-b border-s border-border bg-secondary/60 px-2 py-1.5 text-center text-[11px] font-bold"
-                      >
-                        معايير عامة
-                      </th>
-                    )}
-                    <th className="border-b border-s border-border bg-secondary/60" />
-                  </tr>
-                )}
-                <tr>
-                  <th className="sticky right-0 z-10 min-w-44 border-b border-border bg-card px-2 py-2 text-start text-xs font-bold">
-                    الطالب
-                  </th>
-                  {criteria.map((c) => (
-                    <th
-                      key={c.key}
-                      className="w-32 border-b border-s border-border px-1.5 py-2 align-bottom text-[11px] font-semibold"
-                      title={c.help_text ?? c.item}
-                    >
-                      <span className="line-clamp-3">{c.item}</span>
-                    </th>
-                  ))}
-                  <th className="w-24 border-b border-s border-border px-2 py-2 text-[11px] font-bold">
-                    المجموع
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s) => (
-                  <tr key={s.id} className="hover:bg-secondary/30">
-                    <td className="sticky right-0 z-10 border-b border-border bg-card px-2 py-1.5">
-                      <span className="block truncate text-xs font-semibold">{s.name}</span>
-                      {s.is_published && (
-                        <span className="text-[10px] text-success">ظاهر للأهل</span>
-                      )}
-                    </td>
-                    {criteria.map((c) => (
-                      <td key={c.key} className="border-b border-s border-border p-1">
-                        {form?.scale_type === "علامة رقمية" || form?.scale_type === "نص" ? (
-                          <Input
-                            {...(form.scale_type === "علامة رقمية" ? { type: "number" } : {})}
-                            value={valueFor(s.id, c.key)}
-                            onChange={(e) =>
-                              setDraft((d) => ({
-                                ...d,
-                                [s.id]: { ...(d[s.id] ?? {}), [c.key]: e.target.value },
-                              }))
-                            }
-                            className="h-8 text-center text-xs"
-                          />
-                        ) : (
-                          <select
-                            value={valueFor(s.id, c.key)}
-                            onChange={(e) =>
-                              setDraft((d) => ({
-                                ...d,
-                                [s.id]: { ...(d[s.id] ?? {}), [c.key]: e.target.value },
-                              }))
-                            }
-                            className={`h-8 w-full rounded-lg border border-border bg-background px-1 text-center text-xs ${
-                              valueFor(s.id, c.key) ? "font-semibold" : ""
-                            }`}
-                          >
-                            <option value="">—</option>
-                            {scale.map((o) => (
-                              <option key={o.label} value={o.label}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                    ))}
-                    <td className="num border-b border-s border-border px-2 py-1.5 text-center text-xs font-bold">
-                      {s.entry ? s.total : "—"}
-                      {s.entry && form?.max_total ? (
-                        <span className="text-muted-foreground">/{form.max_total}</span>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <EvaluationGrid form={formId} studentGroup={group} />
       )}
     </>
   );

@@ -7205,3 +7205,46 @@ export function useSaveEvaluationEntry() {
     },
   });
 }
+
+/** The assessment plan's own line items, for carrying homework marks onto. */
+export function usePlanComponents(studentGroup: string | undefined, course: string | undefined) {
+  return useQuery<{
+    scheme: string | null;
+    components: Array<{
+      component_name: string;
+      component_type: string;
+      category: string | null;
+      max_score: number;
+      weight: number;
+      quarter: string | null;
+      marked: number;
+    }>;
+  }>({
+    queryKey: ["plan-components", studentGroup ?? null, course ?? null],
+    queryFn: () =>
+      apiGet("gradebook.plan_components", {
+        student_group: studentGroup!,
+        course: course!,
+      }),
+    enabled: Boolean(studentGroup && course),
+  });
+}
+
+/** Carry a piece of homework's marks onto one line of the plan. */
+export function useTransferAssignmentMarks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { assignment: string; component_name: string; rescale?: number }) =>
+      apiPost<{
+        count: number;
+        component: string;
+        source_max: number;
+        target_max: number;
+        rescaled: boolean;
+      }>("gradebook.transfer_assignment_marks", vars as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      void qc.invalidateQueries({ queryKey: ["plan-components"] });
+    },
+  });
+}

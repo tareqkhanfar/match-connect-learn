@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   NotebookPen,
   Plus,
+  ArrowLeftRight,
   Send,
   Upload,
   X,
@@ -31,6 +32,7 @@ import { RichText, RichTextView } from "@/components/shared/rich-text";
 import { FileList, FileUpload, type UploadedFile } from "@/components/shared/file-upload";
 import { apiUpload } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
+import { useSheetNav } from "@/lib/sheet-nav";
 import { Switch } from "@/components/ui/switch";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
@@ -43,6 +45,7 @@ import {
   useAssignments,
   useClasses,
   useGradingSheet,
+  usePlanComponents,
   usePublishSolution,
   useSaveAssignment,
   useRecordAssignmentView,
@@ -50,6 +53,7 @@ import {
   useSubjects,
   useSubmission,
   useSubmitAssignment,
+  useTransferAssignmentMarks,
 } from "@/lib/api/hooks";
 import {
   Select,
@@ -239,6 +243,7 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
   const [tab, setTab] = useState<"marks" | "questions">("marks");
   const [draft, setDraft] = useState<Record<string, { score?: string; teacher_note?: string }>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
 
   const info = sheet.data?.assignment;
   const rows = sheet.data?.students ?? [];
@@ -248,6 +253,34 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
   function edit(student: string, patch: { score?: string; teacher_note?: string }) {
     setDraft((d) => ({ ...d, [student]: { ...(d[student] ?? {}), ...patch } }));
   }
+
+  // Two editable columns per pupil: the mark, then the note. Arrows and Enter
+  // walk them, and a column pasted out of a spreadsheet lands where the caret
+  // is — marking thirty pieces of work should not need the mouse.
+  const nav = useSheetNav({
+    rows: rows.length,
+    cols: 2,
+    prefix: "asg",
+    onPasteCell: (row, col, raw) => {
+      const target = rows[row];
+      if (!target) return;
+      edit(target.student, col === 0 ? { score: raw } : { teacher_note: raw });
+    },
+  });
+
+  const maxScore = Number(info?.maximum_score ?? 100);
+  /** Marks the server would refuse, named before the teacher presses save. */
+  const problems = rows
+    .map((r) => {
+      const raw = draft[r.student]?.score;
+      if (raw === undefined || raw === "") return null;
+      const value = Number(raw);
+      if (Number.isNaN(value)) return `${r.name}: قيمة غير رقمية`;
+      if (value < 0) return `${r.name}: لا يمكن أن تكون سالبة`;
+      if (value > maxScore) return `${r.name}: تتجاوز ${maxScore}`;
+      return null;
+    })
+    .filter((x): x is string => Boolean(x));
 
   async function save() {
     const payload: Record<string, { score?: number; teacher_note?: string }> = {};
@@ -326,12 +359,24 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
             </Select>
           )}
 
-          <button
-            onClick={() => void toggleSolution()}
-            className="mr-auto inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
-          >
-            {info?.["solution_published"] ? "إخفاء حلول الواجب" : "إظهار حلول الواجب"}
-          </button>
+          <div className="mr-auto flex items-center gap-1.5">
+            {/* The plan already has a line for homework. Carrying the marks
+                there is the point of marking them; creating a new column
+                named after the homework leaves the plan's own line empty. */}
+            <button
+              onClick={() => setTransferring(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+            >
+              <ArrowLeftRight className="size-3.5" />
+              ترحيل إلى خطة التقييم
+            </button>
+            <button
+              onClick={() => void toggleSolution()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+            >
+              {info?.["solution_published"] ? "إخفاء حلول الواجب" : "إظهار حلول الواجب"}
+            </button>
+          </div>
         </div>
 
         {tab === "marks" ? (
@@ -359,12 +404,30 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
               </div>
             )}
 
+            {problems.length > 0 && (
+              <div className="mb-3 rounded-xl border border-destructive/40 bg-destructive-soft p-2.5">
+                <p className="text-xs font-bold text-destructive">
+                  {problems.length} علامة خارج المدى المسموح — لن تُحفظ حتى تُصحَّح
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {problems.slice(0, 5).map((p) => (
+                    <li key={p} className="text-[11px] text-destructive">
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {sheet.isLoading ? (
               <TableSkeleton rows={6} />
             ) : rows.length === 0 ? (
               <EmptyBlock title="لا يوجد طلاب" icon={<NotebookPen className="size-6" />} />
             ) : (
-              <div className="max-h-[52vh] overflow-auto rounded-xl border border-border">
+              <div
+                ref={nav.gridRef}
+                className="max-h-[52vh] overflow-auto rounded-xl border border-border"
+              >
                 <table className="w-full min-w-max text-xs">
                   <thead className="sticky top-0 z-10 bg-secondary/80 backdrop-blur">
                     <tr>
@@ -471,11 +534,30 @@ function GradingDialog({ assignment, onClose }: { assignment: string; onClose: (
           <QuestionsPanel assignment={assignment} />
         )}
 
+        {tab === "marks" && rows.length > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            تنقّل بالأسهم أو Enter · الصق عموداً من إكسل مباشرة · العلامة من{" "}
+            <span className="num">{info?.maximum_score ?? 100}</span>
+          </p>
+        )}
+
+        {transferring && info && (
+          <TransferToPlanDialog
+            assignment={assignment}
+            title={String(info.title)}
+            maxScore={Number(info.maximum_score ?? 100)}
+            studentGroup={String(info["student_group"] ?? "")}
+            course={String(info["course"] ?? "")}
+            graded={summary?.graded ?? 0}
+            onClose={() => setTransferring(false)}
+          />
+        )}
+
         <DialogFooter className="gap-2 sm:justify-start">
           {tab === "marks" && (
             <button
               onClick={() => void save()}
-              disabled={!dirty || saveGrades.isPending}
+              disabled={!dirty || problems.length > 0 || saveGrades.isPending}
               className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-40"
             >
               {saveGrades.isPending ? "جارٍ الحفظ…" : "حفظ العلامات"}
@@ -1407,6 +1489,160 @@ function StudentAssignmentDialog({
             className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
           >
             إغلاق
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Carrying homework marks onto a line of the assessment plan.
+ *
+ * The two totals are almost never the same — homework out of twenty against a
+ * plan line worth ten — so the conversion is shown before it happens rather
+ * than discovered afterwards in a column of unfamiliar numbers.
+ */
+function TransferToPlanDialog({
+  assignment,
+  title,
+  maxScore,
+  studentGroup,
+  course,
+  graded,
+  onClose,
+}: {
+  assignment: string;
+  title: string;
+  maxScore: number;
+  studentGroup: string;
+  course: string;
+  graded: number;
+  onClose: () => void;
+}) {
+  const plan = usePlanComponents(studentGroup || undefined, course || undefined);
+  const transfer = useTransferAssignmentMarks();
+  const [picked, setPicked] = useState("");
+
+  const components = plan.data?.components ?? [];
+  const target = components.find((c) => c.component_name === picked);
+  const converting = target && Math.abs(target.max_score - maxScore) > 0.001;
+
+  async function submit() {
+    if (!picked) {
+      toast.error("اختر البند الذي سيستقبل العلامات");
+      return;
+    }
+    try {
+      const res = await transfer.mutateAsync({ assignment, component_name: picked });
+      toast.success(
+        res.rescaled
+          ? `رُحّلت علامات ${res.count} طالباً إلى «${res.component}» بعد التحويل من ${res.source_max} إلى ${res.target_max}`
+          : `رُحّلت علامات ${res.count} طالباً إلى «${res.component}»`,
+      );
+      onClose();
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر الترحيل"));
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="text-right">ترحيل علامات «{title}» إلى خطة التقييم</DialogTitle>
+        </DialogHeader>
+
+        <div className="max-h-[56vh] space-y-3 overflow-y-auto p-1">
+          <p className="rounded-xl bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">
+            سيُرحَّل <span className="num font-bold">{graded}</span> طالباً مُصحَّحاً فقط — من لم
+            تُرصد علامته يُترك كما هو، لأن العلامة الناقصة ليست صفراً.
+          </p>
+
+          {plan.isLoading ? (
+            <TableSkeleton rows={3} />
+          ) : components.length === 0 ? (
+            <EmptyBlock
+              title="لا توجد خطة تقييم لهذه المادة"
+              description="أنشئ خطة التقييم أولاً، ثم عُد لترحيل العلامات إلى أحد بنودها."
+              icon={<Award className="size-6" />}
+            />
+          ) : (
+            <>
+              <Label className="text-xs">البند الذي يقابل هذا الواجب</Label>
+              <ul className="space-y-1.5">
+                {components.map((c) => (
+                  <li key={c.component_name}>
+                    <button
+                      onClick={() => setPicked(c.component_name)}
+                      className={`w-full rounded-xl border p-3 text-start transition-colors ${
+                        picked === c.component_name
+                          ? "border-primary bg-primary-soft"
+                          : "border-border hover:bg-secondary"
+                      }`}
+                    >
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold">{c.component_name}</span>
+                        {c.category && <Pill>{c.category}</Pill>}
+                        <span className="num text-[11px] text-muted-foreground">
+                          من {c.max_score} · وزن {c.weight}
+                        </span>
+                        {c.marked > 0 && (
+                          <Pill tone="warning">
+                            <span className="num">{c.marked}</span> علامة مرصودة ستُستبدل
+                          </Pill>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              {target && (
+                <div
+                  className={`rounded-xl border p-3 text-xs ${
+                    converting ? "border-warning/40 bg-warning/10" : "border-border bg-secondary/40"
+                  }`}
+                >
+                  {converting ? (
+                    <>
+                      <p className="font-bold">
+                        سيُحوَّل كل مقياس من <span className="num">{maxScore}</span> إلى{" "}
+                        <span className="num">{target.max_score}</span>
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        مثال: <span className="num">{maxScore}</span> تصبح{" "}
+                        <span className="num">{target.max_score}</span> ·{" "}
+                        <span className="num">{Math.round(maxScore / 2)}</span> تصبح{" "}
+                        <span className="num">
+                          {Math.round(
+                            (Math.round(maxScore / 2) * target.max_score * 100) / maxScore,
+                          ) / 100}
+                        </span>
+                      </p>
+                    </>
+                  ) : (
+                    <p>العلامتان من نفس المقياس — تُنقل كما هي بلا تحويل.</p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 sm:justify-start">
+          <button
+            onClick={() => void submit()}
+            disabled={!picked || transfer.isPending || graded === 0}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-40"
+          >
+            {transfer.isPending ? "جارٍ الترحيل…" : "ترحيل"}
+          </button>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            إلغاء
           </button>
         </DialogFooter>
       </DialogContent>
