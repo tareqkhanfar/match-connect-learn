@@ -1174,7 +1174,33 @@ export function useMarkAttendance() {
       student_group: string;
       date: string;
       entries: Array<{ student: string; status: string }>;
-    }) => apiPost<{ created: number; updated: number }>("attendance.mark_attendance", vars),
+    }) =>
+      apiPost<{ created: number; updated: number; unchanged: number }>(
+        "attendance.mark_attendance",
+        vars,
+      ),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: qk.attendanceSheet(vars.student_group, vars.date) });
+      qc.invalidateQueries({ queryKey: ["attendance-report"] });
+      qc.invalidateQueries({ queryKey: qk.dashboard });
+    },
+  });
+}
+
+/**
+ * Correct one pupil without rewriting the register for the whole class.
+ *
+ * Marking a class is a batch; fixing a mistake is not. Sending the whole sheet
+ * to change one child cancelled and re-created every other record in it.
+ */
+export function useMarkOneAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { student: string; student_group: string; date: string; status: string }) =>
+      apiPost<{ student: string; status: string; result: string }>(
+        "attendance.mark_one",
+        vars as unknown as Record<string, unknown>,
+      ),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: qk.attendanceSheet(vars.student_group, vars.date) });
       qc.invalidateQueries({ queryKey: ["attendance-report"] });

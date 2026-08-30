@@ -29,12 +29,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
+import { errorMessage } from "@/lib/api/error-message";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import {
   useAttendanceReport,
   useAttendanceSheet,
   useMarkAttendance,
+  useMarkOneAttendance,
   useMyGroups,
   useAcademicContext,
   useUpcomingHolidays,
@@ -203,14 +205,21 @@ function StaffAttendanceView() {
   const sheetQuery = useAttendanceSheet(groupId || undefined, date);
   const reportQuery = useAttendanceReport(groupId ? { student_group: groupId } : {});
   const markAttendance = useMarkAttendance();
+  const markOne = useMarkOneAttendance();
 
   // Local edits layered over whatever is already saved on the server.
   const [edits, setEdits] = useState<Record<string, Status>>({});
+  // Which rows are mid-save, so a correction shows it landed rather than
+  // leaving the teacher wondering whether it took.
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [justSaved, setJustSaved] = useState<Record<string, boolean>>({});
   const { data: context } = useAcademicContext();
   const { data: holidayInfo } = useUpcomingHolidays(365);
   useEffect(() => {
     // Reset local edits whenever the sheet identity changes.
     setEdits({});
+    setSaving({});
+    setJustSaved({});
   }, [groupId, date]);
 
   // `?? []` builds a new array every render, so every memo downstream
@@ -230,6 +239,40 @@ function StaffAttendanceView() {
     Absent: Object.values(marks).filter((m) => m === "Absent").length,
   };
 
+  /**
+   * Change one pupil and save only that pupil.
+   *
+   * Correcting a mistake used to send the whole class, which cancelled and
+   * re-created every other record in the register to fix one. The row shows
+   * its own state so the teacher can see the change landed without hunting
+   * for a save button.
+   */
+  async function setOne(student: string, status: Status) {
+    if (!groupId || !canMark) return;
+    const previous = marks[student];
+    if (previous === status) return;
+
+    setEdits((p) => ({ ...p, [student]: status }));
+    setSaving((p) => ({ ...p, [student]: true }));
+    try {
+      await markOne.mutateAsync({ student, student_group: groupId, date, status });
+      setJustSaved((p) => ({ ...p, [student]: true }));
+      window.setTimeout(() => setJustSaved((p) => ({ ...p, [student]: false })), 1600);
+    } catch (error) {
+      // Put the row back to what the server still holds: a red button that
+      // did not save is worse than no change at all.
+      setEdits((p) => {
+        const next = { ...p };
+        if (previous === undefined) delete next[student];
+        else next[student] = previous;
+        return next;
+      });
+      toast.error(errorMessage(error, "تعذّر حفظ حضور هذا الطالب"));
+    } finally {
+      setSaving((p) => ({ ...p, [student]: false }));
+    }
+  }
+
   async function save() {
     if (!groupId) return;
     const entries = rows.map((r) => ({ student: r.student, status: marks[r.student]! }));
@@ -245,6 +288,18 @@ function StaffAttendanceView() {
       toast.error(message);
     }
   }
+
+  // Rows whose local state differs from what is stored. Individual presses
+  // save themselves, so this counts only the bulk path — "mark everyone
+  // present, then fix three" — and the button says so rather than offering to
+  // save nothing.
+  const pendingCount = rows.filter((r) => {
+    const local = edits[r.student];
+    if (local === undefined) return false;
+    const stored = (r.status ?? "Present") as Status;
+    if (local === stored) return false;
+    return !(local === "Excused" && stored === "Leave");
+  }).length;
 
   const report = reportQuery.data;
   const trend = (report?.rows ?? []).map((r) => ({ month: r.date, present: r.rate }));
@@ -274,17 +329,26 @@ function StaffAttendanceView() {
     <>
       <PageHeader
         title="الحضور والغياب"
-        subtitle="تسجيل الحضور اليومي ومتابعة تقارير الغياب"
+        subtitle="اضغط حالة أي طالب لتُحفظ وحدها — والحفظ العام لتسجيل الشعبة دفعة واحدة"
         actions={
           canMark ? (
             <button
               onClick={save}
-              disabled={markAttendance.isPending || rows.length === 0 || !!blockedReason}
-              title={blockedReason ?? undefined}
+              disabled={
+                markAttendance.isPending ||
+                rows.length === 0 ||
+                !!blockedReason ||
+                pendingCount === 0
+              }
+              title={blockedReason ?? (pendingCount === 0 ? "لا تغييرات معلّقة" : undefined)}
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft disabled:opacity-60"
             >
               <Save className="size-4" />
-              {markAttendance.isPending ? "جارٍ الحفظ…" : "حفظ الحضور"}
+              {markAttendance.isPending
+                ? "جارٍ الحفظ…"
+                : pendingCount > 0
+                  ? `حفظ ${pendingCount} طالباً`
+                  : "لا تغييرات"}
             </button>
           ) : null
         }
@@ -387,7 +451,16 @@ function StaffAttendanceView() {
                   <Avatar name={s.student_name} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">{s.student_name}</p>
-                    <p className="num text-xs text-muted-foreground">{s.student}</p>
+                    <p className="num flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {s.student}
+                      {saving[s.student] && <span className="text-primary">جارٍ الحفظ…</span>}
+                      {justSaved[s.student] && !saving[s.student] && (
+                        <span className="inline-flex items-center gap-0.5 text-success">
+                          <Check className="size-3" />
+                          حُفظ
+                        </span>
+                      )}
+                    </p>
                   </div>
                   <div className="flex gap-1.5">
                     {SELECTABLE.map((state) => {
@@ -403,7 +476,7 @@ function StaffAttendanceView() {
                           key={state}
                           type="button"
                           disabled={!canMark}
-                          onClick={() => setEdits((p) => ({ ...p, [s.student]: state }))}
+                          onClick={() => void setOne(s.student, state)}
                           title={meta.label}
                           aria-label={`${s.student_name}: ${meta.label}`}
                           aria-pressed={active}
