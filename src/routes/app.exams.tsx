@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -39,6 +40,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/exams")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "جدول الامتحانات — Match Education" },
@@ -79,7 +81,10 @@ function ExamsPage() {
   const [layout, setLayout] = useState<"list" | "week" | "month">("list");
   const [cursor, setCursor] = useState(() => new Date());
   const [type, setType] = useState("");
-  const [group, setGroup] = useState("");
+  // Opened from a class, this screen starts on that class rather than on
+  // everything — which is the difference between arriving and arriving here.
+  const { group: groupFromUrl } = Route.useSearch();
+  const [group, setGroup] = useState(groupFromUrl ?? "");
   const [editing, setEditing] = useState<ExamSitting | null>(null);
   const [creating, setCreating] = useState(false);
 

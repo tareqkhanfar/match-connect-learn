@@ -31,6 +31,7 @@ import {
   FileQuestion,
   CalendarCog,
   CalendarClock,
+  FolderOpen,
   UserCheck,
   BookMarked,
   ClipboardList,
@@ -76,14 +77,14 @@ export const navItems: NavItem[] = [
     to: "/app/admissions",
     icon: UserPlus,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "القبول والتسجيل",
   },
   {
     label: "التسجيل الدراسي",
     to: "/app/enrollment",
     icon: BookOpenCheck,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "القبول والتسجيل",
   },
   {
     label: "الطلاب",
@@ -91,35 +92,35 @@ export const navItems: NavItem[] = [
     to: "/app/students",
     icon: Users,
     roles: ["admin", "secretary", "teacher"],
-    group: "الإدارة الأكاديمية",
+    group: "السجلات",
   },
   {
     label: "المعلمون",
     to: "/app/teachers",
     icon: GraduationCap,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "السجلات",
   },
   {
     label: "أولياء الأمور",
     to: "/app/guardians",
     icon: Users,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "السجلات",
   },
   {
     label: "الصفوف والشُعب",
     to: "/app/classes",
     icon: School,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "البنية الأكاديمية",
   },
   {
     label: "المراسلات",
     to: "/app/mail",
     icon: Mail,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المالية والتواصل",
+    group: "التواصل",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
@@ -127,7 +128,8 @@ export const navItems: NavItem[] = [
     to: "/app/community",
     icon: Users2,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "التواصل",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
     label: "طلبات الطباعة",
@@ -135,14 +137,14 @@ export const navItems: NavItem[] = [
     to: "/app/print-requests",
     icon: Printer,
     roles: ["admin", "secretary", "teacher"],
-    group: "المتابعة اليومية",
+    group: "التدريس والمحتوى",
   },
   {
     label: "ترفيع الطلاب",
     to: "/app/promotion",
     icon: GraduationCap,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "القبول والتسجيل",
   },
   {
     label: "المواد الدراسية",
@@ -150,7 +152,7 @@ export const navItems: NavItem[] = [
     to: "/app/subjects",
     icon: BookOpen,
     roles: ["admin", "secretary", "teacher"],
-    group: "الإدارة الأكاديمية",
+    group: "البنية الأكاديمية",
   },
 
   // Day-to-day
@@ -169,7 +171,7 @@ export const navItems: NavItem[] = [
     to: "/app/timetable",
     icon: CalendarDays,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "الجداول والمواعيد",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -182,7 +184,7 @@ export const navItems: NavItem[] = [
     to: "/app/exams",
     icon: FileSpreadsheet,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "الجداول والمواعيد",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -191,7 +193,7 @@ export const navItems: NavItem[] = [
     to: "/app/gradebook",
     icon: BookOpenCheck,
     roles: ["admin", "secretary", "teacher"],
-    group: "المتابعة اليومية",
+    group: "العلامات والتقييم",
   },
   {
     label: "ترحيل علامات الفصل",
@@ -203,7 +205,7 @@ export const navItems: NavItem[] = [
     to: "/app/term",
     icon: ArrowUpFromLine,
     roles: ["admin", "secretary", "teacher"],
-    group: "المتابعة اليومية",
+    group: "العلامات والتقييم",
   },
   {
     // The same screen, named for whose marks the viewer is actually reading.
@@ -218,7 +220,7 @@ export const navItems: NavItem[] = [
     to: "/app/record",
     icon: Award,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "العلامات والتقييم",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -227,7 +229,7 @@ export const navItems: NavItem[] = [
     to: "/app/finals",
     icon: Award,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "العلامات والتقييم",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -236,7 +238,7 @@ export const navItems: NavItem[] = [
     to: "/app/assignments",
     icon: NotebookPen,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "التدريس والمحتوى",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -245,7 +247,7 @@ export const navItems: NavItem[] = [
     to: "/app/resources",
     icon: BookMarked,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "التدريس والمحتوى",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -254,7 +256,7 @@ export const navItems: NavItem[] = [
     to: "/app/quizzes",
     icon: FileQuestion,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المتابعة اليومية",
+    group: "التدريس والمحتوى",
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
@@ -321,7 +323,7 @@ export const navItems: NavItem[] = [
     to: "/app/fees",
     icon: Wallet,
     roles: ["admin", "secretary", "student", "parent"],
-    group: "المالية والتواصل",
+    group: "المالية والتقارير",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
@@ -330,7 +332,7 @@ export const navItems: NavItem[] = [
     to: "/app/communication",
     icon: MessagesSquare,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المالية والتواصل",
+    group: "التواصل",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
@@ -339,14 +341,14 @@ export const navItems: NavItem[] = [
     to: "/app/reports",
     icon: BarChart3,
     roles: ["admin", "secretary", "teacher"],
-    group: "المالية والتواصل",
+    group: "المالية والتقارير",
   },
   {
     label: "جدول اليوم والمناوبات",
     to: "/app/day-schedule",
     icon: CalendarClock,
     roles: ["admin", "secretary"],
-    group: "المتابعة اليومية",
+    group: "الجداول والمواعيد",
   },
   {
     // The plan and the grid are one screen: /app/timetable-builder redirects.
@@ -354,7 +356,7 @@ export const navItems: NavItem[] = [
     to: "/app/timetable-grid",
     icon: CalendarCog,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "الجداول والمواعيد",
   },
   {
     label: "تقييم المعلمين",
@@ -362,7 +364,7 @@ export const navItems: NavItem[] = [
     to: "/app/appraisal",
     icon: UserCheck,
     roles: ["admin", "secretary", "teacher"],
-    group: "الإدارة الأكاديمية",
+    group: "المالية والتقارير",
   },
   {
     label: "التنبيهات والإنذارات",
@@ -370,7 +372,7 @@ export const navItems: NavItem[] = [
     to: "/app/alerts",
     icon: ShieldAlert,
     roles: ["admin", "secretary", "student", "parent"],
-    group: "المالية والتواصل",
+    group: "المتابعة اليومية",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
@@ -378,7 +380,7 @@ export const navItems: NavItem[] = [
     to: "/app/surveys",
     icon: ClipboardList,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المالية والتواصل",
+    group: "التواصل",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
@@ -386,21 +388,21 @@ export const navItems: NavItem[] = [
     to: "/app/quarter-results",
     icon: FileText,
     roles: ["admin", "secretary", "teacher"],
-    group: "الإدارة الأكاديمية",
+    group: "العلامات والتقييم",
   },
   {
     label: "خطة التقييم",
     to: "/app/assessment-plan",
     icon: Layers,
     roles: ["admin", "secretary", "teacher"],
-    group: "الإدارة الأكاديمية",
+    group: "البنية الأكاديمية",
   },
   {
     label: "إعدادات المدرسة",
     to: "/app/settings",
     icon: Settings,
     roles: ["admin"],
-    group: "المالية والتواصل",
+    group: "النظام",
   },
   {
     label: "التقويم الدراسي",
@@ -414,7 +416,27 @@ export const navItems: NavItem[] = [
     to: "/app/sections",
     icon: LayoutGrid,
     roles: ["admin", "secretary"],
-    group: "الإدارة الأكاديمية",
+    group: "البنية الأكاديمية",
+  },
+  {
+    label: "المواعيد والساعات المكتبية",
+    labelByRole: {
+      teacher: "مواعيدي وساعاتي المكتبية",
+      student: "حجز موعد",
+      parent: "حجز موعد",
+    },
+    to: "/app/appointments",
+    icon: CalendarClock,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "الجداول والمواعيد",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
+  },
+  {
+    label: "ملفاتي",
+    to: "/app/files",
+    icon: FolderOpen,
+    roles: ["admin", "secretary", "teacher"],
+    group: "التدريس والمحتوى",
   },
   {
     // Every persona manages their own account security, so this is the one
@@ -423,16 +445,59 @@ export const navItems: NavItem[] = [
     to: "/app/security",
     icon: ShieldCheck,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
-    group: "المالية والتواصل",
+    group: "النظام",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
 ];
 
-/** Sidebar section order, per role. */
+/** Sidebar section order, per role.
+
+    Twelve sections of three to six items rather than five where one held
+    fourteen: the list stopped being scannable long before it stopped growing.
+    Each is collapsible in the sidebar, so what is open is what you are using.
+ */
 const GROUPS_BY_ROLE: Record<Role, string[]> = {
-  admin: ["عام", "الإدارة الأكاديمية", "المتابعة اليومية", "خدمات الطلاب", "المالية والتواصل"],
-  secretary: ["عام", "الإدارة الأكاديمية", "المتابعة اليومية", "خدمات الطلاب", "المالية والتواصل"],
-  teacher: ["عام", "الإدارة الأكاديمية", "المتابعة اليومية", "المالية والتواصل"],
+  admin: [
+    "عام",
+    "القبول والتسجيل",
+    "السجلات",
+    "البنية الأكاديمية",
+    "الجداول والمواعيد",
+    "العلامات والتقييم",
+    "التدريس والمحتوى",
+    "المتابعة اليومية",
+    "التواصل",
+    "خدمات الطلاب",
+    "المالية والتقارير",
+    "النظام",
+  ],
+  secretary: [
+    "عام",
+    "القبول والتسجيل",
+    "السجلات",
+    "البنية الأكاديمية",
+    "الجداول والمواعيد",
+    "العلامات والتقييم",
+    "التدريس والمحتوى",
+    "المتابعة اليومية",
+    "التواصل",
+    "خدمات الطلاب",
+    "المالية والتقارير",
+    "النظام",
+  ],
+  teacher: [
+    "عام",
+    "السجلات",
+    "البنية الأكاديمية",
+    "الجداول والمواعيد",
+    "العلامات والتقييم",
+    "التدريس والمحتوى",
+    "المتابعة اليومية",
+    "التواصل",
+    "خدمات الطلاب",
+    "المالية والتقارير",
+    "النظام",
+  ],
   student: ["عام", "دراستي", "خدماتي"],
   parent: ["عام", "متابعة الأبناء", "خدمات الأبناء"],
 };

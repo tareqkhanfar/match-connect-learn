@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { Award, BarChart3, ClipboardCheck, Wallet } from "lucide-react";
 import {
   Bar,
@@ -18,6 +19,7 @@ import { useReports } from "@/lib/api/hooks";
 import { money } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/reports")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "التقارير — Match Education" },

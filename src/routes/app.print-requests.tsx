@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -49,6 +50,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/print-requests")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "طلبات الطباعة — Match Education" },
@@ -302,12 +304,14 @@ function RequestDialog({
   request: PrintRequestRow | null;
   onClose: () => void;
 }) {
+  // Opened from a class: the form starts on it instead of empty.
+  const { group: preselectedGroup } = Route.useSearch();
   const save = useSavePrintRequest();
   const classes = useClasses();
   const [form, setForm] = useState({
     title: request?.title ?? "",
     document_type: request?.document_type ?? "Worksheet",
-    student_group: request?.student_group ?? "",
+    student_group: request?.student_group ?? preselectedGroup ?? "",
     course: request?.course ?? "",
     needed_by: request?.needed_by ?? "",
     notes: request?.notes ?? "",

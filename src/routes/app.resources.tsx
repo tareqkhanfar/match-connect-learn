@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -43,6 +44,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/resources")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "مصادر المواد — Match Education" },
@@ -336,13 +338,15 @@ function ResourceDialog({
   resource: ResourceItem | null;
   onClose: () => void;
 }) {
+  // Opened from a class: the form starts on it instead of empty.
+  const { group: preselectedGroup } = Route.useSearch();
   const options = useResourceOptions();
   const save = useSaveResource();
 
   const [form, setForm] = useState({
     title: resource?.title ?? "",
     course: resource?.course ?? "",
-    student_group: resource?.student_group ?? "",
+    student_group: resource?.student_group ?? preselectedGroup ?? "",
     resource_type: resource?.type ?? "Document",
     status: resource?.status ?? "Published",
     external_url: resource?.url ?? "",

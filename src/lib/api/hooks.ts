@@ -243,6 +243,13 @@ export interface MailMessage {
   audience_key: string | null;
   audience_label: string | null;
   audience_count: number;
+  /** Set when the sender closed the message to replies. */
+  no_reply: boolean;
+  copy_guardians: boolean;
+  /** Non-empty while the message is waiting for its send time. */
+  scheduled_for: string;
+  is_scheduled: boolean;
+  send_failed_reason: string | null;
   thread_messages?: MailMessage[];
 }
 
@@ -298,6 +305,10 @@ export function useSendMail() {
       audience_groups?: string[];
       reply_to?: string;
       is_draft?: number;
+      no_reply?: number;
+      copy_guardians?: number;
+      /** "YYYY-MM-DD HH:mm:ss"; empty or absent means send now. */
+      scheduled_for?: string;
       attachments?: Array<{ file_url: string; file_name?: string; file_size?: number }>;
     }) =>
       apiPost<{ id: string; is_draft: boolean; recipients: number; message_ar?: string }>(
@@ -6145,5 +6156,460 @@ export function useGuardianDossier(guardian: string | undefined) {
     queryKey: ["guardian-dossier", guardian],
     queryFn: () => apiGet<GuardianDossier>("dossier.guardian_dossier", { guardian: guardian! }),
     enabled: !!guardian,
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Mail: templates, preview, scheduling
+ * ---------------------------------------------------------------------- */
+
+export interface MailTemplate {
+  name: string;
+  title: string;
+  category: string;
+  subject: string;
+  body: string;
+  is_shared: number;
+  use_count: number;
+  mine: boolean;
+  owner_name: string | null;
+}
+
+export function useMailTemplates() {
+  return useQuery<{
+    templates: MailTemplate[];
+    placeholders: Array<{ token: string; field: string }>;
+  }>({
+    queryKey: ["mail-templates"],
+    queryFn: () => apiGet("mail.list_templates"),
+  });
+}
+
+export function useSaveMailTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      template?: string;
+      title: string;
+      category?: string;
+      subject?: string;
+      body?: string;
+      is_shared?: number;
+    }) =>
+      apiPost<{ id: string }>("mail.save_template", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mail-templates"] }),
+  });
+}
+
+export function useDeleteMailTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { template: string }) =>
+      apiPost<Record<string, never>>(
+        "mail.delete_template",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mail-templates"] }),
+  });
+}
+
+/** Fill a template's placeholders on the server, where they have one meaning. */
+export function useApplyMailTemplate() {
+  return useMutation({
+    mutationFn: (vars: {
+      template: string;
+      student?: string;
+      student_group?: string;
+      course?: string;
+    }) =>
+      apiPost<{ subject: string; body: string; title: string }>(
+        "mail.apply_template",
+        vars as unknown as Record<string, unknown>,
+      ),
+  });
+}
+
+export interface RecipientPreview {
+  user: string;
+  name: string;
+  kind: "student" | "guardian" | "staff";
+  copy: "to" | "cc" | "bcc";
+  enabled: boolean;
+}
+
+/** Who this message would actually reach, resolved by the code that sends it. */
+export function usePreviewRecipients() {
+  return useMutation({
+    mutationFn: (vars: {
+      to?: string[];
+      cc?: string[];
+      bcc?: string[];
+      audience?: string;
+      audience_groups?: string[];
+      copy_guardians?: number;
+    }) =>
+      apiPost<{
+        recipients: RecipientPreview[];
+        total: number;
+        groups: Array<{ kind: string; label: string; count: number }>;
+        disabled: number;
+      }>("mail.preview_recipients", { payload: vars } as unknown as Record<string, unknown>),
+  });
+}
+
+export function useCancelSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { message: string }) =>
+      apiPost<{ id: string }>("mail.cancel_schedule", vars as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["mail-list"] });
+      void qc.invalidateQueries({ queryKey: ["mail-folders"] });
+    },
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Office hours and appointments
+ * ---------------------------------------------------------------------- */
+
+export interface OfficeHour {
+  id?: string;
+  day: string;
+  day_label?: string;
+  from_time: string;
+  to_time: string;
+  slot_minutes: number;
+  location: string | null;
+  is_active: boolean;
+  allow_students: boolean;
+  allow_guardians: boolean;
+  notes: string | null;
+}
+
+export function useMyOfficeHours(staff?: string) {
+  return useQuery<{
+    staff_user: string;
+    hours: OfficeHour[];
+    days: Array<{ key: string; label: string }>;
+    teaching: Array<{
+      day: string;
+      from_time: string;
+      to_time: string;
+      course: string;
+      student_group: string;
+    }>;
+  }>({
+    queryKey: ["office-hours", staff ?? "me"],
+    queryFn: () => apiGet("appointments.my_office_hours", staff ? { staff } : {}),
+  });
+}
+
+export function useSaveOfficeHours() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { hours: OfficeHour[]; staff_user?: string }) =>
+      apiPost<{ count: number }>("appointments.save_office_hours", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["office-hours"] });
+      void qc.invalidateQueries({ queryKey: ["availability"] });
+    },
+  });
+}
+
+export function useBookableStaff(search?: string) {
+  return useQuery<{
+    staff: Array<{ user: string; name: string; has_hours: boolean; subjects: string[] }>;
+  }>({
+    queryKey: ["bookable-staff", search ?? ""],
+    queryFn: () => apiGet("appointments.staff_directory", search ? { search } : {}),
+  });
+}
+
+export interface AvailabilityDay {
+  date: string;
+  day: string;
+  day_label: string;
+  slots: Array<{
+    from_time: string;
+    to_time: string;
+    office_hour: string;
+    location: string | null;
+  }>;
+}
+
+export function useAvailability(staff: string | undefined, days = 14) {
+  return useQuery<{
+    staff: string;
+    staff_name: string;
+    days: AvailabilityDay[];
+    has_hours: boolean;
+  }>({
+    queryKey: ["availability", staff ?? null, days],
+    queryFn: () => apiGet("appointments.availability", { staff: staff!, days }),
+    enabled: Boolean(staff),
+  });
+}
+
+export interface Appointment {
+  id: string;
+  staff_user: string;
+  staff_name: string;
+  status: string;
+  status_label: string;
+  status_tone: string;
+  date: string;
+  day_label: string;
+  from_time: string;
+  to_time: string;
+  requested_by: string;
+  requester_name: string;
+  requester_role: string;
+  student: string | null;
+  student_name: string | null;
+  student_group: string | null;
+  subject: string;
+  notes: string | null;
+  location: string | null;
+  decline_reason: string | null;
+  decided_on: string;
+  mine: boolean;
+  is_staff: boolean;
+  can_decide: boolean;
+  can_cancel: boolean;
+}
+
+export function useAppointments(scope: "all" | "incoming" | "mine" = "all", status?: string) {
+  return useQuery<{
+    appointments: Appointment[];
+    counts: { awaiting_me: number; upcoming: number; mine_open: number };
+  }>({
+    queryKey: ["appointments", scope, status ?? ""],
+    queryFn: () =>
+      apiGet("appointments.list_appointments", { scope, ...(status ? { status } : {}) }),
+  });
+}
+
+export function useBookAppointment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      staff_user: string;
+      date: string;
+      from_time: string;
+      subject: string;
+      notes?: string;
+      student?: string;
+      student_group?: string;
+    }) =>
+      apiPost<{ id: string }>("appointments.book", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["appointments"] });
+      void qc.invalidateQueries({ queryKey: ["availability"] });
+    },
+  });
+}
+
+export function useSetAppointmentStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      appointment: string;
+      status: string;
+      reason?: string;
+      location?: string;
+    }) =>
+      apiPost<{ id: string; status: string }>(
+        "appointments.set_status",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["appointments"] });
+      void qc.invalidateQueries({ queryKey: ["availability"] });
+    },
+  });
+}
+
+export function useMyChildren() {
+  return useQuery<{
+    students: Array<{ id: string; name: string; student_group: string | null }>;
+  }>({
+    queryKey: ["appointment-students"],
+    queryFn: () => apiGet("appointments.my_students"),
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * ملفاتي — the teacher's drive
+ * ---------------------------------------------------------------------- */
+
+export interface DriveFile {
+  id: string;
+  title: string;
+  file_url: string;
+  file_name: string | null;
+  file_size: number;
+  kind: string;
+  extension: string;
+  folder: string | null;
+  description: string | null;
+  shared_with_staff: boolean;
+  is_published: boolean;
+  student_group: string | null;
+  course: string | null;
+  download_count: number;
+  modified: string;
+  owner_user: string;
+  owner_name?: string;
+  mine: boolean;
+}
+
+export interface DriveFolder {
+  id: string;
+  title: string;
+  parent_folder: string | null;
+  colour: string | null;
+  file_count: number;
+  folder_count: number;
+  modified: string;
+}
+
+export function useDrive(folder?: string, search?: string) {
+  return useQuery<{
+    folder: string | null;
+    breadcrumb: Array<{ id: string; title: string }>;
+    folders: DriveFolder[];
+    files: DriveFile[];
+    usage: { used: number; quota: number; percent: number; files: number; folders: number };
+    searching: boolean;
+  }>({
+    queryKey: ["drive", folder ?? "root", search ?? ""],
+    queryFn: () =>
+      apiGet("drive.list_items", {
+        ...(folder ? { folder } : {}),
+        ...(search ? { search } : {}),
+      }),
+  });
+}
+
+export function useDriveTree() {
+  return useQuery<{ folders: Array<{ id: string; title: string; parent_folder: string | null }> }>({
+    queryKey: ["drive-tree"],
+    queryFn: () => apiGet("drive.folder_tree"),
+  });
+}
+
+export function useSharedFiles(search?: string) {
+  return useQuery<{ files: DriveFile[] }>({
+    queryKey: ["drive-shared", search ?? ""],
+    queryFn: () => apiGet("drive.shared_with_me", search ? { search } : {}),
+  });
+}
+
+export function useClassFiles(studentGroup: string | undefined) {
+  return useQuery<{ files: DriveFile[] }>({
+    queryKey: ["drive-class", studentGroup ?? null],
+    queryFn: () => apiGet("drive.class_files", { student_group: studentGroup! }),
+    enabled: Boolean(studentGroup),
+  });
+}
+
+function invalidateDrive(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["drive"] });
+  void qc.invalidateQueries({ queryKey: ["drive-tree"] });
+}
+
+export function useCreateFolder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { title: string; parent_folder?: string }) =>
+      apiPost<{ id: string }>("drive.create_folder", vars as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateDrive(qc),
+  });
+}
+
+export function useRenameDriveItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { item: string; kind: "file" | "folder"; title: string }) =>
+      apiPost<{ id: string }>("drive.rename_item", vars as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateDrive(qc),
+  });
+}
+
+export function useMoveDriveItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { item: string; kind: "file" | "folder"; folder?: string }) =>
+      apiPost<{ id: string }>("drive.move_item", vars as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateDrive(qc),
+  });
+}
+
+export function useDeleteDriveItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { item: string; kind: "file" | "folder" }) =>
+      apiPost<{ id: string }>("drive.delete_item", vars as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateDrive(qc),
+  });
+}
+
+export function useSetDriveSharing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      file: string;
+      shared_with_staff?: number;
+      is_published?: number;
+      student_group?: string;
+      course?: string;
+      description?: string;
+    }) =>
+      apiPost<{ id: string }>("drive.set_sharing", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      invalidateDrive(qc);
+      void qc.invalidateQueries({ queryKey: ["drive-shared"] });
+      void qc.invalidateQueries({ queryKey: ["drive-class"] });
+    },
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Connections from a class
+ * ---------------------------------------------------------------------- */
+
+export interface ClassConnection {
+  key: string;
+  label: string;
+  icon: string;
+  group: string;
+  route: string;
+  count: number | null;
+  action: boolean;
+}
+
+export function useClassConnections(studentGroup: string | undefined) {
+  return useQuery<{
+    student_group: string;
+    name: string;
+    program: string | null;
+    batch: string | null;
+    students: number;
+    courses: Array<{ id: string; name: string }>;
+    connections: ClassConnection[];
+    groups: string[];
+  }>({
+    queryKey: ["class-connections", studentGroup ?? null],
+    queryFn: () => apiGet("connections.for_class", { student_group: studentGroup! }),
+    enabled: Boolean(studentGroup),
   });
 }

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { Minus, Plus, ShieldAlert, ThumbsUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -35,6 +36,7 @@ import {
 import { byRole, isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/behaviour")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "السلوك والانضباط — Match Education" },

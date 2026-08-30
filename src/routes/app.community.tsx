@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -56,6 +57,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/community")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "مجتمع المدرسة — Match Education" },
@@ -516,6 +518,8 @@ function CommentRow({
 
 /** Writing a post. */
 function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: () => void }) {
+  // Opened from a class: the form starts on it instead of empty.
+  const { group: preselectedGroup } = Route.useSearch();
   const { role } = useApp();
   const save = useSavePost();
   const classes = useClasses();
@@ -525,7 +529,7 @@ function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: 
     title: post?.title ?? "",
     post_type: post?.post_type ?? "Achievement",
     audience: post?.audience ?? "Class",
-    student_group: post?.student_group ?? "",
+    student_group: post?.student_group ?? preselectedGroup ?? "",
     student: post?.student ?? "",
   });
   const [body, setBody] = useState(post?.body ?? "");

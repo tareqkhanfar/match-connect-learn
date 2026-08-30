@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import {
   AlertTriangle,
   Award,
@@ -48,6 +49,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/app/assignments")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "الواجبات — Match Education" },
@@ -506,6 +508,8 @@ function SubmitDialog({ assignment, onClose }: { assignment: string; onClose: ()
 }
 
 function AssignmentDialog({ onClose }: { onClose: () => void }) {
+  // Opened from a class: the form starts on it instead of empty.
+  const { group: preselectedGroup } = Route.useSearch();
   const save = useSaveAssignment();
   const classesQuery = useClasses();
   const subjectsQuery = useSubjects();
@@ -513,7 +517,7 @@ function AssignmentDialog({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({
     title: "",
     course: "",
-    student_group: "",
+    student_group: preselectedGroup ?? "",
     due_date: "",
     maximum_score: "100",
     description: "",

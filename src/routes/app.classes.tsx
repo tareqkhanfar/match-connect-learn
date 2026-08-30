@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { DoorOpen, Images, LayoutGrid, Plus, School, Trash2, Users } from "lucide-react";
+import { groupSearch } from "@/lib/preselect";
+import { DoorOpen, Images, LayoutGrid, Link2, Plus, School, Trash2, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
+import { ClassConnections } from "@/components/shared/class-connections";
 import { ClassGallery } from "@/components/shared/class-gallery";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { useApp } from "@/lib/app-context";
@@ -40,6 +42,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/app/classes")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "الصفوف والشُعب — Match Education" },
@@ -64,6 +67,7 @@ function ClassesPage() {
   const [editing, setEditing] = useState<ClassRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [galleryFor, setGalleryFor] = useState<ClassRow | null>(null);
+  const [connectionsFor, setConnectionsFor] = useState<ClassRow | null>(null);
   const classes = data ?? [];
   const canManage = role === "admin" || role === "secretary";
 
@@ -114,6 +118,21 @@ function ClassesPage() {
         >
           <Images className="size-3.5" />
           الصور
+        </button>
+      ),
+    } as Column<ClassRow>,
+    {
+      fieldname: "connections",
+      label: "الروابط",
+      alwaysVisible: true,
+      render: (c: ClassRow) => (
+        <button
+          onClick={() => setConnectionsFor(c)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+          title="كل ما يمكن عمله لهذه الشعبة"
+        >
+          <Link2 className="size-3.5" />
+          الروابط
         </button>
       ),
     } as Column<ClassRow>,
@@ -266,6 +285,16 @@ function ClassesPage() {
                     <p className="mt-0.5 truncate font-semibold">{c.homeroom ?? "غير مُسند"}</p>
                   </div>
 
+                  {/* Everything this class connects to, one press away, with
+                      the class already chosen on the other side. */}
+                  <button
+                    onClick={() => setConnectionsFor(c)}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-semibold transition-colors hover:border-primary/40 hover:bg-primary-soft hover:text-primary"
+                  >
+                    <Link2 className="size-3.5" />
+                    كل ما يخصّ الشعبة
+                  </button>
+
                   {(c.subjects?.length ?? 0) > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {c.subjects!.slice(0, 4).map((s) => (
@@ -314,6 +343,25 @@ function ClassesPage() {
                 events — so the year reaches home as more than marks. */}
             <div className="max-h-[70vh] overflow-y-auto p-1">
               <ClassGallery studentGroup={galleryFor.name} />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {connectionsFor && (
+        <Dialog open onOpenChange={(o) => !o && setConnectionsFor(null)}>
+          <DialogContent className="max-w-4xl" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Link2 className="size-5 text-primary" />
+                كل ما يخصّ {connectionsFor.student_group_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[70vh] overflow-y-auto p-1">
+              <ClassConnections
+                studentGroup={connectionsFor.name}
+                onNavigate={() => setConnectionsFor(null)}
+              />
             </div>
           </DialogContent>
         </Dialog>

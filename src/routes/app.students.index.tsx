@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ import { PendingAttachments, uploadPending } from "@/components/shared/pending-a
 import type { StudentRow } from "@/lib/api/types";
 
 export const Route = createFileRoute("/app/students/")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "إدارة الطلاب — Match Education" },

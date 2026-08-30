@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -44,6 +45,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/activities")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "الأنشطة والرحلات — Match Education" },

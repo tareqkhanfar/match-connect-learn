@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Award, CalendarRange, Download, FileText, Printer, Users } from "lucide-react";
@@ -12,6 +13,7 @@ import { downloadQuarterCard } from "@/lib/api/export";
 import { useMyGroups, useQuarterResults, useQuarters, useSubjects } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/quarter-results")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "شهادات الأرباع — Match Education" },

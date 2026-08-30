@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import {
   Minus,
   ArrowDown,
@@ -42,6 +43,7 @@ import { FinalMarksTable } from "@/routes/app.finals";
 import { isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/record")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "سجل العلامات — Match Education" },
@@ -75,14 +77,16 @@ function RecordPage() {
 function StaffRecordView() {
   const { role } = useApp();
   const classesQuery = useClasses({});
-  const [group, setGroup] = useState("");
+  const { group: groupFromUrl } = Route.useSearch();
+  const [group, setGroup] = useState(groupFromUrl ?? "");
   const [student, setStudent] = useState("");
   const [printing, setPrinting] = useState(false);
 
   // Default to the first class the viewer is responsible for.
   useEffect(() => {
-    if (!group && classesQuery.data?.length) setGroup(classesQuery.data[0]!.name);
-  }, [classesQuery.data, group]);
+    // A class named in the URL wins over "the first one in the list".
+    if (!group && classesQuery.data?.length) setGroup(groupFromUrl ?? classesQuery.data[0]!.name);
+  }, [classesQuery.data, group, groupFromUrl]);
 
   const classGrades = useClassTermGrades(group ? { student_group: group } : {});
   const detail = useAcademicRecord(student || undefined);

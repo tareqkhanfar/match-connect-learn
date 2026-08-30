@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -7,6 +8,9 @@ import {
   CheckCheck,
   CornerUpLeft,
   FileEdit,
+  Ban,
+  Clock,
+  FileStack,
   Inbox,
   Loader2,
   Mail,
@@ -18,12 +22,14 @@ import {
   Star,
   Trash2,
   Upload,
+  Users2,
   X,
 } from "lucide-react";
 import { PageHeader, Pill } from "@/components/shared/ui-kit";
-import { EmptyBlock } from "@/components/shared/states";
+import { EmptyBlock, TableSkeleton } from "@/components/shared/states";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +44,14 @@ import { useConfirm } from "@/components/shared/confirm";
 import { apiUpload, fileUrl } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import {
+  useApplyMailTemplate,
+  useDeleteMailTemplate,
   useDeleteDraft,
+  useMailTemplates,
+  useCancelSchedule,
+  usePreviewRecipients,
+  useSaveMailTemplate,
+  type RecipientPreview,
   useMailFlags,
   useMailFolders,
   useMailList,
@@ -49,6 +62,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/mail")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "البريد — Match Education" },
@@ -63,6 +77,7 @@ const MAX_FILE_MB = 15;
 const FOLDER_ICON: Record<string, typeof Inbox> = {
   inbox: Inbox,
   sent: Send,
+  scheduled: Clock,
   drafts: FileEdit,
   archive: Archive,
   starred: Star,
@@ -398,14 +413,24 @@ function ReadingPane({
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-2 border-b border-border p-3.5">
         <h2 className="text-base font-black">{m.subject}</h2>
-        <div className="flex shrink-0 gap-1.5">
-          <button
-            onClick={() => onReply(m)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground"
-          >
-            <CornerUpLeft className="size-3.5" />
-            رد
-          </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* A closed message says so where the reply button was, rather than
+              leaving a gap the reader has to interpret. The server refuses the
+              reply either way. */}
+          {m.no_reply ? (
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-border px-3 text-[11px] font-semibold text-muted-foreground">
+              <Ban className="size-3.5" />
+              لا تقبل الردود
+            </span>
+          ) : (
+            <button
+              onClick={() => onReply(m)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3.5 text-xs font-bold text-primary-foreground"
+            >
+              <CornerUpLeft className="size-3.5" />
+              رد
+            </button>
+          )}
           <button
             onClick={onClose}
             className="grid size-9 place-items-center rounded-xl border border-border hover:bg-secondary"
@@ -417,6 +442,12 @@ function ReadingPane({
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3.5">
+        {m.is_scheduled && <ScheduledBanner message={m} />}
+        {m.send_failed_reason && (
+          <p className="rounded-xl border border-destructive/40 bg-destructive-soft p-2.5 text-xs font-semibold text-destructive">
+            {m.send_failed_reason}
+          </p>
+        )}
         <MessageBody m={m} />
         {(m.thread_messages ?? []).length > 0 && (
           <div className="space-y-2 border-t border-border pt-3">
@@ -502,6 +533,43 @@ function MessageBody({ m, compact }: { m: MailMessage; compact?: boolean }) {
   );
 }
 
+/** A message waiting for its send time, and the way back out of it. */
+function ScheduledBanner({ message }: { message: MailMessage }) {
+  const cancel = useCancelSchedule();
+  const confirm = useConfirm();
+
+  async function pull() {
+    const ok = await confirm({
+      title: "سحب الرسالة المجدولة؟",
+      description: "ستعود إلى المسودات ويمكنك تعديلها وإرسالها لاحقاً.",
+      confirmLabel: "سحب",
+    });
+    if (!ok) return;
+    try {
+      await cancel.mutateAsync({ message: message.id });
+      toast.success("أُعيدت إلى المسودات");
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر السحب"));
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/40 bg-warning/10 p-2.5">
+      <Clock className="size-4 shrink-0 text-warning" />
+      <p className="min-w-0 flex-1 text-xs font-semibold">
+        مجدولة للإرسال في <span className="num">{message.scheduled_for.slice(0, 16)}</span>
+      </p>
+      <button
+        onClick={() => void pull()}
+        disabled={cancel.isPending}
+        className="shrink-0 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold hover:bg-secondary disabled:opacity-50"
+      >
+        سحب وإعادتها مسودة
+      </button>
+    </div>
+  );
+}
+
 /** Writing a message. */
 function Composer({
   reply,
@@ -545,6 +613,39 @@ function Composer({
   const [body, setBody] = useState(draft?.body ?? "");
   const [files, setFiles] = useState(draft?.attachments ?? []);
   const [uploading, setUploading] = useState(0);
+
+  // How the message goes out, as opposed to what it says.
+  const [noReply, setNoReply] = useState(Boolean(draft?.no_reply));
+  const [copyGuardians, setCopyGuardians] = useState(Boolean(draft?.copy_guardians));
+  const [scheduledFor, setScheduledFor] = useState(
+    draft?.scheduled_for ? draft.scheduled_for.slice(0, 16) : "",
+  );
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [preview, setPreview] = useState<RecipientPreview[] | null>(null);
+  const [previewGroups, setPreviewGroups] = useState<
+    Array<{ kind: string; label: string; count: number }>
+  >([]);
+
+  const previewRecipients = usePreviewRecipients();
+  const applyTemplate = useApplyMailTemplate();
+
+  /** What the server would resolve this to — asked before sending, not after. */
+  async function runPreview() {
+    try {
+      const res = await previewRecipients.mutateAsync({
+        to: choice.users,
+        cc,
+        bcc,
+        ...(choice.audience ? { audience: choice.audience, audience_groups: choice.groups } : {}),
+        copy_guardians: copyGuardians ? 1 : 0,
+      });
+      setPreview(res.recipients);
+      setPreviewGroups(res.groups);
+      if (res.total === 0) toast.error("لن تصل الرسالة إلى أحد بهذا التحديد.");
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر حساب المستلمين"));
+    }
+  }
 
   async function pick(list: FileList | null) {
     if (!list?.length) return;
@@ -591,6 +692,12 @@ function Composer({
         bcc,
         ...(choice.audience ? { audience: choice.audience, audience_groups: choice.groups } : {}),
         is_draft: asDraft ? 1 : 0,
+        no_reply: noReply ? 1 : 0,
+        copy_guardians: copyGuardians ? 1 : 0,
+        // The input gives "YYYY-MM-DDTHH:mm"; the server wants a space.
+        ...(scheduledFor && !asDraft
+          ? { scheduled_for: `${scheduledFor.replace("T", " ")}:00` }
+          : {}),
         ...(reply ? { reply_to: reply.id } : {}),
         attachments: files.map((f) => ({
           file_url: f.file_url,
@@ -598,7 +705,10 @@ function Composer({
           file_size: f.file_size,
         })),
       });
-      toast.success(res.message_ar || (asDraft ? "تم حفظ المسودة" : "تم الإرسال"));
+      toast.success(
+        res.message_ar ||
+          (asDraft ? "تم حفظ المسودة" : scheduledFor ? "تمت جدولة الرسالة" : "تم الإرسال"),
+      );
       onClose();
     } catch (err) {
       toast.error(errorMessage(err, "تعذّر الإرسال"));
@@ -651,7 +761,16 @@ function Composer({
           )}
 
           <div className="space-y-1.5">
-            <Label>الموضوع</Label>
+            <div className="flex items-center justify-between">
+              <Label>الموضوع</Label>
+              <button
+                onClick={() => setShowTemplates(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1 text-[11px] font-semibold hover:bg-primary-soft hover:text-primary"
+              >
+                <FileStack className="size-3.5" />
+                القوالب
+              </button>
+            </div>
             <Input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -663,6 +782,98 @@ function Composer({
           <div className="space-y-1.5">
             <Label>نص الرسالة</Label>
             <RichText value={body} onChange={setBody} placeholder="اكتب رسالتك…" minHeight={140} />
+          </div>
+
+          {/* How it goes out. Kept together and below the body so writing the
+              message is not interrupted by decisions about delivering it. */}
+          <div className="space-y-2 rounded-xl border border-border p-3">
+            <label className="flex items-start gap-2.5">
+              <Switch checked={copyGuardians} onCheckedChange={setCopyGuardians} />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold">إرسال نسخة لأولياء أمور الطلاب</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  تُضاف تلقائياً لكل طالب من المستلمين، حتى لو لم تحدّد وليّ أمره.
+                </span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-2.5">
+              <Switch checked={noReply} onCheckedChange={setNoReply} />
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold">منع الرد على الرسالة</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  مناسب للتعاميم — لن يظهر زر الرد للمستلمين.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-52 flex-1 space-y-1.5">
+                <Label className="text-xs">موعد الإرسال (اختياري)</Label>
+                <Input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+              {scheduledFor && (
+                <button
+                  onClick={() => setScheduledFor("")}
+                  className="h-10 rounded-xl border border-border px-3 text-xs font-semibold hover:bg-secondary"
+                >
+                  إرسال فوري
+                </button>
+              )}
+            </div>
+            {scheduledFor && (
+              <p className="text-[11px] text-muted-foreground">
+                تبقى في مجلد «المجدولة» حتى موعدها، ويمكنك سحبها قبل ذلك.
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+              <button
+                onClick={() => void runPreview()}
+                disabled={previewRecipients.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-2.5 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary disabled:opacity-50"
+              >
+                {previewRecipients.isPending ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Users2 className="size-3.5" />
+                )}
+                معاينة المستلمين
+              </button>
+              {previewGroups.map((g) => (
+                <Pill key={g.kind} tone="info">
+                  {g.label}: <span className="num">{g.count}</span>
+                </Pill>
+              ))}
+            </div>
+
+            {preview && (
+              <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
+                <ul className="divide-y divide-border text-xs">
+                  {preview.map((r) => (
+                    <li key={r.user} className="flex items-center gap-2 px-2.5 py-1.5">
+                      <span className="min-w-0 flex-1 truncate">{r.name}</span>
+                      <span className="shrink-0 text-[10px] text-muted-foreground">
+                        {r.kind === "student"
+                          ? "طالب"
+                          : r.kind === "guardian"
+                            ? "وليّ أمر"
+                            : "موظف"}
+                        {r.copy === "cc" ? " · نسخة" : r.copy === "bcc" ? " · مخفية" : ""}
+                      </span>
+                      {/* A disabled account is still stored as a recipient but
+                          nobody reads it, which is worth saying before sending. */}
+                      {!r.enabled && <Pill tone="danger">معطّل</Pill>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <div>
@@ -741,6 +952,190 @@ function Composer({
             {send.isPending ? "جارٍ الإرسال…" : "إرسال"}
           </button>
         </DialogFooter>
+      </DialogContent>
+
+      {showTemplates && (
+        <TemplatePicker
+          currentSubject={subject}
+          currentBody={body}
+          onClose={() => setShowTemplates(false)}
+          onPick={async (template) => {
+            const filled = await applyTemplate.mutateAsync({
+              template,
+              ...(choice.groups[0] ? { student_group: choice.groups[0] } : {}),
+            });
+            if (filled.subject) setSubject(filled.subject);
+            if (filled.body) setBody(filled.body);
+            setShowTemplates(false);
+            toast.success("تم تطبيق القالب.");
+          }}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+/**
+ * Pick, keep or delete a message template.
+ *
+ * A template is a message a teacher writes often enough to be worth keeping.
+ * Placeholders are filled by the server when one is applied, so the tokens
+ * have a single meaning wherever a template is used.
+ */
+function TemplatePicker({
+  currentSubject,
+  currentBody,
+  onPick,
+  onClose,
+}: {
+  currentSubject: string;
+  currentBody: string;
+  onPick: (template: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const { data, isLoading } = useMailTemplates();
+  const saveTemplate = useSaveMailTemplate();
+  const deleteTemplate = useDeleteMailTemplate();
+  const confirm = useConfirm();
+  const [saving, setSaving] = useState(false);
+  const [title, setTitle] = useState("");
+  const [shared, setShared] = useState(false);
+
+  const templates = data?.templates ?? [];
+
+  async function keepCurrent() {
+    if (!title.trim()) {
+      toast.error("اسم القالب مطلوب");
+      return;
+    }
+    try {
+      await saveTemplate.mutateAsync({
+        title: title.trim(),
+        subject: currentSubject,
+        body: currentBody,
+        is_shared: shared ? 1 : 0,
+      });
+      toast.success("تم حفظ القالب");
+      setSaving(false);
+      setTitle("");
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر حفظ القالب"));
+    }
+  }
+
+  async function remove(template: string, name: string) {
+    const ok = await confirm({
+      title: `حذف القالب «${name}»؟`,
+      description: "لن يؤثر ذلك على الرسائل المُرسلة.",
+      confirmLabel: "حذف",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await deleteTemplate.mutateAsync({ template });
+      toast.success("تم حذف القالب");
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر الحذف"));
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-2xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileStack className="size-5 text-primary" />
+            قوالب الرسائل
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto p-1">
+          {isLoading ? (
+            <TableSkeleton rows={3} />
+          ) : templates.length === 0 ? (
+            <EmptyBlock
+              title="لا توجد قوالب بعد"
+              description="احفظ رسالتك الحالية كقالب لاستخدامها لاحقاً."
+              icon={<FileStack className="size-6" />}
+            />
+          ) : (
+            <ul className="divide-y divide-border">
+              {templates.map((t) => (
+                <li key={t.name} className="flex items-start gap-2 py-2.5">
+                  <button onClick={() => void onPick(t.name)} className="min-w-0 flex-1 text-start">
+                    <p className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold">{t.title}</span>
+                      <Pill>{t.category}</Pill>
+                      {!t.mine && <Pill tone="info">من {t.owner_name}</Pill>}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {t.subject || "بلا عنوان"}
+                    </p>
+                  </button>
+                  {t.mine && (
+                    <button
+                      onClick={() => void remove(t.name, t.title)}
+                      className="shrink-0 rounded p-1 text-destructive hover:bg-destructive-soft"
+                      aria-label="حذف القالب"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="rounded-xl border border-border p-3">
+            {saving ? (
+              <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">اسم القالب</Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="مثال: إشعار غياب"
+                    className="rounded-xl"
+                    autoFocus
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-xs">
+                  <Switch checked={shared} onCheckedChange={setShared} />
+                  مشاركته مع الزملاء (للقراءة فقط)
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => void keepCurrent()}
+                    disabled={saveTemplate.isPending}
+                    className="rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-50"
+                  >
+                    حفظ
+                  </button>
+                  <button
+                    onClick={() => setSaving(false)}
+                    className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold"
+                  >
+                    تراجع
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSaving(true)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                + حفظ الرسالة الحالية كقالب
+              </button>
+            )}
+          </div>
+
+          {(data?.placeholders.length ?? 0) > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              رموز تُستبدل تلقائياً عند الاستخدام:{" "}
+              {data!.placeholders.map((p) => p.token).join("، ")}
+            </p>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

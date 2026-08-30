@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -44,6 +45,7 @@ import {
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/quizzes")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "الاختبارات الإلكترونية — Match Education" },
@@ -651,6 +653,8 @@ const BLANK: DraftQuestion = {
 };
 
 function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
+  // Opened from a class: the form starts on it instead of empty.
+  const { group: preselectedGroup } = Route.useSearch();
   const classes = useClasses({});
   const subjects = useSubjects();
   const save = useSaveQuiz();
@@ -658,7 +662,7 @@ function QuizBuilderDialog({ onClose }: { onClose: () => void }) {
   const [meta, setMeta] = useState({
     title: "",
     course: "",
-    student_group: "",
+    student_group: preselectedGroup ?? "",
     time_limit_minutes: "20",
     attempts_allowed: "1",
     pass_mark: "50",

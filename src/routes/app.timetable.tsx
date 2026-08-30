@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { CalendarDays, Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
@@ -17,6 +18,7 @@ import { byRole } from "@/lib/roles";
 import { useClasses, useTimetable } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/timetable")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "الجدول الدراسي — Match Education" },

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { groupSearch } from "@/lib/preselect";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Award, Layers, Minus, Printer, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +14,7 @@ import { downloadReportCard } from "@/lib/api/export";
 import { isBackOffice } from "@/lib/roles";
 
 export const Route = createFileRoute("/app/finals")({
+  validateSearch: groupSearch,
   head: () => ({
     meta: [
       { title: "العلامات النهائية — Match Education" },
