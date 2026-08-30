@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -15,6 +16,7 @@ import {
   User,
 } from "lucide-react";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
+import { StudentEvaluationDialog } from "@/components/shared/student-evaluation";
 import { StudentPhoto } from "@/components/shared/student-photo";
 import { useApp } from "@/lib/app-context";
 import { isBackOffice, money } from "@/lib/roles";
@@ -171,6 +173,7 @@ function StudentProfile() {
   const { studentId } = Route.useParams();
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useStudentDossier(studentId);
+  const [assessing, setAssessing] = useState(false);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
@@ -195,6 +198,9 @@ function StudentProfile() {
   } = data;
 
   const backOffice = isBackOffice(role);
+  // A teacher assesses; a family reads. The forms themselves decide what is
+  // published to whom, so the button is simply staff-only here.
+  const canAssess = backOffice || role === "teacher";
   const openAlerts = alerts.filter((a) => (a.status ?? "").toLowerCase() !== "resolved");
 
   return (
@@ -213,6 +219,15 @@ function StudentProfile() {
               <ArrowRight className="size-3.5" />
               القائمة
             </Link>
+            {canAssess && (
+              <button
+                onClick={() => setAssessing(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
+              >
+                <ClipboardList className="size-3.5" />
+                تقييم بنموذج
+              </button>
+            )}
             {backOffice && (
               <button
                 onClick={() => window.print()}
@@ -876,6 +891,15 @@ function StudentProfile() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {assessing && (
+        <StudentEvaluationDialog
+          student={profile.id}
+          studentName={profile.name}
+          {...(profile.section ? { studentGroup: profile.section } : {})}
+          onClose={() => setAssessing(false)}
+        />
+      )}
     </>
   );
 }

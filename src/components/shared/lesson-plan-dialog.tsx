@@ -16,7 +16,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { errorMessage } from "@/lib/api/error-message";
-import { useDeleteLessonPlan, useLessonPlan, useSaveLessonPlan } from "@/lib/api/hooks";
+import {
+  useClassLogs,
+  useDeleteLessonPlan,
+  useLessonPlan,
+  useSaveClassLog,
+  useSaveLessonPlan,
+} from "@/lib/api/hooks";
 
 /**
  * What was prepared for one lesson.
@@ -51,6 +57,7 @@ export function LessonPlanDialog({
     notes: "",
   });
   const [published, setPublished] = useState(true);
+  const [tab, setTab] = useState<"plan" | "log">("plan");
 
   // The dialog opens before the plan arrives, so the form is filled once it
   // does rather than starting empty and overwriting what is on record.
@@ -105,7 +112,7 @@ export function LessonPlanDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <NotebookPen className="size-5 text-primary" />
-            تحضير الحصة
+            {tab === "plan" ? "تحضير الحصة" : "ما جرى في الحصة"}
           </DialogTitle>
           <DialogDescription>
             {heading}
@@ -114,7 +121,36 @@ export function LessonPlanDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {query.isLoading ? (
+        {/* The plan is what the teacher meant to do; the log is what the class
+            actually did. Two records, one place — because the teacher is
+            already here when the lesson ends. */}
+        {canEdit && (
+          <div className="mb-2 flex gap-1 rounded-xl border border-border bg-secondary/40 p-1">
+            {[
+              { key: "plan" as const, label: "التحضير" },
+              { key: "log" as const, label: "توثيق ما جرى" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  tab === t.key ? "bg-card shadow-soft" : "text-muted-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {canEdit && tab === "log" ? (
+          <InlineClassLog
+            studentGroup={data?.student_group ?? ""}
+            course={data?.course ?? ""}
+            date={data?.date ?? ""}
+            onDone={onClose}
+          />
+        ) : query.isLoading ? (
           <p className="py-10 text-center text-sm text-muted-foreground">جارٍ التحميل…</p>
         ) : canEdit ? (
           <div className="max-h-[60vh] space-y-3 overflow-y-auto p-1">
@@ -343,5 +379,134 @@ export function PlanMarker({
       </Pill>
       {hasHomework && <Pill tone="warning">واجب</Pill>}
     </span>
+  );
+}
+
+/**
+ * Writing the lesson record from inside the timetable.
+ *
+ * Deliberately short: what was covered, what was set, anything to attach. A
+ * teacher writing this at the end of a period has about a minute, and a form
+ * that asks for more gets filled in for a week and then abandoned.
+ */
+function InlineClassLog({
+  studentGroup,
+  course,
+  date,
+  onDone,
+}: {
+  studentGroup: string;
+  course: string;
+  date: string;
+  onDone: () => void;
+}) {
+  const existing = useClassLogs({ student_group: studentGroup, from_date: date, to_date: date });
+  const save = useSaveClassLog();
+  const [topic, setTopic] = useState("");
+  const [done, setDone] = useState("");
+  const [homework, setHomework] = useState("");
+  const [published, setPublished] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+
+  const mine = (existing.data?.logs ?? []).find((l) => l.course === course) ?? null;
+
+  // Fill from the record already on file, once it arrives — otherwise saving
+  // would write an empty log over what is there.
+  useEffect(() => {
+    if (loaded || !existing.data) return;
+    if (mine) {
+      setTopic(mine.topic ?? "");
+      setDone(mine.what_was_done ?? "");
+      setHomework(mine.homework ?? "");
+      setPublished(mine.is_published);
+    }
+    setLoaded(true);
+  }, [existing.data, mine, loaded]);
+
+  async function submit() {
+    if (!studentGroup || !date) {
+      toast.error("تعذّر تحديد الشعبة أو التاريخ");
+      return;
+    }
+    try {
+      await save.mutateAsync({
+        ...(mine ? { log: mine.id } : {}),
+        student_group: studentGroup,
+        course,
+        date,
+        topic,
+        what_was_done: done,
+        homework,
+        is_published: published ? 1 : 0,
+      });
+      toast.success("تم حفظ سجل الحصة");
+      onDone();
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر الحفظ"));
+    }
+  }
+
+  return (
+    <>
+      <div className="max-h-[58vh] space-y-3 overflow-y-auto p-1">
+        {mine && (
+          <p className="rounded-xl bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">
+            يوجد سجل محفوظ لهذه الحصة — التعديل هنا يحدّثه.
+          </p>
+        )}
+        <div className="space-y-1.5">
+          <Label>موضوع الحصة</Label>
+          <Input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="مثال: جمع الكسور المتشابهة"
+            className="rounded-xl"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>ما تم إنجازه</Label>
+          <RichText
+            value={done}
+            onChange={setDone}
+            placeholder="شرحنا… حللنا التمارين ١-٥…"
+            minHeight={110}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>الواجب المطلوب</Label>
+          <RichText
+            value={homework}
+            onChange={setHomework}
+            placeholder="التمارين ٦-١٠ صفحة ٤٢"
+            minHeight={70}
+          />
+        </div>
+        <label className="flex items-start gap-2.5 rounded-xl border border-border p-3">
+          <Switch checked={published} onCheckedChange={setPublished} />
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold">ظاهر للطلاب وأولياء الأمور</span>
+            <span className="block text-[11px] text-muted-foreground">
+              الطالب الغائب وولي الأمر يعرفان ما جرى دون الاعتماد على ذاكرة أحد.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <DialogFooter className="gap-2 sm:justify-start">
+        <button
+          onClick={() => void submit()}
+          disabled={save.isPending}
+          className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+        >
+          {save.isPending ? "جارٍ الحفظ…" : "حفظ سجل الحصة"}
+        </button>
+        <button
+          onClick={onDone}
+          className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
+        >
+          إلغاء
+        </button>
+      </DialogFooter>
+    </>
   );
 }

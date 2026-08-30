@@ -1123,12 +1123,23 @@ export function MarkGrid({
                   >
                     <span className="flex items-start justify-center gap-1">
                       <span className="min-w-0">
-                        <span
-                          className={`block truncate font-bold ${off ? "text-destructive line-through" : ""}`}
-                          title={c.component_name}
+                        {/* The column name is the exam's name. Pressing it is
+                            how a teacher expects to set its date — the menu
+                            behind the chevron is the long way round. */}
+                        <button
+                          onClick={() => canEdit && setExamFor(c.component_name)}
+                          disabled={!canEdit}
+                          className={`block w-full truncate font-bold disabled:cursor-default ${
+                            off ? "text-destructive line-through" : ""
+                          } ${canEdit ? "hover:text-primary hover:underline" : ""}`}
+                          title={
+                            canEdit
+                              ? `${c.component_name} — اضغط لتعيين موعد الامتحان`
+                              : c.component_name
+                          }
                         >
                           {c.component_name}
-                        </span>
+                        </button>
                         <span className="num block text-[10px] text-muted-foreground">
                           / {c.max_score}
                           {c.weight ? ` · وزن ${c.weight}` : ""}

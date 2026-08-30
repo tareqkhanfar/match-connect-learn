@@ -1,10 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
-import { Minus, Plus, ShieldAlert, ThumbsUp, Trash2 } from "lucide-react";
+import { ClipboardList, Minus, Plus, ShieldAlert, ThumbsUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill } from "@/components/shared/ui-kit";
 import { DataTable, type Column } from "@/components/shared/data-table";
+import { EmptyBlock, TableSkeleton } from "@/components/shared/states";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +29,9 @@ import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useConfirm } from "@/components/shared/confirm";
 import {
   useBehaviour,
+  useClasses,
   useDeleteBehaviour,
+  useEvaluationForms,
   useSaveBehaviour,
   useStudents,
   type BehaviourRow,
@@ -96,6 +99,7 @@ function BehaviourPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">();
   const [editing, setEditing] = useState<BehaviourRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [formsOpen, setFormsOpen] = useState(false);
 
   const debouncedSearch = useDebounced(search);
 
@@ -222,16 +226,30 @@ function BehaviourPage() {
         subtitle="سجل النقاط الإيجابية والمخالفات"
         actions={
           canEdit ? (
-            <button
-              onClick={() => setCreating(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
-            >
-              <Plus className="size-4" />
-              سجل جديد
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {/* A behaviour note records one incident. A form assesses a
+                  pupil against criteria the school wrote for itself, which is
+                  a different question, so it sits beside rather than inside. */}
+              <button
+                onClick={() => setFormsOpen(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-secondary"
+              >
+                <ClipboardList className="size-4" />
+                نماذج تقييم السلوك
+              </button>
+              <button
+                onClick={() => setCreating(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
+              >
+                <Plus className="size-4" />
+                سجل جديد
+              </button>
+            </div>
           ) : null
         }
       />
+
+      {formsOpen && <BehaviourFormsPanel onClose={() => setFormsOpen(false)} />}
 
       <div className="mb-5 grid gap-4 sm:grid-cols-3">
         <KpiCard
@@ -531,6 +549,126 @@ function BehaviourDialog({
             className="h-10 rounded-xl border border-border px-4 text-sm font-semibold"
           >
             إلغاء
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The evaluation forms that belong to behaviour, opened from where a teacher
+ * already is.
+ *
+ * A behaviour record is one incident on one day. A form asks a set of
+ * questions the school wrote for itself — "الاستماع", "الأكل في الحصة" — and
+ * answers them for a whole class at once. Both live under السلوك because that
+ * is where a teacher looks for either.
+ */
+function BehaviourFormsPanel({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const forms = useEvaluationForms("سلوك");
+  const classes = useClasses();
+  const [form, setForm] = useState("");
+  const [group, setGroup] = useState("");
+
+  const rows = forms.data?.forms.filter((f) => f.is_active) ?? [];
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl" dir="rtl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ClipboardList className="size-5 text-primary" />
+            نماذج تقييم السلوك
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto p-1">
+          {forms.isLoading ? (
+            <TableSkeleton rows={3} />
+          ) : rows.length === 0 ? (
+            <EmptyBlock
+              title="لا توجد نماذج سلوك بعد"
+              description="النموذج مجموعة معايير تعرّفها المدرسة — الاستماع، الالتزام، النظافة — وتُقيّم الطالب عليها."
+              icon={<ClipboardList className="size-6" />}
+              action={
+                <button
+                  onClick={() => void navigate({ to: "/app/evaluations" })}
+                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  إنشاء نموذج
+                </button>
+              }
+            />
+          ) : (
+            <>
+              <div>
+                <Label className="text-xs">النموذج</Label>
+                <ul className="mt-1 space-y-1.5">
+                  {rows.map((f) => (
+                    <li key={f.id}>
+                      <button
+                        onClick={() => setForm(f.id)}
+                        className={`w-full rounded-xl border p-3 text-start transition-colors ${
+                          form === f.id
+                            ? "border-primary bg-primary-soft"
+                            : "border-border hover:bg-secondary"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold">{f.title}</span>
+                        <span className="num block text-[11px] text-muted-foreground">
+                          {f.criteria_count} بنداً · {f.scale_type}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <Label className="text-xs">الشعبة</Label>
+                <Select value={group} onValueChange={setGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر الشعبة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(classes.data ?? []).map((c) => (
+                      <SelectItem key={c.name} value={c.name}>
+                        {c.student_group_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold"
+          >
+            إغلاق
+          </button>
+          <button
+            onClick={() => void navigate({ to: "/app/evaluations" })}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold"
+          >
+            إدارة النماذج
+          </button>
+          <button
+            disabled={!form || !group}
+            onClick={() =>
+              void navigate({
+                to: "/app/evaluations",
+                search: { group },
+              })
+            }
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            فتح جدول التقييم
           </button>
         </DialogFooter>
       </DialogContent>

@@ -7182,3 +7182,26 @@ export function useDeleteClassLog() {
     },
   });
 }
+
+/** Assess one pupil against one form, from their own page. */
+export function useSaveEvaluationEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      form: string;
+      student: string;
+      student_group?: string;
+      course?: string;
+      values: Record<string, { value?: string; score?: number; note?: string }>;
+      notes?: string;
+      is_published?: number;
+    }) =>
+      apiPost<{ id: string; total: number; percent: number }>("evaluations.save_entry", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["student-evaluations"] });
+      void qc.invalidateQueries({ queryKey: ["evaluation-grid"] });
+    },
+  });
+}
