@@ -38,6 +38,7 @@ import {
   useEvaluationGrid,
   usePublishEvaluations,
   useSaveEvaluationGrid,
+  useStudentEvaluations,
   useSaveBehaviour,
   useStudents,
   type BehaviourRow,
@@ -279,6 +280,11 @@ function BehaviourPage() {
 
       {canEdit && tab === "assess" && <BehaviourAssessTab />}
       {canEdit && tab === "forms" && <BehaviourFormsTab />}
+
+      {/* A family sees the assessments a teacher chose to publish, under the
+          records they already came here for. Publishing them and then showing
+          them nowhere would be the same as not publishing them. */}
+      {!canEdit && viewed && <PublishedEvaluations student={viewed} />}
 
       {tab === "records" && (
         <>
@@ -983,6 +989,76 @@ function BehaviourFormsTab() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * The form assessments a family may read.
+ *
+ * Only what a teacher published: an unpublished assessment is a working note,
+ * and the server refuses it here regardless of what this screen asks for.
+ */
+function PublishedEvaluations({ student }: { student: string }) {
+  const { data, isLoading } = useStudentEvaluations(student);
+  const [open, setOpen] = useState<string | null>(null);
+
+  const entries = data?.entries ?? [];
+  if (isLoading) return <TableSkeleton rows={2} />;
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="card-surface mt-5 p-4">
+      <p className="mb-1 text-sm font-bold">التقييم بالنماذج</p>
+      <p className="mb-3 text-[11px] text-muted-foreground">
+        تقييمات دورية على معايير تحدّدها المدرسة، إضافة إلى السجلات أعلاه.
+      </p>
+      <ul className="space-y-2">
+        {entries.map((e) => (
+          <li key={e.id} className="rounded-xl border border-border">
+            <button
+              onClick={() => setOpen(open === e.id ? null : e.id)}
+              className="flex w-full flex-wrap items-center gap-2 p-3 text-start hover:bg-secondary/40"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{e.form_title}</span>
+                <span className="num block text-[11px] text-muted-foreground">
+                  {e.evaluated_on.slice(0, 10)}
+                  {e.course ? ` · ${e.course}` : ""}
+                </span>
+              </span>
+              <span className="num text-sm font-black">{e.percent}%</span>
+              <Pill tone={e.percent >= 80 ? "success" : e.percent >= 60 ? "info" : "warning"}>
+                <span className="num">
+                  {e.total}/{e.max}
+                </span>
+              </Pill>
+            </button>
+
+            {open === e.id && (
+              <div className="border-t border-border p-3">
+                {e.notes && (
+                  <p className="mb-2 rounded-lg bg-secondary/50 p-2 text-xs">{e.notes}</p>
+                )}
+                <ul className="space-y-1">
+                  {e.answers.map((a, i) => (
+                    <li
+                      key={i}
+                      className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-1 text-xs last:border-0"
+                    >
+                      {a.category && (
+                        <span className="text-[10px] text-muted-foreground">[{a.category}]</span>
+                      )}
+                      <span className="min-w-0 flex-1">{a.item}</span>
+                      <span className="font-semibold">{a.value}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
