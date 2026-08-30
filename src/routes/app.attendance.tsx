@@ -36,7 +36,6 @@ import {
   useAttendanceReport,
   useAttendanceSheet,
   useMarkAttendance,
-  useMarkOneAttendance,
   useMyGroups,
   useAcademicContext,
   useUpcomingHolidays,
@@ -205,21 +204,14 @@ function StaffAttendanceView() {
   const sheetQuery = useAttendanceSheet(groupId || undefined, date);
   const reportQuery = useAttendanceReport(groupId ? { student_group: groupId } : {});
   const markAttendance = useMarkAttendance();
-  const markOne = useMarkOneAttendance();
 
   // Local edits layered over whatever is already saved on the server.
   const [edits, setEdits] = useState<Record<string, Status>>({});
-  // Which rows are mid-save, so a correction shows it landed rather than
-  // leaving the teacher wondering whether it took.
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [justSaved, setJustSaved] = useState<Record<string, boolean>>({});
   const { data: context } = useAcademicContext();
   const { data: holidayInfo } = useUpcomingHolidays(365);
   useEffect(() => {
     // Reset local edits whenever the sheet identity changes.
     setEdits({});
-    setSaving({});
-    setJustSaved({});
   }, [groupId, date]);
 
   // `?? []` builds a new array every render, so every memo downstream
@@ -239,43 +231,18 @@ function StaffAttendanceView() {
     Absent: Object.values(marks).filter((m) => m === "Absent").length,
   };
 
-  /**
-   * Change one pupil and save only that pupil.
-   *
-   * Correcting a mistake used to send the whole class, which cancelled and
-   * re-created every other record in the register to fix one. The row shows
-   * its own state so the teacher can see the change landed without hunting
-   * for a save button.
-   */
-  async function setOne(student: string, status: Status) {
-    if (!groupId || !canMark) return;
-    const previous = marks[student];
-    if (previous === status) return;
-
-    setEdits((p) => ({ ...p, [student]: status }));
-    setSaving((p) => ({ ...p, [student]: true }));
-    try {
-      await markOne.mutateAsync({ student, student_group: groupId, date, status });
-      setJustSaved((p) => ({ ...p, [student]: true }));
-      window.setTimeout(() => setJustSaved((p) => ({ ...p, [student]: false })), 1600);
-    } catch (error) {
-      // Put the row back to what the server still holds: a red button that
-      // did not save is worse than no change at all.
-      setEdits((p) => {
-        const next = { ...p };
-        if (previous === undefined) delete next[student];
-        else next[student] = previous;
-        return next;
-      });
-      toast.error(errorMessage(error, "تعذّر حفظ حضور هذا الطالب"));
-    } finally {
-      setSaving((p) => ({ ...p, [student]: false }));
-    }
-  }
-
   async function save() {
     if (!groupId) return;
-    const entries = rows.map((r) => ({ student: r.student, status: marks[r.student]! }));
+    // Only what the teacher actually changed. Sending the whole class made the
+    // server cancel and re-create every record in it to correct one pupil,
+    // because an attendance record is submitted and cannot be edited in place.
+    const entries = rows
+      .filter((r) => isPending(r.student))
+      .map((r) => ({ student: r.student, status: marks[r.student]! }));
+    if (entries.length === 0) {
+      toast.error("لا تغييرات لحفظها");
+      return;
+    }
     try {
       const res = await markAttendance.mutateAsync({ student_group: groupId, date, entries });
       toast.success(`تم حفظ الحضور لـ ${res.created + res.updated} طالباً`);
@@ -289,17 +256,22 @@ function StaffAttendanceView() {
     }
   }
 
-  // Rows whose local state differs from what is stored. Individual presses
-  // save themselves, so this counts only the bulk path — "mark everyone
-  // present, then fix three" — and the button says so rather than offering to
-  // save nothing.
-  const pendingCount = rows.filter((r) => {
-    const local = edits[r.student];
+  /**
+   * Whether a row differs from what the server holds.
+   *
+   * A record saved as the legacy "Leave" means the same as "Excused", so
+   * switching between them is not a change and must not be sent — it would
+   * cancel and rewrite the record for nothing.
+   */
+  function isPending(student: string): boolean {
+    const local = edits[student];
     if (local === undefined) return false;
-    const stored = (r.status ?? "Present") as Status;
+    const stored = (rows.find((r) => r.student === student)?.status ?? "Present") as Status;
     if (local === stored) return false;
     return !(local === "Excused" && stored === "Leave");
-  }).length;
+  }
+
+  const pendingCount = rows.filter((r) => isPending(r.student)).length;
 
   const report = reportQuery.data;
   const trend = (report?.rows ?? []).map((r) => ({ month: r.date, present: r.rate }));
@@ -329,7 +301,7 @@ function StaffAttendanceView() {
     <>
       <PageHeader
         title="الحضور والغياب"
-        subtitle="اضغط حالة أي طالب لتُحفظ وحدها — والحفظ العام لتسجيل الشعبة دفعة واحدة"
+        subtitle="عدّل ما تشاء ثم اضغط حفظ — لا يُرسل إلا ما تغيّر"
         actions={
           canMark ? (
             <button
@@ -453,12 +425,11 @@ function StaffAttendanceView() {
                     <p className="truncate text-sm font-semibold">{s.student_name}</p>
                     <p className="num flex items-center gap-1.5 text-xs text-muted-foreground">
                       {s.student}
-                      {saving[s.student] && <span className="text-primary">جارٍ الحفظ…</span>}
-                      {justSaved[s.student] && !saving[s.student] && (
-                        <span className="inline-flex items-center gap-0.5 text-success">
-                          <Check className="size-3" />
-                          حُفظ
-                        </span>
+                      {/* Changed and not yet sent. Nothing reaches the server
+                          until the teacher presses save — a register is a
+                          legal record, and a stray tap should not write one. */}
+                      {isPending(s.student) && (
+                        <span className="font-semibold text-warning">غير محفوظ</span>
                       )}
                     </p>
                   </div>
@@ -476,7 +447,7 @@ function StaffAttendanceView() {
                           key={state}
                           type="button"
                           disabled={!canMark}
-                          onClick={() => void setOne(s.student, state)}
+                          onClick={() => setEdits((p) => ({ ...p, [s.student]: state }))}
                           title={meta.label}
                           aria-label={`${s.student_name}: ${meta.label}`}
                           aria-pressed={active}
