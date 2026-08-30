@@ -439,6 +439,23 @@ export const navItems: NavItem[] = [
     group: "التدريس والمحتوى",
   },
   {
+    label: "نماذج التقييم",
+    labelByRole: { student: "تقييماتي", parent: "تقييمات الأبناء" },
+    to: "/app/evaluations",
+    icon: ClipboardList,
+    roles: ["admin", "secretary", "teacher"],
+    group: "العلامات والتقييم",
+  },
+  {
+    label: "دفتر الحصص",
+    labelByRole: { student: "ما جرى في حصصي", parent: "ما جرى في الحصص" },
+    to: "/app/class-log",
+    icon: BookOpen,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "التدريس والمحتوى",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
+  },
+  {
     // Every persona manages their own account security, so this is the one
     // entry that is not restricted by role.
     label: "أمان الحساب",

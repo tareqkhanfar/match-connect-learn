@@ -3,6 +3,7 @@ import {
   Award,
   BarChart3,
   BookMarked,
+  BookOpen,
   BookOpenCheck,
   CalendarDays,
   ClipboardCheck,
@@ -30,6 +31,7 @@ import { useClassConnections } from "@/lib/api/hooks";
 /** Named by the server, drawn here — the API must not ship components. */
 const ICONS: Record<string, LucideIcon> = {
   Users,
+  BookOpen,
   CalendarDays,
   ClipboardCheck,
   BookOpenCheck,

@@ -6613,3 +6613,572 @@ export function useClassConnections(studentGroup: string | undefined) {
     enabled: Boolean(studentGroup),
   });
 }
+
+/* -------------------------------------------------------------------------
+ * نماذج التقييم — forms a school defines for itself
+ * ---------------------------------------------------------------------- */
+
+export interface EvaluationCriterion {
+  key: string;
+  category: string;
+  item: string;
+  max_score: number;
+  weight: number;
+  sort_order: number;
+  help_text: string | null;
+}
+
+export interface EvaluationScaleOption {
+  label: string;
+  score: number;
+  tone: string;
+  sort_order: number;
+}
+
+export interface EvaluationForm {
+  id: string;
+  title: string;
+  form_type: string;
+  scale_type: string;
+  description: string | null;
+  is_active: boolean;
+  allow_notes: boolean;
+  program: string | null;
+  student_group: string | null;
+  course: string | null;
+  criteria: EvaluationCriterion[];
+  scale: EvaluationScaleOption[];
+  categories: string[];
+  max_total: number;
+}
+
+export function useEvaluationForms(formType?: string, studentGroup?: string) {
+  return useQuery<{
+    forms: Array<{
+      id: string;
+      title: string;
+      form_type: string;
+      scale_type: string;
+      description: string | null;
+      is_active: boolean;
+      student_group: string | null;
+      course: string | null;
+      criteria_count: number;
+      entry_count: number;
+      modified: string;
+    }>;
+    form_types: string[];
+    scale_types: string[];
+    presets: Record<string, Array<{ label: string; score: number; tone: string }>>;
+  }>({
+    queryKey: ["evaluation-forms", formType ?? "", studentGroup ?? ""],
+    queryFn: () =>
+      apiGet("evaluations.list_forms", {
+        ...(formType ? { form_type: formType } : {}),
+        ...(studentGroup ? { student_group: studentGroup } : {}),
+      }),
+  });
+}
+
+export function useEvaluationForm(form: string | undefined) {
+  return useQuery<EvaluationForm>({
+    queryKey: ["evaluation-form", form ?? null],
+    queryFn: () => apiGet("evaluations.get_form", { form: form! }),
+    enabled: Boolean(form),
+  });
+}
+
+export function useSaveEvaluationForm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: Record<string, unknown>) =>
+      apiPost<{ id: string; used_by: number }>("evaluations.save_form", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["evaluation-forms"] });
+      void qc.invalidateQueries({ queryKey: ["evaluation-form"] });
+    },
+  });
+}
+
+export function useDeleteEvaluationForm() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { form: string }) =>
+      apiPost<{ id: string; deactivated?: boolean }>(
+        "evaluations.delete_form",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["evaluation-forms"] }),
+  });
+}
+
+export interface EvaluationGridStudent {
+  id: string;
+  name: string;
+  roll: number;
+  entry: string | null;
+  total: number;
+  max?: number;
+  percent: number;
+  notes?: string | null;
+  is_published: boolean;
+  evaluated_on?: string;
+}
+
+export function useEvaluationGrid(form: string | undefined, studentGroup: string | undefined) {
+  return useQuery<{
+    form: EvaluationForm;
+    student_group: string;
+    students: EvaluationGridStudent[];
+    answers: Record<string, Record<string, { value: string; score: number; note: string | null }>>;
+  }>({
+    queryKey: ["evaluation-grid", form ?? null, studentGroup ?? null],
+    queryFn: () => apiGet("evaluations.grid", { form: form!, student_group: studentGroup! }),
+    enabled: Boolean(form && studentGroup),
+  });
+}
+
+export function useSaveEvaluationGrid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      form: string;
+      student_group: string;
+      course?: string;
+      rows: Record<
+        string,
+        {
+          values: Record<string, { value?: string; score?: number; note?: string }>;
+          notes?: string;
+        }
+      >;
+    }) =>
+      apiPost<{ saved: number }>("evaluations.save_grid", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["evaluation-grid"] }),
+  });
+}
+
+export function usePublishEvaluations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { entries: string[]; is_published: number }) =>
+      apiPost<{ count: number }>("evaluations.publish_entries", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["evaluation-grid"] });
+      void qc.invalidateQueries({ queryKey: ["student-evaluations"] });
+    },
+  });
+}
+
+export function useStudentEvaluations(student: string | undefined, formType?: string) {
+  return useQuery<{
+    entries: Array<{
+      id: string;
+      form: string;
+      form_title: string;
+      form_type: string;
+      course: string | null;
+      student_group: string | null;
+      total: number;
+      max: number;
+      percent: number;
+      notes: string | null;
+      is_published: boolean;
+      evaluated_on: string;
+      answers: Array<{
+        category: string;
+        item: string;
+        value: string;
+        score: number;
+        note: string | null;
+      }>;
+    }>;
+  }>({
+    queryKey: ["student-evaluations", student ?? null, formType ?? ""],
+    queryFn: () =>
+      apiGet("evaluations.student_evaluations", {
+        student: student!,
+        ...(formType ? { form_type: formType } : {}),
+      }),
+    enabled: Boolean(student),
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Exam conflicts, and a pupil against their class
+ * ---------------------------------------------------------------------- */
+
+export interface ExamConflicts {
+  students: Array<{
+    student: string;
+    name: string;
+    overlapping: boolean;
+    conflicts: Array<{
+      exam: string;
+      title: string;
+      course: string;
+      student_group: string;
+      from_time: string;
+      to_time: string;
+      room: string | null;
+      overlapping: boolean;
+    }>;
+  }>;
+  total: number;
+  exams: number;
+  overlapping: number;
+  holiday?: string | null;
+}
+
+export function useExamConflicts() {
+  return useMutation({
+    mutationFn: (vars: {
+      student_group: string;
+      schedule_date: string;
+      from_time?: string;
+      to_time?: string;
+      exam?: string;
+    }) => apiGet<ExamConflicts>("exams.check_conflicts", vars),
+  });
+}
+
+export function useColumnExams(studentGroup: string | undefined, course: string | undefined) {
+  return useQuery<{
+    exams: Record<
+      string,
+      {
+        id: string;
+        title: string;
+        date: string;
+        from_time: string;
+        to_time: string;
+        room: string | null;
+        max_score: number;
+      }
+    >;
+  }>({
+    queryKey: ["column-exams", studentGroup ?? null, course ?? null],
+    queryFn: () =>
+      apiGet("gradebook.column_exams", { student_group: studentGroup!, course: course! }),
+    enabled: Boolean(studentGroup && course),
+  });
+}
+
+export interface SubjectStanding {
+  course: string;
+  course_name: string;
+  student_percent: number;
+  class_average: number | null;
+  class_high: number | null;
+  gap: number | null;
+  band: string;
+  band_label: string;
+  tone: string;
+  sample: number;
+  assessments: number;
+  rank: number | null;
+  of: number;
+  percentile: number | null;
+}
+
+export function useOverallComparison(student: string | undefined) {
+  return useQuery<{
+    student: string;
+    student_name: string;
+    subjects: SubjectStanding[];
+    overall: {
+      student_percent: number;
+      class_average: number | null;
+      subjects: number;
+      above: number;
+      below: number;
+      strongest: string | null;
+      weakest: string | null;
+    } | null;
+    min_sample: number;
+  }>({
+    queryKey: ["comparison-overall", student ?? null],
+    queryFn: () => apiGet("comparison.overall_comparison", { student: student! }),
+    enabled: Boolean(student),
+  });
+}
+
+export function useSubjectComparison(student: string | undefined, course: string | undefined) {
+  return useQuery<{
+    course_name: string;
+    assessments: Array<{
+      component: string;
+      student_percent: number;
+      class_average: number | null;
+      class_high: number | null;
+      class_low: number | null;
+      gap: number | null;
+      band_label: string;
+      tone: string;
+      sample: number;
+      rank: number | null;
+      of: number;
+    }>;
+    summary: {
+      student_percent: number;
+      class_average: number | null;
+      band_label: string;
+      tone: string;
+      rank: number | null;
+      of: number;
+    } | null;
+    min_sample: number;
+  }>({
+    queryKey: ["comparison-subject", student ?? null, course ?? null],
+    queryFn: () => apiGet("comparison.subject_comparison", { student: student!, course: course! }),
+    enabled: Boolean(student && course),
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Assignments: marking sheet, questions, solutions
+ * ---------------------------------------------------------------------- */
+
+export interface GradingRow {
+  student: string;
+  name: string;
+  roll: number;
+  student_group: string;
+  group_name: string;
+  submission: string | null;
+  status: string;
+  submitted_on: string;
+  viewed_on: string;
+  guardian_viewed_on: string;
+  is_late: boolean;
+  score: number | null;
+  max_score: number;
+  feedback: string | null;
+  teacher_note: string | null;
+  content: string | null;
+  graded_on: string;
+  files: Array<{ file_url: string; file_name: string; file_size: number }>;
+}
+
+export function useGradingSheet(assignment: string | undefined, studentGroup?: string) {
+  return useQuery<{
+    assignment: Record<string, unknown> & { title: string; maximum_score: number };
+    groups: Array<{ id: string; name: string }>;
+    students: GradingRow[];
+    summary: {
+      total: number;
+      submitted: number;
+      missing: number;
+      graded: number;
+      late: number;
+      seen: number;
+    };
+  }>({
+    queryKey: ["grading-sheet", assignment ?? null, studentGroup ?? ""],
+    queryFn: () =>
+      apiGet("assignments.grading_sheet", {
+        assignment: assignment!,
+        ...(studentGroup ? { student_group: studentGroup } : {}),
+      }),
+    enabled: Boolean(assignment),
+  });
+}
+
+export function useSaveGrades() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      assignment: string;
+      rows: Record<
+        string,
+        { score?: number | null; teacher_note?: string; feedback?: string; status?: string }
+      >;
+    }) =>
+      apiPost<{ saved: number }>("assignments.save_grades", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["grading-sheet"] });
+      void qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
+  });
+}
+
+export function useAssignmentQuestions(assignment: string | undefined) {
+  return useQuery<{
+    questions: Array<{
+      id: string;
+      student: string | null;
+      student_name: string | null;
+      body: string;
+      asked_on: string;
+      answer: string | null;
+      answered_on: string;
+      is_public: boolean;
+      mine: boolean;
+      answered: boolean;
+    }>;
+    unanswered: number;
+  }>({
+    queryKey: ["assignment-questions", assignment ?? null],
+    queryFn: () => apiGet("assignments.questions", { assignment: assignment! }),
+    enabled: Boolean(assignment),
+  });
+}
+
+export function useAskAssignmentQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { assignment: string; body: string; student?: string }) =>
+      apiPost<{ id: string }>(
+        "assignments.ask_question",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["assignment-questions"] }),
+  });
+}
+
+export function useAnswerAssignmentQuestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { question: string; answer: string; is_public?: number }) =>
+      apiPost<{ id: string }>(
+        "assignments.answer_question",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["assignment-questions"] }),
+  });
+}
+
+export function useAssignmentSolution(assignment: string | undefined) {
+  return useQuery<{
+    published: boolean;
+    published_on?: string;
+    body: string | null;
+    files: Array<{ file_url: string; file_name: string; file_size: number }>;
+  }>({
+    queryKey: ["assignment-solution", assignment ?? null],
+    queryFn: () => apiGet("assignments.solution", { assignment: assignment! }),
+    enabled: Boolean(assignment),
+  });
+}
+
+export function usePublishSolution() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { assignment: string; published: number }) =>
+      apiPost<{ id: string; published: boolean }>(
+        "assignments.publish_solution",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["assignment-solution"] });
+      void qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
+  });
+}
+
+export function useRecordAssignmentView() {
+  return useMutation({
+    mutationFn: (vars: { assignment: string; student?: string }) =>
+      apiPost<Record<string, never>>(
+        "assignments.record_view",
+        vars as unknown as Record<string, unknown>,
+      ),
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * دفتر الحصص
+ * ---------------------------------------------------------------------- */
+
+export interface ClassLog {
+  id: string;
+  date: string;
+  student_group: string;
+  group_name?: string;
+  course: string | null;
+  instructor: string | null;
+  topic: string | null;
+  what_was_done: string | null;
+  homework: string | null;
+  notes: string | null;
+  from_time: string;
+  to_time: string;
+  period_order: number;
+  is_published: boolean;
+  created_by: string | null;
+  created_on: string;
+  attachments: Array<{ file_url: string; file_name: string; file_size: number }>;
+}
+
+export function useClassLogs(params: {
+  student_group?: string;
+  course?: string;
+  from_date?: string;
+  to_date?: string;
+}) {
+  return useQuery<{ logs: ClassLog[]; total: number }>({
+    queryKey: ["class-logs", params],
+    queryFn: () => apiGet("class_log.list_logs", params as Record<string, unknown>),
+  });
+}
+
+export function useDaySlots(studentGroup: string | undefined, date: string) {
+  return useQuery<{
+    date: string;
+    day: string;
+    logged?: number;
+    slots: Array<{
+      slot: string;
+      student_group: string;
+      group_name: string;
+      course: string | null;
+      from_time: string;
+      to_time: string;
+      period_order: number;
+      room: string | null;
+      log: string | null;
+      logged: boolean;
+    }>;
+  }>({
+    queryKey: ["day-slots", studentGroup ?? "", date],
+    queryFn: () =>
+      apiGet("class_log.day_slots", {
+        ...(studentGroup ? { student_group: studentGroup } : {}),
+        date,
+      }),
+  });
+}
+
+export function useSaveClassLog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: Record<string, unknown>) =>
+      apiPost<{ id: string }>("class_log.save_log", {
+        payload: vars,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["class-logs"] });
+      void qc.invalidateQueries({ queryKey: ["day-slots"] });
+    },
+  });
+}
+
+export function useDeleteClassLog() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { log: string }) =>
+      apiPost<{ id: string }>("class_log.delete_log", vars as unknown as Record<string, unknown>),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["class-logs"] });
+      void qc.invalidateQueries({ queryKey: ["day-slots"] });
+    },
+  });
+}

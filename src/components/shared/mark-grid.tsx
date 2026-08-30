@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Ban,
   CalendarClock,
+  CalendarPlus,
   Check,
   ChevronDown,
   Download,
@@ -25,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Pill } from "@/components/shared/ui-kit";
 import { useConfirm } from "@/components/shared/confirm";
+import { ScheduleExamDialog } from "@/components/shared/schedule-exam";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,7 @@ import {
 import { errorMessage } from "@/lib/api/error-message";
 import {
   useCurveColumn,
+  useColumnExams,
   useEntrySheet,
   useExcludeColumn,
   usePublishComponent,
@@ -128,6 +131,10 @@ export function MarkGrid({
   canEdit: boolean;
 }) {
   const sheet = useEntrySheet({ student_group: group, course });
+  // What each mark column already has on the exam calendar, matched by the
+  // column's own name — which is what the teacher typed in both places.
+  const columnExams = useColumnExams(group || undefined, course || undefined);
+  const [examFor, setExamFor] = useState<string | null>(null);
   const saveGrid = useSaveGrid();
   const curve = useCurveColumn();
   const exclude = useExcludeColumn();
@@ -1140,6 +1147,23 @@ export function MarkGrid({
                       )}
                     </span>
 
+                    {/* The date the paper is actually sat, on the column that
+                        marks it — the two were always the same thing to a
+                        teacher and different screens to the system. */}
+                    {columnExams.data?.exams[c.component_name]?.date && (
+                      <button
+                        onClick={() => canEdit && setExamFor(c.component_name)}
+                        disabled={!canEdit}
+                        className="num mt-0.5 block w-full truncate text-[10px] font-semibold text-primary hover:underline disabled:no-underline"
+                        title="موعد الامتحان"
+                      >
+                        {columnExams.data.exams[c.component_name]!.date.slice(5)}
+                        {columnExams.data.exams[c.component_name]!.from_time
+                          ? ` · ${columnExams.data.exams[c.component_name]!.from_time}`
+                          : ""}
+                      </button>
+                    )}
+
                     <span className="mt-1 flex items-center justify-center gap-1">
                       {s?.publish_state === "published" && (
                         <Pill tone="success">
@@ -1165,6 +1189,11 @@ export function MarkGrid({
                           setReleaseOn(s?.release_on?.slice(0, 10) ?? "");
                           setMenuFor(null);
                         }}
+                        onScheduleExam={() => {
+                          setExamFor(c.component_name);
+                          setMenuFor(null);
+                        }}
+                        examDate={columnExams.data?.exams[c.component_name]?.date}
                       />
                     )}
                   </th>
@@ -1358,6 +1387,25 @@ export function MarkGrid({
       </div>
 
       {/* Release date for one component. */}
+      {examFor && (
+        <ScheduleExamDialog
+          studentGroup={group}
+          course={course}
+          title={examFor}
+          existing={
+            columnExams.data?.exams[examFor]
+              ? {
+                  id: columnExams.data.exams[examFor]!.id,
+                  date: columnExams.data.exams[examFor]!.date,
+                  from_time: columnExams.data.exams[examFor]!.from_time,
+                  to_time: columnExams.data.exams[examFor]!.to_time,
+                }
+              : undefined
+          }
+          onClose={() => setExamFor(null)}
+        />
+      )}
+
       {scheduleFor && (
         <Dialog open onOpenChange={(v) => !v && setScheduleFor(null)}>
           <DialogContent className="sm:max-w-md" dir="rtl">
@@ -1934,6 +1982,8 @@ function ColumnMenu({
   onExclude,
   onPublish,
   onSchedule,
+  onScheduleExam,
+  examDate,
 }: {
   component: SchemeComponent;
   stat: { publish_state?: string; excluded?: boolean } | undefined;
@@ -1943,6 +1993,8 @@ function ColumnMenu({
   onExclude: () => void;
   onPublish: (publish: boolean) => void;
   onSchedule: () => void;
+  onScheduleExam: () => void;
+  examDate?: string | undefined;
 }) {
   const [fill, setFill] = useState("");
   const published = stat?.publish_state === "published" || stat?.publish_state === "partial";
@@ -2036,6 +2088,12 @@ function ColumnMenu({
           <MenuRow icon={Eye} label="نشر للطلاب" onClick={() => onPublish(true)} tone="primary" />
         )}
         <MenuRow icon={CalendarClock} label="موعد الظهور" onClick={onSchedule} />
+        <MenuRow
+          icon={CalendarPlus}
+          label={examDate ? `تعديل موعد الامتحان (${examDate})` : "تعيين موعد امتحان"}
+          onClick={onScheduleExam}
+          tone="primary"
+        />
       </span>
     </>
   );

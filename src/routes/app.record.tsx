@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { StudentPicker } from "@/components/shared/student-picker";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
+import { ClassStanding } from "@/components/shared/class-standing";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import {
@@ -180,7 +181,14 @@ function StaffRecordView() {
               icon={<Award className="size-6" />}
             />
           ) : (
-            <RecordBody data={detail.data} />
+            <>
+              <RecordBody data={detail.data} />
+              {/* A mark on its own answers nothing a family asks. This puts the
+                  class beside every figure — and finds the one weak subject. */}
+              <div className="mt-6">
+                <ClassStanding student={student} />
+              </div>
+            </>
           )}
         </>
       ) : (
