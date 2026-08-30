@@ -260,8 +260,10 @@ export const navItems: NavItem[] = [
     groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
-    label: "السلوك والانضباط",
-    labelByRole: { student: "سلوكي", parent: "سلوك الأبناء" },
+    // Records and form assessments answer the same question about a pupil in
+    // two ways, so they share one screen and one name.
+    label: "السلوك والتقييم",
+    labelByRole: { student: "سلوكي وتقييمي", parent: "سلوك الأبناء وتقييمهم" },
     to: "/app/behaviour",
     icon: ShieldAlert,
     roles: ["admin", "secretary", "teacher", "student", "parent"],
@@ -439,8 +441,9 @@ export const navItems: NavItem[] = [
     group: "التدريس والمحتوى",
   },
   {
-    label: "نماذج التقييم",
-    labelByRole: { student: "تقييماتي", parent: "تقييمات الأبناء" },
+    // Behaviour forms live under السلوك والتقييم; this is where the rest are
+    // built — kindergarten sheets, skills, progress reports.
+    label: "نماذج المهارات والتقارير",
     to: "/app/evaluations",
     icon: ClipboardList,
     roles: ["admin", "secretary", "teacher"],

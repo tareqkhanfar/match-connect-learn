@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
 import { ClipboardList, Minus, Plus, ShieldAlert, ThumbsUp, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -27,11 +27,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useConfirm } from "@/components/shared/confirm";
+import { EvaluationFormBuilder } from "@/components/shared/evaluation-form-builder";
+import { errorMessage } from "@/lib/api/error-message";
 import {
   useBehaviour,
   useClasses,
   useDeleteBehaviour,
+  useDeleteEvaluationForm,
   useEvaluationForms,
+  useEvaluationGrid,
+  usePublishEvaluations,
+  useSaveEvaluationGrid,
   useSaveBehaviour,
   useStudents,
   type BehaviourRow,
@@ -99,7 +105,12 @@ function BehaviourPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">();
   const [editing, setEditing] = useState<BehaviourRow | null>(null);
   const [creating, setCreating] = useState(false);
-  const [formsOpen, setFormsOpen] = useState(false);
+  const [tab, setTab] = useState<"records" | "assess" | "forms">("records");
+  // How many form assessments exist for the pupil in view — the fourth number
+  // beside the three the records give, so the strip describes the whole
+  // picture rather than half of it.
+  const behaviourForms = useEvaluationForms("سلوك");
+  const evaluationCount = (behaviourForms.data?.forms ?? []).reduce((n, f) => n + f.entry_count, 0);
 
   const debouncedSearch = useDebounced(search);
 
@@ -222,139 +233,177 @@ function BehaviourPage() {
   return (
     <>
       <PageHeader
-        title={byRole(role, "السلوك والانضباط", { student: "سلوكي", parent: "سلوك الأبناء" })}
-        subtitle="سجل النقاط الإيجابية والمخالفات"
+        title={byRole(role, "السلوك والتقييم", {
+          student: "سلوكي وتقييمي",
+          parent: "سلوك الأبناء وتقييمهم",
+        })}
+        subtitle="حادثة مفردة تُسجَّل، ومعايير متكرّرة تُقيَّم — كلاهما هنا"
         actions={
-          canEdit ? (
-            <div className="flex flex-wrap gap-2">
-              {/* A behaviour note records one incident. A form assesses a
-                  pupil against criteria the school wrote for itself, which is
-                  a different question, so it sits beside rather than inside. */}
-              <button
-                onClick={() => setFormsOpen(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-secondary"
-              >
-                <ClipboardList className="size-4" />
-                نماذج تقييم السلوك
-              </button>
-              <button
-                onClick={() => setCreating(true)}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
-              >
-                <Plus className="size-4" />
-                سجل جديد
-              </button>
-            </div>
+          canEdit && tab === "records" ? (
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
+            >
+              <Plus className="size-4" />
+              سجل جديد
+            </button>
           ) : null
         }
       />
 
-      {formsOpen && <BehaviourFormsPanel onClose={() => setFormsOpen(false)} />}
-
-      <div className="mb-5 grid gap-4 sm:grid-cols-3">
-        <KpiCard
-          label="سجلات إيجابية"
-          value={summary?.positive ?? 0}
-          icon={ThumbsUp}
-          tone="accent"
-        />
-        <KpiCard label="مخالفات" value={summary?.negative ?? 0} icon={ShieldAlert} tone="warm" />
-        <KpiCard label="صافي النقاط" value={summary?.net_points ?? 0} icon={Minus} tone="primary" />
-      </div>
-
-      <DataTable
-        columns={columns}
-        rows={rows}
-        rowKey={(r) => r.id}
-        storageKey="behaviour"
-        isLoading={query.isLoading}
-        isFetching={query.isFetching}
-        error={query.error}
-        onRetry={() => query.refetch()}
-        search={search}
-        onSearchChange={(v) => {
-          setSearch(v);
-          setPage(1);
-        }}
-        searchPlaceholder="ابحث باسم الطالب..."
-        sortField={sortField}
-        sortOrder={sortOrder}
-        onSortChange={(f, o) => {
-          setSortField(f);
-          setSortOrder(o);
-        }}
-        page={page}
-        pageSize={pageSize}
-        total={query.data?.total}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => {
-          setPageSize(s);
-          setPage(1);
-        }}
-        exportDataset="behaviour"
-        exportFilters={filters}
-        exportTitle="السلوك والانضباط"
-        emptyTitle="لا توجد سجلات سلوكية"
-        toolbar={
-          <>
-            <Select
-              value={type}
-              onValueChange={(v) => {
-                setType(v);
-                setPage(1);
-              }}
+      {/* One screen, because they answer the same question about a pupil in
+          two ways. A record is "this happened on Tuesday"; an assessment is
+          "how does this pupil do, on the things we said we care about". A
+          teacher looking into a child's conduct wants both without leaving. */}
+      {canEdit && (
+        <div className="mb-5 flex gap-1 rounded-xl border border-border bg-card p-1">
+          {[
+            { key: "records" as const, label: "سجلات السلوك" },
+            { key: "assess" as const, label: "التقييم بالنماذج" },
+            { key: "forms" as const, label: "إدارة النماذج" },
+          ].map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                tab === t.key
+                  ? "bg-primary text-primary-foreground shadow-soft"
+                  : "text-muted-foreground hover:bg-secondary"
+              }`}
             >
-              <SelectTrigger className="h-10 w-[130px] rounded-xl">
-                <SelectValue placeholder="النوع" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الأنواع</SelectItem>
-                <SelectItem value="Positive">إيجابي</SelectItem>
-                <SelectItem value="Negative">سلبي</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={category}
-              onValueChange={(v) => {
-                setCategory(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="h-10 w-[150px] rounded-xl">
-                <SelectValue placeholder="التصنيف" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل التصنيفات</SelectItem>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {CATEGORY_AR[c] ?? c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 w-[145px] rounded-xl"
-              aria-label="من تاريخ"
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {canEdit && tab === "assess" && <BehaviourAssessTab />}
+      {canEdit && tab === "forms" && <BehaviourFormsTab />}
+
+      {tab === "records" && (
+        <>
+          <div className="mb-5 grid gap-4 sm:grid-cols-4">
+            <KpiCard
+              label="سجلات إيجابية"
+              value={summary?.positive ?? 0}
+              icon={ThumbsUp}
+              tone="accent"
             />
-            <Input
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setPage(1);
-              }}
-              className="h-10 w-[145px] rounded-xl"
-              aria-label="إلى تاريخ"
+            <KpiCard
+              label="مخالفات"
+              value={summary?.negative ?? 0}
+              icon={ShieldAlert}
+              tone="warm"
             />
-          </>
-        }
-      />
+            <KpiCard
+              label="صافي النقاط"
+              value={summary?.net_points ?? 0}
+              icon={Minus}
+              tone="primary"
+            />
+            <KpiCard
+              label="تقييمات بالنماذج"
+              value={evaluationCount}
+              icon={ClipboardList}
+              tone="info"
+            />
+          </div>
+
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.id}
+            storageKey="behaviour"
+            isLoading={query.isLoading}
+            isFetching={query.isFetching}
+            error={query.error}
+            onRetry={() => query.refetch()}
+            search={search}
+            onSearchChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
+            searchPlaceholder="ابحث باسم الطالب..."
+            sortField={sortField}
+            sortOrder={sortOrder}
+            onSortChange={(f, o) => {
+              setSortField(f);
+              setSortOrder(o);
+            }}
+            page={page}
+            pageSize={pageSize}
+            total={query.data?.total}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+            exportDataset="behaviour"
+            exportFilters={filters}
+            exportTitle="السلوك والانضباط"
+            emptyTitle="لا توجد سجلات سلوكية"
+            toolbar={
+              <>
+                <Select
+                  value={type}
+                  onValueChange={(v) => {
+                    setType(v);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-[130px] rounded-xl">
+                    <SelectValue placeholder="النوع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الأنواع</SelectItem>
+                    <SelectItem value="Positive">إيجابي</SelectItem>
+                    <SelectItem value="Negative">سلبي</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={category}
+                  onValueChange={(v) => {
+                    setCategory(v);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="h-10 w-[150px] rounded-xl">
+                    <SelectValue placeholder="التصنيف" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل التصنيفات</SelectItem>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {CATEGORY_AR[c] ?? c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-10 w-[145px] rounded-xl"
+                  aria-label="من تاريخ"
+                />
+                <Input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-10 w-[145px] rounded-xl"
+                  aria-label="إلى تاريخ"
+                />
+              </>
+            }
+          />
+        </>
+      )}
 
       {(creating || editing) && (
         <BehaviourDialog
@@ -556,122 +605,384 @@ function BehaviourDialog({
   );
 }
 
+/* -------------------------------------------------------------------------
+ * Assessing against a form — the second half of the same question
+ * ---------------------------------------------------------------------- */
+
 /**
- * The evaluation forms that belong to behaviour, opened from where a teacher
- * already is.
+ * A whole class against one behaviour form.
  *
- * A behaviour record is one incident on one day. A form asks a set of
- * questions the school wrote for itself — "الاستماع", "الأكل في الحصة" — and
- * answers them for a whole class at once. Both live under السلوك because that
- * is where a teacher looks for either.
+ * The same grid as mark entry, for the same reason: a teacher answering
+ * fifteen criteria for thirty pupils will not open thirty dialogs. Edits are
+ * held here until saved, so a slow connection cannot lose a column of typing.
  */
-function BehaviourFormsPanel({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
+function BehaviourAssessTab() {
   const forms = useEvaluationForms("سلوك");
   const classes = useClasses();
-  const [form, setForm] = useState("");
+  const [formId, setFormId] = useState("");
   const [group, setGroup] = useState("");
+  const grid = useEvaluationGrid(formId || undefined, group || undefined);
+  const saveGrid = useSaveEvaluationGrid();
+  const publish = usePublishEvaluations();
 
-  const rows = forms.data?.forms.filter((f) => f.is_active) ?? [];
+  const [draft, setDraft] = useState<Record<string, Record<string, string>>>({});
+
+  useEffect(() => {
+    setDraft({});
+  }, [formId, group]);
+
+  const form = grid.data?.form;
+  const criteria = form?.criteria ?? [];
+  const scale = form?.scale ?? [];
+  const students = grid.data?.students ?? [];
+  const saved = grid.data?.answers ?? {};
+  const dirty = Object.keys(draft).length > 0;
+
+  const active = (forms.data?.forms ?? []).filter((f) => f.is_active);
+
+  function valueFor(student: string, key: string): string {
+    return draft[student]?.[key] ?? saved[student]?.[key]?.value ?? "";
+  }
+
+  async function submit() {
+    const rows: Record<string, { values: Record<string, { value?: string }> }> = {};
+    for (const s of students) {
+      if (!draft[s.id]) continue;
+      // The server replaces the answer set, so a partial row would erase the
+      // criteria the teacher did not touch this time.
+      const values: Record<string, { value?: string }> = {};
+      for (const c of criteria) {
+        const v = valueFor(s.id, c.key);
+        if (v) values[c.key] = { value: v };
+      }
+      rows[s.id] = { values };
+    }
+    if (Object.keys(rows).length === 0) {
+      toast.error("لا توجد تغييرات لحفظها");
+      return;
+    }
+    try {
+      const res = await saveGrid.mutateAsync({ form: formId, student_group: group, rows });
+      toast.success(`تم حفظ تقييم ${res.saved} طالباً`);
+      setDraft({});
+    } catch (e) {
+      toast.error(errorMessage(e, "تعذّر الحفظ"));
+    }
+  }
+
+  async function setVisible(show: boolean) {
+    const entries = students.map((s) => s.entry).filter((e): e is string => Boolean(e));
+    if (entries.length === 0) {
+      toast.error("لا توجد تقييمات محفوظة بعد");
+      return;
+    }
+    try {
+      await publish.mutateAsync({ entries, is_published: show ? 1 : 0 });
+      toast.success(show ? "أصبحت التقييمات ظاهرة للأهالي" : "تم إخفاء التقييمات");
+    } catch (e) {
+      toast.error(errorMessage(e, "تعذّر التحديث"));
+    }
+  }
+
+  if (active.length === 0 && !forms.isLoading) {
+    return (
+      <EmptyBlock
+        title="لا توجد نماذج سلوك بعد"
+        description="النموذج مجموعة معايير تعرّفها المدرسة — الاستماع، الالتزام، احترام الزملاء — ثم تُقيَّم عليها الشعبة كاملة."
+        icon={<ClipboardList className="size-6" />}
+      />
+    );
+  }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl" dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="size-5 text-primary" />
-            نماذج تقييم السلوك
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto p-1">
-          {forms.isLoading ? (
-            <TableSkeleton rows={3} />
-          ) : rows.length === 0 ? (
-            <EmptyBlock
-              title="لا توجد نماذج سلوك بعد"
-              description="النموذج مجموعة معايير تعرّفها المدرسة — الاستماع، الالتزام، النظافة — وتُقيّم الطالب عليها."
-              icon={<ClipboardList className="size-6" />}
-              action={
-                <button
-                  onClick={() => void navigate({ to: "/app/evaluations" })}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                >
-                  إنشاء نموذج
-                </button>
-              }
-            />
-          ) : (
-            <>
-              <div>
-                <Label className="text-xs">النموذج</Label>
-                <ul className="mt-1 space-y-1.5">
-                  {rows.map((f) => (
-                    <li key={f.id}>
-                      <button
-                        onClick={() => setForm(f.id)}
-                        className={`w-full rounded-xl border p-3 text-start transition-colors ${
-                          form === f.id
-                            ? "border-primary bg-primary-soft"
-                            : "border-border hover:bg-secondary"
-                        }`}
-                      >
-                        <span className="block text-sm font-semibold">{f.title}</span>
-                        <span className="num block text-[11px] text-muted-foreground">
-                          {f.criteria_count} بنداً · {f.scale_type}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <Label className="text-xs">الشعبة</Label>
-                <Select value={group} onValueChange={setGroup}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر الشعبة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(classes.data ?? []).map((c) => (
-                      <SelectItem key={c.name} value={c.name}>
-                        {c.student_group_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
+    <>
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto]">
+        <div>
+          <Label className="text-xs">النموذج</Label>
+          <Select value={formId} onValueChange={setFormId}>
+            <SelectTrigger>
+              <SelectValue placeholder="اختر النموذج" />
+            </SelectTrigger>
+            <SelectContent>
+              {active.map((f) => (
+                <SelectItem key={f.id} value={f.id}>
+                  {f.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        <div>
+          <Label className="text-xs">الشعبة</Label>
+          <Select value={group} onValueChange={setGroup}>
+            <SelectTrigger>
+              <SelectValue placeholder="اختر الشعبة" />
+            </SelectTrigger>
+            <SelectContent>
+              {(classes.data ?? []).map((c) => (
+                <SelectItem key={c.name} value={c.name}>
+                  {c.student_group_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-end gap-2">
+          <button
+            onClick={() => void submit()}
+            disabled={!dirty || saveGrid.isPending}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground disabled:opacity-40"
+          >
+            حفظ
+          </button>
+        </div>
+      </div>
 
-        <DialogFooter>
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold"
-          >
-            إغلاق
-          </button>
-          <button
-            onClick={() => void navigate({ to: "/app/evaluations" })}
-            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold"
-          >
-            إدارة النماذج
-          </button>
-          <button
-            disabled={!form || !group}
-            onClick={() =>
-              void navigate({
-                to: "/app/evaluations",
-                search: { group },
-              })
-            }
-            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-40"
-          >
-            فتح جدول التقييم
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      {!formId || !group ? (
+        <EmptyBlock
+          title="اختر نموذجاً وشعبة"
+          description="سيظهر جدول التقييم: الطلاب في الصفوف والمعايير في الأعمدة."
+          icon={<ClipboardList className="size-6" />}
+        />
+      ) : grid.isLoading ? (
+        <TableSkeleton rows={6} />
+      ) : students.length === 0 ? (
+        <EmptyBlock
+          title="لا يوجد طلاب في هذه الشعبة"
+          icon={<ClipboardList className="size-6" />}
+        />
+      ) : (
+        <div className="card-surface p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-bold">{form?.title}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {form?.scale_type === "مقياس"
+                  ? scale.map((o) => o.label).join(" / ")
+                  : "أدخل القيمة لكل معيار"}
+              </p>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => void setVisible(true)}
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
+              >
+                إظهار للأهالي
+              </button>
+              <button
+                onClick={() => void setVisible(false)}
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
+              >
+                إخفاء
+              </button>
+            </div>
+          </div>
+
+          {/* Wide sheets scroll inside their own box; the page never does. */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-max border-collapse text-sm">
+              <thead>
+                {(form?.categories.length ?? 0) > 0 && (
+                  <tr>
+                    <th className="sticky right-0 z-10 bg-card" />
+                    {form!.categories.map((cat) => (
+                      <th
+                        key={cat}
+                        colSpan={criteria.filter((c) => c.category === cat).length}
+                        className="border-b border-s border-border bg-secondary/60 px-2 py-1.5 text-center text-[11px] font-bold"
+                      >
+                        {cat}
+                      </th>
+                    ))}
+                    {criteria.some((c) => !c.category) && (
+                      <th
+                        colSpan={criteria.filter((c) => !c.category).length}
+                        className="border-b border-s border-border bg-secondary/60 px-2 py-1.5 text-center text-[11px] font-bold"
+                      >
+                        معايير عامة
+                      </th>
+                    )}
+                    <th className="border-b border-s border-border bg-secondary/60" />
+                  </tr>
+                )}
+                <tr>
+                  <th className="sticky right-0 z-10 min-w-44 border-b border-border bg-card px-2 py-2 text-start text-xs font-bold">
+                    الطالب
+                  </th>
+                  {criteria.map((c) => (
+                    <th
+                      key={c.key}
+                      className="w-32 border-b border-s border-border px-1.5 py-2 align-bottom text-[11px] font-semibold"
+                      title={c.help_text ?? c.item}
+                    >
+                      <span className="line-clamp-3">{c.item}</span>
+                    </th>
+                  ))}
+                  <th className="w-24 border-b border-s border-border px-2 py-2 text-[11px] font-bold">
+                    المجموع
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s) => (
+                  <tr key={s.id} className="hover:bg-secondary/30">
+                    <td className="sticky right-0 z-10 border-b border-border bg-card px-2 py-1.5">
+                      <span className="block truncate text-xs font-semibold">{s.name}</span>
+                      {s.is_published && (
+                        <span className="text-[10px] text-success">ظاهر للأهل</span>
+                      )}
+                    </td>
+                    {criteria.map((c) => (
+                      <td key={c.key} className="border-b border-s border-border p-1">
+                        {form?.scale_type === "علامة رقمية" || form?.scale_type === "نص" ? (
+                          <Input
+                            {...(form.scale_type === "علامة رقمية" ? { type: "number" } : {})}
+                            value={valueFor(s.id, c.key)}
+                            onChange={(e) =>
+                              setDraft((d) => ({
+                                ...d,
+                                [s.id]: { ...(d[s.id] ?? {}), [c.key]: e.target.value },
+                              }))
+                            }
+                            className="h-8 text-center text-xs"
+                          />
+                        ) : (
+                          <select
+                            value={valueFor(s.id, c.key)}
+                            onChange={(e) =>
+                              setDraft((d) => ({
+                                ...d,
+                                [s.id]: { ...(d[s.id] ?? {}), [c.key]: e.target.value },
+                              }))
+                            }
+                            className={`h-8 w-full rounded-lg border border-border bg-background px-1 text-center text-xs ${
+                              valueFor(s.id, c.key) ? "font-semibold" : ""
+                            }`}
+                          >
+                            <option value="">—</option>
+                            {scale.map((o) => (
+                              <option key={o.label} value={o.label}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                    ))}
+                    <td className="num border-b border-s border-border px-2 py-1.5 text-center text-xs font-bold">
+                      {s.entry ? s.total : "—"}
+                      {s.entry && form?.max_total ? (
+                        <span className="text-muted-foreground">/{form.max_total}</span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The behaviour forms themselves — created and edited where they are used. */
+function BehaviourFormsTab() {
+  const { data, isLoading } = useEvaluationForms("سلوك");
+  const remove = useDeleteEvaluationForm();
+  const confirm = useConfirm();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  async function drop(id: string, title: string, used: number) {
+    const ok = await confirm({
+      title: `حذف النموذج «${title}»؟`,
+      description:
+        used > 0
+          ? `النموذج مستخدم في ${used} تقييماً، لذلك سيُعطَّل بدل حذفه حتى تبقى التقييمات السابقة مقروءة.`
+          : "لم يُستخدم بعد، وسيُحذف نهائياً.",
+      confirmLabel: used > 0 ? "تعطيل" : "حذف",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await remove.mutateAsync({ form: id });
+      toast.success(used > 0 ? "تم تعطيل النموذج" : "تم حذف النموذج");
+    } catch (e) {
+      toast.error(errorMessage(e, "تعذّر الحذف"));
+    }
+  }
+
+  return (
+    <div className="card-surface p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold">نماذج السلوك</p>
+          <p className="text-[11px] text-muted-foreground">
+            المعايير التي تُقيَّم عليها الشعبة — تعرّفها المدرسة بنفسها.
+          </p>
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+        >
+          <Plus className="size-3.5" />
+          نموذج جديد
+        </button>
+      </div>
+
+      {isLoading ? (
+        <TableSkeleton rows={3} />
+      ) : (data?.forms.length ?? 0) === 0 ? (
+        <EmptyBlock
+          title="لا توجد نماذج بعد"
+          description="مثال: «سلوك الطالب في الصف» بمعايير الاستماع والالتزام واحترام الزملاء، تُقيَّم بـ دائماً / أحياناً / أبداً."
+          icon={<ClipboardList className="size-6" />}
+        />
+      ) : (
+        <ul className="divide-y divide-border">
+          {data!.forms.map((f) => (
+            <li key={f.id} className="flex flex-wrap items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-center gap-1.5">
+                  <span className="truncate text-sm font-semibold">{f.title}</span>
+                  <Pill>{f.scale_type}</Pill>
+                  {!f.is_active && <Pill tone="danger">معطّل</Pill>}
+                </p>
+                <p className="num text-[11px] text-muted-foreground">
+                  {f.criteria_count} معياراً · استُخدم في {f.entry_count} تقييماً
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button
+                  onClick={() => setEditing(f.id)}
+                  className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
+                >
+                  تعديل
+                </button>
+                <button
+                  onClick={() => void drop(f.id, f.title, f.entry_count)}
+                  className="rounded-lg border border-border p-2 text-destructive hover:bg-destructive/10"
+                  aria-label="حذف"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {(creating || editing) && (
+        <EvaluationFormBuilder
+          form={editing}
+          defaultType="سلوك"
+          onClose={() => {
+            setCreating(false);
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
   );
 }
