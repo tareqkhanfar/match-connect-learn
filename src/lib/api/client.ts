@@ -88,6 +88,75 @@ async function parseResponse<T>(res: Response, method: string): Promise<T> {
   return envelope.data;
 }
 
+/* -------------------------------------------------------------------------
+ * Call log
+ * ---------------------------------------------------------------------- */
+
+/** A call slower than this is worth seeing without being asked about it. */
+const SLOW_MS = 1500;
+
+export interface CallRecord {
+  method: string;
+  ms: number;
+  ok: boolean;
+  status: number;
+  at: string;
+  message?: string;
+}
+
+/**
+ * The last calls this tab made.
+ *
+ * Kept in memory and capped: a support question is almost always "it was slow
+ * just now" or "it failed just now", and the answer is in the last few dozen
+ * calls. Longer history belongs in the server log, which records the same
+ * events from the other side.
+ */
+const RECENT: CallRecord[] = [];
+const MAX_RECENT = 80;
+
+export function recentCalls(): CallRecord[] {
+  return [...RECENT];
+}
+
+function record(entry: CallRecord) {
+  RECENT.push(entry);
+  if (RECENT.length > MAX_RECENT) RECENT.shift();
+
+  if (typeof console === "undefined") return;
+  if (!entry.ok) {
+    console.error(
+      `[api] ${entry.method} فشل بعد ${entry.ms}ms (${entry.status})`,
+      entry.message ?? "",
+    );
+  } else if (entry.ms >= SLOW_MS) {
+    console.warn(`[api] ${entry.method} استغرق ${entry.ms}ms`);
+  }
+
+  // Handy from the console when someone is looking at a misbehaving screen.
+  if (typeof window !== "undefined") {
+    (window as unknown as { __msCalls?: () => CallRecord[] }).__msCalls = recentCalls;
+  }
+}
+
+/** Time one request and log what happened to it. */
+async function timed<T>(method: string, run: () => Promise<Response>): Promise<T> {
+  const started = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const elapsed = () =>
+    Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - started);
+  try {
+    const res = await run();
+    const data = await parseResponse<T>(res, method);
+    record({ method, ms: elapsed(), ok: true, status: res.status, at: new Date().toISOString() });
+    return data;
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 0;
+    const message = err instanceof ApiError ? err.messageAr || err.message : String(err);
+    record({ method, ms: elapsed(), ok: false, status, at: new Date().toISOString(), message });
+    throw err;
+  }
+}
+
 /** GET request — used for reads. Params are serialised into the query string. */
 export async function apiGet<T>(method: string, params: Record<string, unknown> = {}): Promise<T> {
   const query = new URLSearchParams();
@@ -96,28 +165,30 @@ export async function apiGet<T>(method: string, params: Record<string, unknown> 
     query.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
   }
   const qs = query.toString();
-  const res = await fetch(`${endpointUrl(method)}${qs ? `?${qs}` : ""}`, {
-    method: "GET",
-    credentials: "include",
-    headers: { Accept: "application/json" },
-  });
-  return parseResponse<T>(res, method);
+  return timed<T>(method, () =>
+    fetch(`${endpointUrl(method)}${qs ? `?${qs}` : ""}`, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    }),
+  );
 }
 
 /** POST request — used for writes. */
 export async function apiPost<T>(method: string, body: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(endpointUrl(method), {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      // Frappe requires this header for cookie-authenticated writes.
-      "X-Frappe-CSRF-Token": getCsrfToken(),
-    },
-    body: JSON.stringify(body),
-  });
-  return parseResponse<T>(res, method);
+  return timed<T>(method, () =>
+    fetch(endpointUrl(method), {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        // Frappe requires this header for cookie-authenticated writes.
+        "X-Frappe-CSRF-Token": getCsrfToken(),
+      },
+      body: JSON.stringify(body),
+    }),
+  );
 }
 
 /**
