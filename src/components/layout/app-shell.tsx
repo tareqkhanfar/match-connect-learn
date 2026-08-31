@@ -1,4 +1,5 @@
-import { Menu, Moon, Sun } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { LayoutGrid, Menu, Moon, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { MailBadge } from "./mail-badge";
 import { HeaderStatus } from "./header-status";
@@ -10,7 +11,7 @@ import { ChatWidget } from "./chat-widget";
 import { AccessGuard } from "@/components/shared/access-guard";
 import { AlertPopup } from "@/components/shared/alert-popup";
 import { ForcePasswordChange } from "@/components/shared/force-password-change";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
 import { MobileTabBar } from "./mobile-tabbar";
 import { useApp } from "@/lib/app-context";
@@ -22,17 +23,46 @@ function initials(name: string) {
   return (parts[0]![0] + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
+/** Whether the reader left the sidebar open. Collapsed unless they said so. */
+const SIDEBAR_KEY = "ms-sidebar-collapsed";
+
 export function AppShell({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsed by default: مساحة العمل is where you go to find a screen, and
+  // the sidebar is for moving between the few you already know. A reader who
+  // opens it keeps it open.
+  const [collapsed, setCollapsed] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { role, session, theme, toggleTheme } = useApp();
   const displayName = session?.name ?? "";
+
+  // Server and client must agree on the first render, so the stored choice is
+  // read after mount rather than during it.
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(SIDEBAR_KEY);
+      if (stored !== null) setCollapsed(stored === "1");
+    } catch {
+      // A browser refusing storage keeps the default.
+    }
+  }, []);
+
+  function toggleSidebar() {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        window.localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
+      } catch {
+        // Not worth failing the click over.
+      }
+      return next;
+    });
+  }
 
   return (
     <div className="flex min-h-screen w-full bg-background">
       <AppSidebar
         collapsed={collapsed}
-        onToggle={() => setCollapsed((c) => !c)}
+        onToggle={toggleSidebar}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
@@ -51,6 +81,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 each list screen has its own search and filter bar. */}
             <SchoolBrand />
             <div className="col-start-3 flex items-center gap-1.5 md:gap-2">
+              {/* The way back to everything. First thing in the row because it
+                  is the most used, and labelled on wide screens because an
+                  icon alone does not say "مساحة العمل". */}
+              <Link
+                to="/app/workspace"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary-soft hover:text-primary md:px-3"
+                title="مساحة العمل"
+              >
+                <LayoutGrid className="size-[18px]" />
+                <span className="hidden lg:inline">مساحة العمل</span>
+              </Link>
               {/* On a phone the header keeps only what a thumb needs; the rest
                   moves into the drawer and the bottom tab bar. */}
               <div className="hidden items-center gap-2 md:flex">

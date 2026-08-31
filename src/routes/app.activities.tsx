@@ -71,6 +71,7 @@ function ActivitiesPage() {
   const staff = isBackOffice(role) || role === "teacher";
   const canManage = isBackOffice(role) || role === "teacher";
 
+  const { group: groupFromUrl } = Route.useSearch();
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ActivityRow | null>(null);

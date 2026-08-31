@@ -31,7 +31,8 @@ function QuarterResultsPage() {
   const subjects = useSubjects();
   const quartersQuery = useQuarters();
 
-  const [group, setGroup] = useState("");
+  const { group: groupFromUrl } = Route.useSearch();
+  const [group, setGroup] = useState(groupFromUrl ?? "");
   const [quarter, setQuarter] = useState("");
   const [course, setCourse] = useState("");
   const [search, setSearch] = useState("");

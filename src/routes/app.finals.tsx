@@ -40,6 +40,8 @@ function FinalsPage() {
   const { role } = useApp();
   // Students and parents are scoped to one person; staff pick from the list.
   const viewed = useViewedStudent();
+  // Opened from a class: the picker searches that class rather than the school.
+  const { group: groupFromUrl } = Route.useSearch();
   const [picked, setPicked] = useState("");
   const backOffice = isBackOffice(role);
   const staff = backOffice || role === "teacher";
@@ -74,7 +76,10 @@ function FinalsPage() {
           <StudentPicker
             value={picked}
             onChange={setPicked}
-            placeholder="ابحث عن طالب لعرض علاماته النهائية"
+            studentGroup={groupFromUrl}
+            placeholder={
+              groupFromUrl ? "ابحث عن طالب في هذه الشعبة" : "ابحث عن طالب لعرض علاماته النهائية"
+            }
           />
         </div>
       )}

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
 import { DoorOpen, Images, LayoutGrid, Link2, Plus, School, Trash2, Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
 import { ClassConnections } from "@/components/shared/class-connections";
@@ -67,9 +67,24 @@ function ClassesPage() {
   const [editing, setEditing] = useState<ClassRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [galleryFor, setGalleryFor] = useState<ClassRow | null>(null);
+  // Arrived from a class's connections panel: open that class's gallery
+  // rather than dropping the reader on a list to find it again.
+  const { group: groupFromUrl } = Route.useSearch();
+  const [openedFromUrl, setOpenedFromUrl] = useState(false);
   const [connectionsFor, setConnectionsFor] = useState<ClassRow | null>(null);
   const classes = data ?? [];
   const canManage = role === "admin" || role === "secretary";
+
+  // Once the list arrives, open the gallery for the class we came for. Guarded
+  // so closing it does not immediately reopen it.
+  useEffect(() => {
+    if (!groupFromUrl || openedFromUrl) return;
+    const match = classes.find((c) => c.name === groupFromUrl);
+    if (match) {
+      setGalleryFor(match);
+      setOpenedFromUrl(true);
+    }
+  }, [groupFromUrl, openedFromUrl, classes]);
 
   const totalStudents = classes.reduce((a, c) => a + (c.students ?? 0), 0);
   const capacity = classes.reduce((a, c) => a + (c.capacity ?? 0), 0);

@@ -66,7 +66,9 @@ function TimetablePage() {
   const picksClass = role === "admin" || role === "secretary";
 
   const classesQuery = useClasses();
-  const [groupId, setGroupId] = useState<string>("");
+  // Opened from a class: start on it instead of on the first in the list.
+  const { group: groupFromUrl } = Route.useSearch();
+  const [groupId, setGroupId] = useState<string>(groupFromUrl ?? "");
 
   // A teacher may still look at a whole class, but only by asking for it.
   const [teacherViewsClass, setTeacherViewsClass] = useState(false);
@@ -77,7 +79,7 @@ function TimetablePage() {
 
   useEffect(() => {
     if (showsClassPicker && !groupId && classesQuery.data?.length) {
-      setGroupId(classesQuery.data[0]!.name);
+      setGroupId(groupFromUrl ?? classesQuery.data[0]!.name);
     }
   }, [showsClassPicker, classesQuery.data, groupId]);
 

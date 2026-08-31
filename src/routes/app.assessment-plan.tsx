@@ -67,7 +67,11 @@ function AssessmentPlanPage() {
   const canEditQuarters = isBackOffice(role);
 
   const quartersQuery = useQuarters();
-  const subjects = useSubjects();
+  // Opened from a class: only that class's subjects are offered, and the
+  // first is chosen — a plan belongs to a subject, so the class narrows the
+  // list rather than selecting for it.
+  const { group: groupFromUrl } = Route.useSearch();
+  const subjects = useSubjects(groupFromUrl ? { student_group: groupFromUrl } : {});
   const [course, setCourse] = useState("");
 
   const planQuery = useAssessmentPlan(course || undefined);

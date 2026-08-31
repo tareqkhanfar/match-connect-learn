@@ -21,6 +21,8 @@ interface StudentPickerProps {
   /** Show an "all students" entry — useful when the picker acts as a filter. */
   clearable?: boolean;
   clearLabel?: string;
+  /** Narrow the list to one class, for screens opened from a class. */
+  studentGroup?: string | undefined;
 }
 
 /**
@@ -38,6 +40,7 @@ export function StudentPicker({
   className,
   clearable = false,
   clearLabel = "كل الطلاب",
+  studentGroup,
 }: StudentPickerProps) {
   const { role, session } = useApp();
   const staff = isBackOffice(role) || role === "teacher";
@@ -46,8 +49,17 @@ export function StudentPicker({
   const debounced = useDebounced(search);
 
   // 100 is the server's ceiling; searching narrows it well before that bites.
+  // Narrowed to one class when the screen was opened from it: a teacher who
+  // arrived from 4-B is looking for a pupil in 4-B, and searching the whole
+  // school for them is a step backwards.
   const query = useStudents(
-    staff ? { ...(debounced ? { search: debounced } : {}), page_size: 100 } : { page_size: 1 },
+    staff
+      ? {
+          ...(debounced ? { search: debounced } : {}),
+          ...(studentGroup ? { student_group: studentGroup } : {}),
+          page_size: 100,
+        }
+      : { page_size: 1 },
   );
 
   const options = useMemo(() => {

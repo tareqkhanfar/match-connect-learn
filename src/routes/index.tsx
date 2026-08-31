@@ -73,16 +73,18 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Already signed in? Skip the login screen.
+  // Already signed in? Skip the login screen. Signing in lands on مساحة العمل
+  // rather than the dashboard: the first thing anyone does is go somewhere,
+  // and this is the screen that shows where they can go.
   useEffect(() => {
-    if (ready && signedIn) navigate({ to: "/app" });
+    if (ready && signedIn) navigate({ to: "/app/workspace" });
   }, [ready, signedIn, navigate]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
       await signIn(email, password);
-      navigate({ to: "/app" });
+      navigate({ to: "/app/workspace" });
     } catch {
       // The error message is surfaced from context below.
     }

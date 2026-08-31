@@ -117,9 +117,12 @@ function BehaviourPage() {
   const debouncedSearch = useDebounced(search);
 
   const viewed = useViewedStudent();
+  const { group: groupFromUrl } = Route.useSearch();
   const filters = {
     // Scoped to the child picked in the header for a family.
     ...(viewed ? { student: viewed } : {}),
+    // …and to the class, when the screen was opened from one.
+    ...(groupFromUrl ? { student_group: groupFromUrl } : {}),
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(type !== "all" ? { record_type: type } : {}),
     ...(category !== "all" ? { category } : {}),

@@ -79,7 +79,12 @@ function StudentsPage() {
   const debouncedSearch = useDebounced(search);
   const filtersQuery = useStudentFilters();
 
+  // Opened from a class: the directory shows that class, and says so, rather
+  // than 338 students the reader has to find twelve of.
+  const { group: groupFromUrl } = Route.useSearch();
+
   const apiFilters = {
+    ...(groupFromUrl ? { student_group: groupFromUrl } : {}),
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(grade !== "all" ? { program: grade } : {}),
     ...(section !== "all" ? { batch: section } : {}),

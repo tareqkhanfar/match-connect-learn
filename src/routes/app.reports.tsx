@@ -45,6 +45,7 @@ const TOOLTIP = {
 };
 
 function ReportsPage() {
+  const { group: groupFromUrl } = Route.useSearch();
   const { data, isLoading, error, refetch } = useReports();
 
   if (isLoading) return <DashboardSkeleton />;
@@ -198,7 +199,13 @@ function ReportsPage() {
               {attendance.by_group.map((g) => (
                 <li
                   key={g.student_group}
-                  className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
+                  // Arrived from a class: its row is highlighted rather than
+                  // left to be found among thirty.
+                  className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 ${
+                    groupFromUrl && g.student_group === groupFromUrl
+                      ? "-mx-2 rounded-xl bg-primary-soft px-2 py-1.5 ring-1 ring-primary/30"
+                      : ""
+                  }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center justify-between gap-3">

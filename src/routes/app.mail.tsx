@@ -96,9 +96,14 @@ function MailPage() {
   const [folder, setFolder] = useState("inbox");
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [composing, setComposing] = useState<null | { reply?: MailMessage; draft?: MailMessage }>(
-    null,
-  );
+  // Arrived from a class: open the composer aimed at it, which is the whole
+  // reason someone presses "مراسلة الشعبة".
+  const { group: groupFromUrl } = Route.useSearch();
+  const [composing, setComposing] = useState<null | {
+    reply?: MailMessage;
+    draft?: MailMessage;
+    group?: string;
+  }>(groupFromUrl ? { group: groupFromUrl } : null);
 
   const folders = useMailFolders();
   const list = useMailList(folder, search || undefined);
@@ -242,6 +247,7 @@ function MailPage() {
         <Composer
           reply={composing.reply}
           draft={composing.draft}
+          defaultGroup={composing.group}
           onClose={() => setComposing(null)}
         />
       )}
@@ -574,10 +580,13 @@ function ScheduledBanner({ message }: { message: MailMessage }) {
 function Composer({
   reply,
   draft,
+  defaultGroup,
   onClose,
 }: {
   reply?: MailMessage | undefined;
   draft?: MailMessage | undefined;
+  /** Opened from a class: aim at its guardians to begin with. */
+  defaultGroup?: string | undefined;
   onClose: () => void;
 }) {
   const send = useSendMail();
@@ -588,13 +597,15 @@ function Composer({
   // A reply goes back to one person, so it starts in the named-people mode
   // with the sender filled in; a fresh message starts on the audience.
   const [choice, setChoice] = useState<AudienceChoice>({
-    groups: [],
+    groups: defaultGroup ? [defaultGroup] : [],
     users: reply
       ? [reply.sender]
       : (draft?.recipients ?? []).filter((r) => r.kind === "to").map((r) => r.user),
     ...(draft?.audience_key
       ? { audience: draft.audience_key, audienceLabel: draft.audience_label ?? undefined }
-      : {}),
+      : defaultGroup
+        ? { audience: "my_class_guardians" }
+        : {}),
   });
   const [cc, setCc] = useState<string[]>(
     (draft?.recipients ?? []).filter((r) => r.kind === "cc").map((r) => r.user),

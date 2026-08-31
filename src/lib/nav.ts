@@ -407,6 +407,15 @@ export const navItems: NavItem[] = [
     group: "النظام",
   },
   {
+    // The other view of this same list: a grid of tiles rather than a column
+    // of names, for finding a screen instead of returning to one.
+    label: "مساحة العمل",
+    to: "/app/workspace",
+    icon: LayoutGrid,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "عام",
+  },
+  {
     label: "التقويم الدراسي",
     to: "/app/calendar",
     icon: CalendarDays,

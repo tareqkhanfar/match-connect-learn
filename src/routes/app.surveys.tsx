@@ -67,7 +67,9 @@ function AdminSurveysView() {
   const remove = useDeleteSurvey();
   const confirm = useConfirm();
 
-  const [creating, setCreating] = useState(false);
+  const { group: groupFromUrl } = Route.useSearch();
+  // Arrived from a class: the composer opens on it, aimed at that class.
+  const [creating, setCreating] = useState(Boolean(groupFromUrl));
   const [results, setResults] = useState<string | null>(null);
 
   const items = query.data ?? [];
@@ -175,7 +177,9 @@ function AdminSurveysView() {
         )}
       </div>
 
-      {creating && <SurveyBuilderDialog onClose={() => setCreating(false)} />}
+      {creating && (
+        <SurveyBuilderDialog defaultGroup={groupFromUrl} onClose={() => setCreating(false)} />
+      )}
       {results && <ResultsDialog survey={results} onClose={() => setResults(null)} />}
     </>
   );
@@ -472,12 +476,19 @@ const BLANK: DraftQuestion = {
   scale_max: 5,
 };
 
-function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
+function SurveyBuilderDialog({
+  defaultGroup,
+  onClose,
+}: {
+  defaultGroup?: string | undefined;
+  onClose: () => void;
+}) {
   const save = useSaveSurvey();
 
   const [meta, setMeta] = useState({
     title: "",
-    audience: "Students",
+    // Opened from a class: aimed at that class, not at everyone.
+    audience: defaultGroup ? "Classes" : "Students",
     status: "Open",
     opens_on: "",
     closes_on: "",
@@ -486,7 +497,7 @@ function SurveyBuilderDialog({ onClose }: { onClose: () => void }) {
   // Compulsory surveys hold the portal shut, so they cannot be anonymous:
   // with no respondent recorded nothing could ever mark them answered.
   const [isRequired, setIsRequired] = useState(false);
-  const [classes, setClasses] = useState<string[]>([]);
+  const [classes, setClasses] = useState<string[]>(defaultGroup ? [defaultGroup] : []);
   const classesQuery = useClasses();
   const [intro, setIntro] = useState("");
   const [questions, setQuestions] = useState<DraftQuestion[]>([{ ...BLANK }]);

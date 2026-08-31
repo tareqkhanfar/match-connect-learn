@@ -59,6 +59,7 @@ import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppTimetableBuilderRouteImport } from './routes/app.timetable-builder'
 import { Route as AppTimetableGridRouteImport } from './routes/app.timetable-grid'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
+import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
 import { Route as AppGuardiansIndexRouteImport } from './routes/app.guardians.index'
 import { Route as AppGuardiansGuardianIdRouteImport } from './routes/app.guardians.$guardianId'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
@@ -316,6 +317,11 @@ const AppTransportRoute = AppTransportRouteImport.update({
   path: '/transport',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppGuardiansIndexRoute = AppGuardiansIndexRouteImport.update({
   id: '/guardians/',
   path: '/guardians/',
@@ -397,6 +403,7 @@ export interface FileRoutesByFullPath {
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
+  '/app/workspace': typeof AppWorkspaceRoute
   '/app/': typeof AppIndexRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
@@ -454,6 +461,7 @@ export interface FileRoutesByTo {
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
+  '/app/workspace': typeof AppWorkspaceRoute
   '/app': typeof AppIndexRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
@@ -513,6 +521,7 @@ export interface FileRoutesById {
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/transport': typeof AppTransportRoute
+  '/app/workspace': typeof AppWorkspaceRoute
   '/app/': typeof AppIndexRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
@@ -573,6 +582,7 @@ export interface FileRouteTypes {
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/transport'
+    | '/app/workspace'
     | '/app/'
     | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
@@ -630,6 +640,7 @@ export interface FileRouteTypes {
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/transport'
+    | '/app/workspace'
     | '/app'
     | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
@@ -688,6 +699,7 @@ export interface FileRouteTypes {
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/transport'
+    | '/app/workspace'
     | '/app/'
     | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
@@ -1055,6 +1067,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTransportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/workspace': {
+      id: '/app/workspace'
+      path: '/workspace'
+      fullPath: '/app/workspace'
+      preLoaderRoute: typeof AppWorkspaceRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/guardians/': {
       id: '/app/guardians/'
       path: '/guardians'
@@ -1147,6 +1166,7 @@ interface AppRouteChildren {
   AppTimetableBuilderRoute: typeof AppTimetableBuilderRoute
   AppTimetableGridRoute: typeof AppTimetableGridRoute
   AppTransportRoute: typeof AppTransportRoute
+  AppWorkspaceRoute: typeof AppWorkspaceRoute
   AppIndexRoute: typeof AppIndexRoute
   AppGuardiansGuardianIdRoute: typeof AppGuardiansGuardianIdRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
@@ -1203,6 +1223,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTimetableBuilderRoute: AppTimetableBuilderRoute,
   AppTimetableGridRoute: AppTimetableGridRoute,
   AppTransportRoute: AppTransportRoute,
+  AppWorkspaceRoute: AppWorkspaceRoute,
   AppIndexRoute: AppIndexRoute,
   AppGuardiansGuardianIdRoute: AppGuardiansGuardianIdRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,

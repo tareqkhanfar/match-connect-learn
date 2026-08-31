@@ -54,6 +54,7 @@ import { useConfirm } from "@/components/shared/confirm";
 import { apiUpload, fileUrl } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import {
+  useClassFiles,
   useClasses,
   useCreateFolder,
   useDeleteDriveItem,
@@ -91,7 +92,10 @@ function humanSize(bytes: number): string {
 }
 
 function FilesPage() {
-  const [tab, setTab] = useState<"mine" | "shared">("mine");
+  // Arrived from a class: show what is published to it, which is what
+  // "نشر ملف للشعبة" means from the other side.
+  const { group: groupFromUrl } = Route.useSearch();
+  const [tab, setTab] = useState<"mine" | "shared" | "class">(groupFromUrl ? "class" : "mine");
   const [folder, setFolder] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
 
@@ -106,6 +110,7 @@ function FilesPage() {
         {[
           { key: "mine" as const, label: "ملفاتي" },
           { key: "shared" as const, label: "مشتركة معي" },
+          ...(groupFromUrl ? [{ key: "class" as const, label: "ملفات الشعبة" }] : []),
         ].map((t) => (
           <button
             key={t.key}
@@ -122,7 +127,9 @@ function FilesPage() {
         ))}
       </div>
 
-      {tab === "mine" ? (
+      {tab === "class" && groupFromUrl ? (
+        <ClassFilesTab studentGroup={groupFromUrl} />
+      ) : tab === "mine" ? (
         <MyDrive folder={folder} setFolder={setFolder} search={search} setSearch={setSearch} />
       ) : (
         <SharedTab />
@@ -758,6 +765,55 @@ function SharedTab() {
                   <p className="truncate text-sm font-semibold">{f.title}</p>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {f.owner_name} · <span className="num">{humanSize(f.file_size)}</span>
+                  </p>
+                </div>
+                <a
+                  href={fileUrl(f.file_url)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-border p-2 hover:bg-secondary"
+                  aria-label="تنزيل"
+                >
+                  <Download className="size-3.5" />
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </SectionCard>
+  );
+}
+
+/** What a teacher has published to one class — the other side of "نشر لشعبة". */
+function ClassFilesTab({ studentGroup }: { studentGroup: string }) {
+  const { data, isLoading } = useClassFiles(studentGroup);
+  const files = data?.files ?? [];
+
+  return (
+    <SectionCard title="ملفات منشورة لهذه الشعبة" description="ما يراه طلاب الشعبة وأولياء أمورهم.">
+      {isLoading ? (
+        <TableSkeleton rows={4} />
+      ) : files.length === 0 ? (
+        <EmptyBlock
+          title="لا ملفات منشورة لهذه الشعبة"
+          description="انشر ملفاً من «ملفاتي» عبر خيار المشاركة لتظهر هنا."
+          icon={<FolderOpen className="size-6" />}
+        />
+      ) : (
+        <ul className="divide-y divide-border">
+          {files.map((f) => {
+            const Icon = ICONS[f.kind] ?? FileText;
+            return (
+              <li key={f.id} className="flex items-center gap-3 py-2.5">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-muted-foreground">
+                  <Icon className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{f.title}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {f.owner_name ?? ""} · <span className="num">{humanSize(f.file_size)}</span>
+                    {f.download_count > 0 ? ` · ${f.download_count} تنزيل` : ""}
                   </p>
                 </div>
                 <a

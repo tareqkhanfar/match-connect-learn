@@ -955,6 +955,8 @@ export interface StudentListParams {
   search?: string | undefined;
   program?: string | undefined;
   batch?: string | undefined;
+  /** Narrow to one section — used by screens opened from a class. */
+  student_group?: string | undefined;
   payment_status?: string | undefined;
   /** "active" (default), "left", or "all". */
   enrolment_status?: string | undefined;
@@ -3299,6 +3301,7 @@ export function useActivities(
     activity_type: string;
     status: string;
     search: string;
+    student_group: string;
     page: number;
     page_size: number;
   }> = {},
