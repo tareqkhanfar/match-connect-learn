@@ -7277,3 +7277,21 @@ export function useTransferAssignmentMarks() {
     },
   });
 }
+
+export interface WorkspaceShortcut {
+  key: string;
+  label: string;
+  count: number;
+  hint: string;
+  route: string;
+  tone: string;
+}
+
+/** The live numbers behind the workspace shortcuts. */
+export function useWorkspaceShortcuts() {
+  return useQuery<{ shortcuts: WorkspaceShortcut[]; academic_year: string | null }>({
+    queryKey: ["workspace-shortcuts"],
+    queryFn: () => apiGet("workspace.shortcuts"),
+    staleTime: 60_000,
+  });
+}
