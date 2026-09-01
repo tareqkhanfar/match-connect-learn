@@ -42,9 +42,11 @@ import { useConfirm } from "@/components/shared/confirm";
 import { apiUpload, fileUrl } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import { useApp } from "@/lib/app-context";
+import { cn } from "@/lib/utils";
 import {
   useAddComment,
   useClasses,
+  useCommunityChannels,
   useCommunityFeed,
   useCommunityPost,
   useDeleteComment,
@@ -82,12 +84,17 @@ const MAX_PHOTO_MB = 10;
  */
 function CommunityPage() {
   const { role } = useApp();
-  const query = useCommunityFeed();
+  // Which channel is showing. Empty is "all".
+  const [channel, setChannel] = useState("");
+  const channels = useCommunityChannels();
+  const query = useCommunityFeed(undefined, channel || undefined);
   const [composing, setComposing] = useState<CommunityPost | "new" | null>(null);
   const [openPost, setOpenPost] = useState<string | null>(null);
 
   const posts = query.data?.posts ?? [];
   const canPost = query.data?.can_post ?? false;
+  // Two channels means "all" and "general" only — nothing to choose between.
+  const tabs = channels.data?.channels ?? [];
 
   return (
     <>
@@ -106,6 +113,43 @@ function CommunityPage() {
           ) : null
         }
       />
+
+      {/* Channels. Chips rather than a dropdown: the subjects are few, they
+          read at a glance, and a dropdown hides the very names that are half
+          the point. Hidden when there is nothing to choose between. */}
+      {tabs.length > 2 && (
+        <div className="mx-auto mb-4 max-w-2xl">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {tabs.map((t) => {
+              const active = t.key === channel;
+              return (
+                <button
+                  key={t.key || "all"}
+                  onClick={() => setChannel(t.key)}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card hover:bg-secondary",
+                  )}
+                >
+                  {t.label}
+                  {t.count > 0 && (
+                    <span
+                      className={cn(
+                        "num rounded px-1 text-[10px] font-bold",
+                        active ? "bg-white/20" : "bg-secondary text-muted-foreground",
+                      )}
+                    >
+                      {t.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {canPost && (
         <div className="mx-auto mb-4 max-w-2xl">

@@ -537,6 +537,9 @@ export interface CommunityPost {
   audience_label: string;
   student_group: string | null;
   class_name: string | null;
+  /** The subject this post belongs to, if it belongs to one. */
+  course: string | null;
+  course_name: string | null;
   student: string | null;
   student_name: string | null;
   author_name: string | null;
@@ -563,10 +566,36 @@ export interface PostComment {
   can_hide: boolean;
 }
 
-export function useCommunityFeed(studentGroup?: string) {
+export function useCommunityFeed(studentGroup?: string, course?: string) {
   return useQuery<{ posts: CommunityPost[]; can_post: boolean }>({
-    queryKey: ["community-feed", studentGroup ?? null],
-    queryFn: () => apiGet("community.feed", studentGroup ? { student_group: studentGroup } : {}),
+    queryKey: ["community-feed", studentGroup ?? null, course ?? null],
+    queryFn: () =>
+      apiGet("community.feed", {
+        ...(studentGroup ? { student_group: studentGroup } : {}),
+        ...(course ? { course } : {}),
+      }),
+  });
+}
+
+export interface FeedChannel {
+  key: string;
+  label: string;
+  count: number;
+  /** "all" | "general" | "course" */
+  kind: string;
+}
+
+/**
+ * What this reader's feed divides into.
+ *
+ * A pupil takes eight subjects and each has its own stream. One wall means the
+ * maths post scrolls past while they are looking for it.
+ */
+export function useCommunityChannels() {
+  return useQuery<{ channels: FeedChannel[] }>({
+    queryKey: ["community-channels"],
+    queryFn: () => apiGet("community.channels"),
+    staleTime: 60_000,
   });
 }
 
