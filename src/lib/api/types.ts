@@ -286,7 +286,10 @@ export interface SubjectRow {
   code: string;
   department: string | null;
   grades: string[];
+  /** أول معلّم، للتوافق مع ما يقرأ اسماً واحداً. */
   teacher: string | null;
+  /** كل من يدرّس هذه المادة في الفصل المختار. */
+  teachers?: string[];
 }
 
 export interface TeacherRow {

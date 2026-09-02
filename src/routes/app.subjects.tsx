@@ -228,8 +228,27 @@ function SubjectsPage() {
                 </div>
 
                 <div className="mt-4 border-t border-border pt-3 text-sm">
-                  <p className="text-xs text-muted-foreground">المعلم المسؤول</p>
-                  <p className="mt-0.5 truncate font-semibold">{s.teacher ?? "غير مُسند"}</p>
+                  {/* مادةٌ واحدة قد يدرّسها عدّة معلمين في شُعب مختلفة، فتُعرض
+                      أسماؤهم كلها لا الأول وحده. */}
+                  <p className="text-xs text-muted-foreground">
+                    {(s.teachers?.length ?? 0) > 1 ? "المعلمون" : "المعلم المسؤول"}
+                  </p>
+                  {s.teachers?.length ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {s.teachers.map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-0.5 truncate font-semibold text-muted-foreground">
+                      غير مُسند
+                    </p>
+                  )}
                 </div>
 
                 {canManage && (
