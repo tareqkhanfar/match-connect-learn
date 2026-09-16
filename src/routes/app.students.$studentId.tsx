@@ -25,6 +25,7 @@ import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/s
 import { Attachments } from "@/components/shared/attachments";
 import { AccountCredentials } from "@/components/shared/account-credentials";
 import { useStudentDossier } from "@/lib/api/hooks";
+import { EditRecordButton, RecordFields } from "@/components/shared/record-fields";
 
 export const Route = createFileRoute("/app/students/$studentId")({
   component: StudentProfile,
@@ -174,6 +175,7 @@ function StudentProfile() {
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useStudentDossier(studentId);
   const [assessing, setAssessing] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
@@ -219,6 +221,7 @@ function StudentProfile() {
               <ArrowRight className="size-3.5" />
               القائمة
             </Link>
+            {backOffice && !editing && <EditRecordButton onClick={() => setEditing(true)} />}
             {canAssess && (
               <button
                 onClick={() => setAssessing(true)}
@@ -302,6 +305,16 @@ function StudentProfile() {
           </div>
         </div>
       </div>
+
+      {backOffice && (
+        <RecordFields
+          doctype="Student"
+          name={profile.id}
+          editing={editing}
+          onEditingChange={setEditing}
+          onSaved={() => refetch()}
+        />
+      )}
 
       {/* Headline numbers ----------------------------------------------- */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

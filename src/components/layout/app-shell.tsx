@@ -7,7 +7,6 @@ import { PeriodSwitcher } from "./period-switcher";
 import { SchoolBrand, HolidayBanner } from "./school-brand";
 import { ChildSwitcher } from "./child-switcher";
 import { UserMenu } from "./user-menu";
-import { ChatWidget } from "./chat-widget";
 import { AccessGuard } from "@/components/shared/access-guard";
 import { AlertPopup } from "@/components/shared/alert-popup";
 import { ForcePasswordChange } from "@/components/shared/force-password-change";
@@ -134,7 +133,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Blocks the app while the user is still on the issued password. */}
       <ForcePasswordChange />
-      <ChatWidget />
     </div>
   );
 }

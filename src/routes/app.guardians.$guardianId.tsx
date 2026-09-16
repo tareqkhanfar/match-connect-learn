@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   ArrowRight,
   Briefcase,
@@ -17,6 +18,7 @@ import { Attachments } from "@/components/shared/attachments";
 import { useApp } from "@/lib/app-context";
 import { isBackOffice, money } from "@/lib/roles";
 import { useGuardianDossier } from "@/lib/api/hooks";
+import { EditRecordButton, RecordFields } from "@/components/shared/record-fields";
 
 export const Route = createFileRoute("/app/guardians/$guardianId")({
   component: GuardianProfile,
@@ -43,6 +45,7 @@ function GuardianProfile() {
   const { guardianId } = Route.useParams();
   const { role } = useApp();
   const { data, isLoading, error, refetch } = useGuardianDossier(guardianId);
+  const [editing, setEditing] = useState(false);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
@@ -65,6 +68,7 @@ function GuardianProfile() {
               <ArrowRight className="size-3.5" />
               القائمة
             </Link>
+            {backOffice && !editing && <EditRecordButton onClick={() => setEditing(true)} />}
             {backOffice && (
               <button
                 onClick={() => window.print()}
@@ -129,6 +133,16 @@ function GuardianProfile() {
           </div>
         </div>
       </div>
+
+      {backOffice && (
+        <RecordFields
+          doctype="Guardian"
+          name={profile.id}
+          editing={editing}
+          onEditingChange={setEditing}
+          onSaved={() => refetch()}
+        />
+      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <KpiCard label="عدد الأبناء" value={summary.children} icon={Users} tone="primary" />

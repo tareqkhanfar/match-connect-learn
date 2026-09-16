@@ -7324,3 +7324,61 @@ export function useWorkspaceShortcuts() {
     staleTime: 60_000,
   });
 }
+
+/* -------------------------------------------------------------------------
+ * Full record fields (Student / Guardian / Instructor), back office
+ * ---------------------------------------------------------------------- */
+
+export type RecordFieldsDoctype = "Student" | "Guardian" | "Instructor";
+
+export interface RecordField {
+  fieldname: string;
+  label: string;
+  fieldtype: string;
+  options: string | Array<{ value: string; label: string }> | null;
+  reqd: number;
+  editable: boolean;
+  value: unknown;
+}
+
+export interface RecordFieldsLayout {
+  doctype: RecordFieldsDoctype;
+  name: string;
+  sections: Array<{ label: string; fields: RecordField[] }>;
+  tables: Array<{
+    fieldname: string;
+    label: string;
+    columns: Array<{ fieldname: string; label: string }>;
+    rows: Array<Record<string, unknown>>;
+  }>;
+}
+
+export function useRecordFields(doctype: RecordFieldsDoctype, name: string | undefined) {
+  return useQuery<RecordFieldsLayout>({
+    queryKey: ["record-fields", doctype, name],
+    queryFn: () => apiGet<RecordFieldsLayout>("records.record_fields", { doctype, name: name! }),
+    enabled: !!name,
+  });
+}
+
+export function useSaveRecordFields(doctype: RecordFieldsDoctype, name: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (values: Record<string, unknown>) =>
+      apiPost<RecordFieldsLayout>("records.save_record_fields", { doctype, name, values }),
+    onSuccess: (layout) => {
+      qc.setQueryData(["record-fields", doctype, name], layout);
+      const dossier = { Student: "student-dossier", Guardian: "guardian-dossier", Instructor: "teacher-dossier" }[doctype];
+      qc.invalidateQueries({ queryKey: [dossier, name] });
+      qc.invalidateQueries({ queryKey: [{ Student: "students", Guardian: "guardians", Instructor: "teachers" }[doctype]] });
+    },
+  });
+}
+
+export function useLinkOptions(doctype: RecordFieldsDoctype, fieldname: string, txt: string) {
+  return useQuery<Array<{ value: string; label: string }>>({
+    queryKey: ["link-options", doctype, fieldname, txt],
+    queryFn: () => apiGet("records.link_options", { doctype, fieldname, txt }),
+    staleTime: 60_000,
+  });
+}
