@@ -7339,6 +7339,7 @@ export interface RecordField {
   reqd: number;
   editable: boolean;
   value: unknown;
+  display?: string | null;
 }
 
 export interface RecordFieldsLayout {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/shared/ui-kit";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api/client";
@@ -21,6 +22,7 @@ function show(field: RecordField): string {
   const v = field.value;
   if (v === null || v === undefined || v === "") return "—";
   if (field.fieldtype === "Check") return Number(v) ? "نعم" : "لا";
+  if (field.display) return field.display;
   if (field.fieldtype === "Select" && Array.isArray(field.options)) {
     return field.options.find((o) => o.value === v)?.label ?? String(v);
   }
@@ -192,6 +194,7 @@ export function RecordFields({
     return out;
   }, [data]);
 
+  const tables = data?.tables ?? [];
   const changed = Object.keys(draft).length > 0;
 
   const submit = () => {
@@ -253,14 +256,28 @@ export function RecordFields({
             {error instanceof ApiError ? error.messageAr || error.message : "تعذّر تحميل البيانات"}
           </p>
         ) : (
-          <div className="space-y-6">
-            {sections.map((s, i) => (
-              <div key={`${s.label}-${i}`}>
-                <h3 className="mb-3 border-b border-border pb-1.5 text-sm font-bold text-primary">
-                  {s.label}
-                </h3>
-                <div className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {s.fields.map((f) => {
+          <Tabs defaultValue="s-0" dir="rtl">
+            <TabsList className="mb-5 h-auto flex-wrap justify-start rounded-xl p-1">
+              {sections.map((sec, i) => (
+                <TabsTrigger key={`t-${i}`} value={`s-${i}`} className="rounded-lg">
+                  {sec.label}
+                  {editing && sec.fields.some((f) => f.fieldname in draft) && (
+                    <span className="ms-1.5 size-1.5 rounded-full bg-primary" />
+                  )}
+                </TabsTrigger>
+              ))}
+              {tables.map((t) => (
+                <TabsTrigger key={t.fieldname} value={`t-${t.fieldname}`} className="rounded-lg">
+                  {t.label}
+                  <span className="ms-1.5 text-[10px] text-muted-foreground">({t.rows.length})</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {sections.map((sec, i) => (
+              <TabsContent key={`c-${i}`} value={`s-${i}`} className="mt-0">
+                <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {sec.fields.map((f) => {
                     const canEdit = editing && f.editable;
                     const value = f.fieldname in draft ? draft[f.fieldname] : f.value;
                     return (
@@ -291,16 +308,14 @@ export function RecordFields({
                     );
                   })}
                 </div>
-              </div>
+              </TabsContent>
             ))}
 
-            {(data?.tables ?? [])
-              .filter((t) => t.rows.length > 0)
-              .map((t) => (
-                <div key={t.fieldname}>
-                  <h3 className="mb-3 border-b border-border pb-1.5 text-sm font-bold text-primary">
-                    {t.label}
-                  </h3>
+            {tables.map((t) => (
+              <TabsContent key={t.fieldname} value={`t-${t.fieldname}`} className="mt-0">
+                {t.rows.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">لا توجد سجلات</p>
+                ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-right text-sm">
                       <thead>
@@ -327,9 +342,10 @@ export function RecordFields({
                       </tbody>
                     </table>
                   </div>
-                </div>
-              ))}
-          </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
         )}
       </SectionCard>
     </div>
