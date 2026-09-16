@@ -128,47 +128,48 @@ function TeacherProfile() {
               {profile.hasLogin && <Pill tone="info">لديه حساب دخول</Pill>}
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Field label="رقم المعلم" value={profile.id} />
-              <Field label="القسم" value={profile.department} />
-              <Field label="المسمى الوظيفي" value={profile.designation} />
-              <Field label="الجنس" value={profile.gender} />
-              <Field
-                label="الهاتف"
-                value={
-                  profile.phone ? (
-                    <a href={`tel:${profile.phone}`} dir="ltr" className="hover:text-primary">
-                      {profile.phone}
-                    </a>
-                  ) : null
-                }
+            {backOffice ? (
+              <RecordFields
+                embedded
+                doctype="Instructor"
+                name={profile.id}
+                editing={editing}
+                onEditingChange={setEditing}
+                onSaved={() => refetch()}
               />
-              <Field
-                label="البريد"
-                value={
-                  profile.email ? (
-                    <a href={`mailto:${profile.email}`} dir="ltr" className="hover:text-primary">
-                      {profile.email}
-                    </a>
-                  ) : null
-                }
-              />
-              <Field label="تاريخ التعيين" value={d(profile.joined)} />
-              <Field label="ملف الموظف" value={profile.employee} />
-            </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+                <Field label="رقم المعلم" value={profile.id} />
+                <Field label="القسم" value={profile.department} />
+                <Field label="المسمى الوظيفي" value={profile.designation} />
+                <Field label="الجنس" value={profile.gender} />
+                <Field
+                  label="الهاتف"
+                  value={
+                    profile.phone ? (
+                      <a href={`tel:${profile.phone}`} dir="ltr" className="hover:text-primary">
+                        {profile.phone}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Field
+                  label="البريد"
+                  value={
+                    profile.email ? (
+                      <a href={`mailto:${profile.email}`} dir="ltr" className="hover:text-primary">
+                        {profile.email}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Field label="تاريخ التعيين" value={d(profile.joined)} />
+                <Field label="ملف الموظف" value={profile.employee} />
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {backOffice && (
-        <RecordFields
-          doctype="Instructor"
-          name={profile.id}
-          editing={editing}
-          onEditingChange={setEditing}
-          onSaved={() => refetch()}
-        />
-      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="الشُعب" value={summary.groups} icon={BookOpen} tone="primary" />

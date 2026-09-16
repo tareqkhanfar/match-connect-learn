@@ -264,57 +264,58 @@ function StudentProfile() {
               {openAlerts.length > 0 && <Pill tone="danger">{openAlerts.length} تنبيه مفتوح</Pill>}
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Field label="رقم الطالب" value={profile.id} />
-              <Field label="الجنس" value={profile.gender} />
-              <Field
-                label="تاريخ الميلاد"
-                value={
-                  profile.birthDate
-                    ? `${d(profile.birthDate)}${profile.age ? ` (${profile.age} سنة)` : ""}`
-                    : "—"
-                }
+            {backOffice ? (
+              <RecordFields
+                embedded
+                doctype="Student"
+                name={profile.id}
+                editing={editing}
+                onEditingChange={setEditing}
+                onSaved={() => refetch()}
               />
-              <Field label="الجنسية" value={profile.nationality} />
-              <Field
-                label="الهاتف"
-                value={
-                  profile.phone ? (
-                    <a href={`tel:${profile.phone}`} className="hover:text-primary" dir="ltr">
-                      {profile.phone}
-                    </a>
-                  ) : null
-                }
-              />
-              <Field
-                label="البريد"
-                value={
-                  profile.email ? (
-                    <a href={`mailto:${profile.email}`} className="hover:text-primary" dir="ltr">
-                      {profile.email}
-                    </a>
-                  ) : null
-                }
-              />
-              <Field label="فصيلة الدم" value={profile.bloodGroup} />
-              <Field label="تاريخ الالتحاق" value={d(profile.joined)} />
-              <Field label="المدينة" value={profile.city} />
-              <Field label="العنوان" value={profile.address} />
-              <Field label="العام الدراسي" value={profile.academicYear} />
-            </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+                <Field label="رقم الطالب" value={profile.id} />
+                <Field label="الجنس" value={profile.gender} />
+                <Field
+                  label="تاريخ الميلاد"
+                  value={
+                    profile.birthDate
+                      ? `${d(profile.birthDate)}${profile.age ? ` (${profile.age} سنة)` : ""}`
+                      : "—"
+                  }
+                />
+                <Field label="الجنسية" value={profile.nationality} />
+                <Field
+                  label="الهاتف"
+                  value={
+                    profile.phone ? (
+                      <a href={`tel:${profile.phone}`} className="hover:text-primary" dir="ltr">
+                        {profile.phone}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Field
+                  label="البريد"
+                  value={
+                    profile.email ? (
+                      <a href={`mailto:${profile.email}`} className="hover:text-primary" dir="ltr">
+                        {profile.email}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Field label="فصيلة الدم" value={profile.bloodGroup} />
+                <Field label="تاريخ الالتحاق" value={d(profile.joined)} />
+                <Field label="المدينة" value={profile.city} />
+                <Field label="العنوان" value={profile.address} />
+                <Field label="العام الدراسي" value={profile.academicYear} />
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {backOffice && (
-        <RecordFields
-          doctype="Student"
-          name={profile.id}
-          editing={editing}
-          onEditingChange={setEditing}
-          onSaved={() => refetch()}
-        />
-      )}
 
       {/* Headline numbers ----------------------------------------------- */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -95,54 +95,55 @@ function GuardianProfile() {
               )}
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-              <Field label="رقم ولي الأمر" value={profile.id} />
-              <Field label="رقم الهوية" value={profile.idNumber} />
-              <Field
-                label="الهاتف"
-                value={
-                  profile.phone ? (
-                    <a href={`tel:${profile.phone}`} dir="ltr" className="hover:text-primary">
-                      {profile.phone}
-                    </a>
-                  ) : null
-                }
+            {backOffice ? (
+              <RecordFields
+                embedded
+                doctype="Guardian"
+                name={profile.id}
+                editing={editing}
+                onEditingChange={setEditing}
+                onSaved={() => refetch()}
               />
-              <Field
-                label="هاتف بديل"
-                value={profile.altPhone ? <span dir="ltr">{profile.altPhone}</span> : null}
-              />
-              <Field
-                label="البريد"
-                value={
-                  profile.email ? (
-                    <a href={`mailto:${profile.email}`} dir="ltr" className="hover:text-primary">
-                      {profile.email}
-                    </a>
-                  ) : null
-                }
-              />
-              <Field label="الجنس" value={profile.gender} />
-              <Field label="الجنسية" value={profile.nationality} />
-              <Field label="تاريخ الميلاد" value={d(profile.birthDate)} />
-              <Field label="المهنة" value={profile.occupation} />
-              <Field label="المسمى الوظيفي" value={profile.designation} />
-              <Field label="المؤهل" value={profile.education} />
-              <Field label="عنوان العمل" value={profile.workAddress} />
-            </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+                <Field label="رقم ولي الأمر" value={profile.id} />
+                <Field label="رقم الهوية" value={profile.idNumber} />
+                <Field
+                  label="الهاتف"
+                  value={
+                    profile.phone ? (
+                      <a href={`tel:${profile.phone}`} dir="ltr" className="hover:text-primary">
+                        {profile.phone}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Field
+                  label="هاتف بديل"
+                  value={profile.altPhone ? <span dir="ltr">{profile.altPhone}</span> : null}
+                />
+                <Field
+                  label="البريد"
+                  value={
+                    profile.email ? (
+                      <a href={`mailto:${profile.email}`} dir="ltr" className="hover:text-primary">
+                        {profile.email}
+                      </a>
+                    ) : null
+                  }
+                />
+                <Field label="الجنس" value={profile.gender} />
+                <Field label="الجنسية" value={profile.nationality} />
+                <Field label="تاريخ الميلاد" value={d(profile.birthDate)} />
+                <Field label="المهنة" value={profile.occupation} />
+                <Field label="المسمى الوظيفي" value={profile.designation} />
+                <Field label="المؤهل" value={profile.education} />
+                <Field label="عنوان العمل" value={profile.workAddress} />
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {backOffice && (
-        <RecordFields
-          doctype="Guardian"
-          name={profile.id}
-          editing={editing}
-          onEditingChange={setEditing}
-          onSaved={() => refetch()}
-        />
-      )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <KpiCard label="عدد الأبناء" value={summary.children} icon={Users} tone="primary" />

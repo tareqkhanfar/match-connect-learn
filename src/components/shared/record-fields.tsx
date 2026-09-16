@@ -128,7 +128,9 @@ function Editor({
     case "Link":
       return <LinkInput doctype={doctype} field={field} value={text} onChange={onChange} />;
     case "Date":
-      return <Input type="date" value={text.slice(0, 10)} onChange={(e) => onChange(e.target.value)} />;
+      return (
+        <Input type="date" value={text.slice(0, 10)} onChange={(e) => onChange(e.target.value)} />
+      );
     case "Datetime":
       return (
         <Input
@@ -138,7 +140,9 @@ function Editor({
         />
       );
     case "Time":
-      return <Input type="time" value={text.slice(0, 5)} onChange={(e) => onChange(e.target.value)} />;
+      return (
+        <Input type="time" value={text.slice(0, 5)} onChange={(e) => onChange(e.target.value)} />
+      );
     case "Int":
     case "Float":
     case "Currency":
@@ -167,12 +171,16 @@ export function RecordFields({
   editing,
   onEditingChange,
   onSaved,
+  embedded = false,
 }: {
   doctype: RecordFieldsDoctype;
   name: string;
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
   onSaved?: () => void;
+  /** Rendered inside the page's identity card: no card of its own, and the
+   * page header's pencil starts editing. */
+  embedded?: boolean;
 }) {
   const { data, isLoading, error } = useRecordFields(doctype, name);
   const save = useSaveRecordFields(doctype, name);
@@ -228,7 +236,11 @@ export function RecordFields({
         disabled={save.isPending}
         className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-60"
       >
-        {save.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+        {save.isPending ? (
+          <Loader2 className="size-3.5 animate-spin" />
+        ) : (
+          <Check className="size-3.5" />
+        )}
         حفظ
       </button>
     </div>
@@ -242,6 +254,121 @@ export function RecordFields({
     </button>
   );
 
+  const body = isLoading ? (
+    <p className="text-sm text-muted-foreground">جارِ التحميل…</p>
+  ) : error ? (
+    <p className="text-sm text-destructive">
+      {error instanceof ApiError ? error.messageAr || error.message : "تعذّر تحميل البيانات"}
+    </p>
+  ) : (
+    <Tabs defaultValue="s-0" dir="rtl">
+      <TabsList className="mb-5 h-auto flex-wrap justify-start rounded-xl p-1">
+        {sections.map((sec, i) => (
+          <TabsTrigger key={`t-${i}`} value={`s-${i}`} className="rounded-lg">
+            {sec.label}
+            {editing && sec.fields.some((f) => f.fieldname in draft) && (
+              <span className="ms-1.5 size-1.5 rounded-full bg-primary" />
+            )}
+          </TabsTrigger>
+        ))}
+        {tables.map((t) => (
+          <TabsTrigger key={t.fieldname} value={`t-${t.fieldname}`} className="rounded-lg">
+            {t.label}
+            <span className="ms-1.5 text-[10px] text-muted-foreground">({t.rows.length})</span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+
+      {sections.map((sec, i) => (
+        <TabsContent key={`c-${i}`} value={`s-${i}`} className="mt-0">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {sec.fields.map((f) => {
+              const canEdit = editing && f.editable;
+              const value = f.fieldname in draft ? draft[f.fieldname] : f.value;
+              return (
+                <div key={f.fieldname} className="min-w-0">
+                  <p className="text-[11px] text-muted-foreground">
+                    {f.label}
+                    {canEdit && f.reqd ? <span className="text-destructive"> *</span> : null}
+                  </p>
+                  {canEdit ? (
+                    <div className="mt-1">
+                      <Editor
+                        doctype={doctype}
+                        field={f}
+                        value={value}
+                        onChange={(v) => setDraft((prev) => ({ ...prev, [f.fieldname]: v }))}
+                      />
+                    </div>
+                  ) : (
+                    <p
+                      className={`mt-0.5 break-words text-sm font-medium ${
+                        editing ? "text-muted-foreground" : ""
+                      }`}
+                    >
+                      {show(f)}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </TabsContent>
+      ))}
+
+      {tables.map((t) => (
+        <TabsContent key={t.fieldname} value={`t-${t.fieldname}`} className="mt-0">
+          {t.rows.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">لا توجد سجلات</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    {t.columns.map((c) => (
+                      <th key={c.fieldname} className="whitespace-nowrap py-2 pl-4 font-medium">
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {t.rows.map((row, ri) => (
+                    <tr key={ri} className="border-b border-border/60 last:border-0">
+                      {t.columns.map((c) => (
+                        <td key={c.fieldname} className="py-2 pl-4">
+                          {row[c.fieldname] === null ||
+                          row[c.fieldname] === undefined ||
+                          row[c.fieldname] === ""
+                            ? "—"
+                            : String(row[c.fieldname])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+
+  if (embedded) {
+    return (
+      <div id={RECORD_FIELDS_ANCHOR} className="mt-4 scroll-mt-24">
+        {editing && (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary-soft/30 px-3 py-2">
+            <p className="text-xs font-medium text-primary">عدّل الحقول ثم اضغط حفظ</p>
+            {actions}
+          </div>
+        )}
+        {body}
+      </div>
+    );
+  }
+
   return (
     <div id={RECORD_FIELDS_ANCHOR} className="mt-6 scroll-mt-24">
       <SectionCard
@@ -249,104 +376,7 @@ export function RecordFields({
         description={editing ? "عدّل الحقول ثم اضغط حفظ" : "جميع الحقول المسجّلة في النظام"}
         actions={data ? actions : undefined}
       >
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">جارِ التحميل…</p>
-        ) : error ? (
-          <p className="text-sm text-destructive">
-            {error instanceof ApiError ? error.messageAr || error.message : "تعذّر تحميل البيانات"}
-          </p>
-        ) : (
-          <Tabs defaultValue="s-0" dir="rtl">
-            <TabsList className="mb-5 h-auto flex-wrap justify-start rounded-xl p-1">
-              {sections.map((sec, i) => (
-                <TabsTrigger key={`t-${i}`} value={`s-${i}`} className="rounded-lg">
-                  {sec.label}
-                  {editing && sec.fields.some((f) => f.fieldname in draft) && (
-                    <span className="ms-1.5 size-1.5 rounded-full bg-primary" />
-                  )}
-                </TabsTrigger>
-              ))}
-              {tables.map((t) => (
-                <TabsTrigger key={t.fieldname} value={`t-${t.fieldname}`} className="rounded-lg">
-                  {t.label}
-                  <span className="ms-1.5 text-[10px] text-muted-foreground">({t.rows.length})</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {sections.map((sec, i) => (
-              <TabsContent key={`c-${i}`} value={`s-${i}`} className="mt-0">
-                <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {sec.fields.map((f) => {
-                    const canEdit = editing && f.editable;
-                    const value = f.fieldname in draft ? draft[f.fieldname] : f.value;
-                    return (
-                      <div key={f.fieldname} className="min-w-0">
-                        <p className="text-[11px] text-muted-foreground">
-                          {f.label}
-                          {canEdit && f.reqd ? <span className="text-destructive"> *</span> : null}
-                        </p>
-                        {canEdit ? (
-                          <div className="mt-1">
-                            <Editor
-                              doctype={doctype}
-                              field={f}
-                              value={value}
-                              onChange={(v) => setDraft((prev) => ({ ...prev, [f.fieldname]: v }))}
-                            />
-                          </div>
-                        ) : (
-                          <p
-                            className={`mt-0.5 break-words text-sm font-medium ${
-                              editing ? "text-muted-foreground" : ""
-                            }`}
-                          >
-                            {show(f)}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </TabsContent>
-            ))}
-
-            {tables.map((t) => (
-              <TabsContent key={t.fieldname} value={`t-${t.fieldname}`} className="mt-0">
-                {t.rows.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">لا توجد سجلات</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-right text-sm">
-                      <thead>
-                        <tr className="border-b border-border text-xs text-muted-foreground">
-                          {t.columns.map((c) => (
-                            <th key={c.fieldname} className="whitespace-nowrap py-2 pl-4 font-medium">
-                              {c.label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {t.rows.map((row, ri) => (
-                          <tr key={ri} className="border-b border-border/60 last:border-0">
-                            {t.columns.map((c) => (
-                              <td key={c.fieldname} className="py-2 pl-4">
-                                {row[c.fieldname] === null || row[c.fieldname] === undefined || row[c.fieldname] === ""
-                                  ? "—"
-                                  : String(row[c.fieldname])}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        )}
+        {body}
       </SectionCard>
     </div>
   );
