@@ -7399,10 +7399,38 @@ export interface TeacherGridOptions {
     batch: string | null;
     courses: string[];
   }>;
-  instructors: Array<{ name: string; instructor_name: string | null }>;
+  instructors: Array<{
+    name: string;
+    instructor_name: string | null;
+    quota: number;
+    assigned: number;
+  }>;
   rooms: Array<{ name: string; room_name: string | null }>;
+  /** The school's working days — the columns of the grid. */
+  workingDays: string[];
   defaultAcademicYear: string | null;
   defaultAcademicTerm: string | null;
+}
+
+export interface TeacherAssignment {
+  studentGroup: string;
+  studentGroupName: string;
+  course: string;
+  required: number;
+  maxPerDay: number;
+  room: string | null;
+  placed: number;
+  fromGrid?: boolean;
+}
+
+/** What the class plans say this teacher owes each section every week. */
+export function useTeacherAssignments(instructor?: string) {
+  return useQuery<{ assignments: TeacherAssignment[]; quota: number; placed: number }>({
+    queryKey: ["teacher-assignments", instructor ?? null],
+    queryFn: () =>
+      apiGet("timetable_grid.teacher_assignments", { instructor: instructor as string }),
+    enabled: !!instructor,
+  });
 }
 
 export function useTeacherGridOptions() {
@@ -7434,6 +7462,27 @@ export function useTakenPeriods(instructor?: string) {
         instructor ? { instructor } : {},
       ),
     enabled: !!instructor,
+  });
+}
+
+export interface TeacherProblem {
+  day: string;
+  period: number;
+  studentGroup: string;
+  message: string;
+}
+
+/** The same checks the save runs, without saving — so a clash is shown on the
+ * grid instead of being refused afterwards. */
+export function useCheckTeacherSlots() {
+  return useMutation({
+    mutationFn: (vars: { instructor: string; slots: GridSlot[] }) =>
+      apiPost<{
+        problems: TeacherProblem[];
+        quota: number;
+        placed: number;
+        overQuota: boolean;
+      }>("timetable_grid.check_teacher_slots", vars as unknown as Record<string, unknown>),
   });
 }
 
