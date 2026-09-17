@@ -361,6 +361,13 @@ export const navItems: NavItem[] = [
     group: "الجداول والمواعيد",
   },
   {
+    label: "بناء الجدول حسب المعلم",
+    to: "/app/timetable-teacher",
+    icon: CalendarCog,
+    roles: ["admin", "secretary"],
+    group: "الجداول والمواعيد",
+  },
+  {
     label: "تقييم المعلمين",
     labelByRole: { teacher: "ملف أدائي" },
     to: "/app/appraisal",

@@ -7383,3 +7383,72 @@ export function useLinkOptions(doctype: RecordFieldsDoctype, fieldname: string, 
     staleTime: 60_000,
   });
 }
+
+/* -------------------------------------------------------------------------
+ * Timetable built one teacher at a time
+ * ---------------------------------------------------------------------- */
+
+export interface TeacherGridOptions {
+  days: Array<{ value: string; label: string }>;
+  periods: GridPeriod[];
+  groups: Array<{
+    name: string;
+    student_group_name: string | null;
+    program: string | null;
+    academic_year: string | null;
+    batch: string | null;
+    courses: string[];
+  }>;
+  instructors: Array<{ name: string; instructor_name: string | null }>;
+  rooms: Array<{ name: string; room_name: string | null }>;
+  defaultAcademicYear: string | null;
+  defaultAcademicTerm: string | null;
+}
+
+export function useTeacherGridOptions() {
+  return useQuery<TeacherGridOptions>({
+    queryKey: ["teacher-grid-options"],
+    queryFn: () => apiGet<TeacherGridOptions>("timetable_grid.teacher_grid_options"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export interface TakenPeriod {
+  day: string;
+  period: number;
+  studentGroup: string;
+  studentGroupName: string;
+  instructor: string | null;
+  instructorName: string | null;
+  course: string | null;
+  room: string | null;
+}
+
+/** What every other teacher has already booked — used to grey out a cell. */
+export function useTakenPeriods(instructor?: string) {
+  return useQuery<{ taken: TakenPeriod[] }>({
+    queryKey: ["taken-periods", instructor ?? null],
+    queryFn: () =>
+      apiGet<{ taken: TakenPeriod[] }>(
+        "timetable_grid.taken_periods",
+        instructor ? { instructor } : {},
+      ),
+    enabled: !!instructor,
+  });
+}
+
+export function useSaveTeacherPattern() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { instructor: string; slots: GridSlot[] }) =>
+      apiPost<{ instructor: string; slots: number; groups: string[] }>(
+        "timetable_grid.save_teacher_pattern",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["timetable-pattern"] });
+      void qc.invalidateQueries({ queryKey: ["taken-periods"] });
+      void qc.invalidateQueries({ queryKey: ["timetable"] });
+    },
+  });
+}
