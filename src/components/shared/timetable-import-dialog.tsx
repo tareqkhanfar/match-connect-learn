@@ -102,9 +102,24 @@ export function TimetableImportDialog({
         </DialogHeader>
 
         <ol className="space-y-1.5 text-xs text-muted-foreground">
-          <li>1. نزّل القالب — فيه صف لكل معلم وعمود لكل حصة، ومعبّأ مسبقاً بالجدول الحالي.</li>
-          <li>2. اكتب رمز الشعبة في كل حصة (مثل 5ب)، أو «5ب:الرياضيات» لمادة غير مادة المعلم.</li>
-          <li>3. ارفع الملف: يُفحص كاملاً، ولا يُحفظ شيء إلا إذا خلا من الأخطاء.</li>
+          <li>
+            1. نزّل القالب (CSV) — صف لكل حصة، ومعبّأ مسبقاً بالجدول الحالي، وبأعمدة استيراد ERPNext
+            نفسها:
+          </li>
+          <li
+            className="rounded-md bg-secondary/60 px-2 py-1 font-mono text-[11px] text-foreground"
+            dir="ltr"
+          >
+            Student Group, Day, Period, From, To, Course, Instructor, Academic Year, Active
+          </li>
+          <li>
+            2. اليوم بالإنجليزية (Sunday … Thursday) أو بالعربية. الأوقات مثل 08:00:00 — وإن تُركت
+            فارغة تؤخذ من رقم الحصة.
+          </li>
+          <li>
+            3. ارفع الملف (CSV أو Excel): يُفحص كاملاً، ولا يُحفظ شيء إلا إذا خلا من الأخطاء. الملف
+            يستبدل جدول الشعب المذكورة فيه فقط.
+          </li>
         </ol>
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -125,7 +140,7 @@ export function TimetableImportDialog({
             {file ? "رفع ملف آخر" : "رفع الملف للفحص"}
             <input
               type="file"
-              accept=".xlsx"
+              accept=".csv,.xlsx"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -171,7 +186,7 @@ export function TimetableImportDialog({
                   <table className="w-full text-right text-xs">
                     <thead className="sticky top-0 bg-card">
                       <tr className="border-b border-border text-muted-foreground">
-                        <th className="px-2.5 py-1.5 font-medium">الخلية</th>
+                        <th className="px-2.5 py-1.5 font-medium">الصف</th>
                         <th className="px-2.5 py-1.5 font-medium">المعلم</th>
                         <th className="px-2.5 py-1.5 font-medium">المشكلة</th>
                       </tr>
@@ -180,7 +195,7 @@ export function TimetableImportDialog({
                       {result.problems.map((p, i) => (
                         <tr key={i} className="border-b border-border/50 last:border-0">
                           <td className="whitespace-nowrap px-2.5 py-1.5 font-mono" dir="ltr">
-                            {p.cell ?? "—"}
+                            {p.row ?? p.cell ?? "—"}
                           </td>
                           <td className="whitespace-nowrap px-2.5 py-1.5">{p.teacher ?? "—"}</td>
                           <td className="px-2.5 py-1.5">{p.message}</td>
@@ -201,8 +216,8 @@ export function TimetableImportDialog({
                   الملف سليم — لا تعارضات ولا أخطاء
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  الاعتماد يستبدل جدول المعلمين المذكورين في الملف فقط، ويبقي المعلمين غير المعبّأة
-                  صفوفهم كما هم.
+                  الاعتماد يستبدل جدول الشعب المذكورة في الملف فقط، ويبقي باقي الشعب كما هي. بعده
+                  ولّد حصص الفصل من شاشة «البناء حسب الشعبة».
                 </p>
                 <div className="mt-2 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
                   {result.teachers.map((t) => (

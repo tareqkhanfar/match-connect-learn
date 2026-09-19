@@ -7527,7 +7527,9 @@ export async function downloadTimetableTemplate(): Promise<void> {
   );
   const bytes = Uint8Array.from(atob(res.content), (c) => c.charCodeAt(0));
   const blob = new Blob([bytes], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    type: res.filename.endsWith(".csv")
+      ? "text/csv;charset=utf-8"
+      : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
