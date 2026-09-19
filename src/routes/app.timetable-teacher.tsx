@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CalendarCog,
   Check,
+  FileSpreadsheet,
   Eraser,
   Info,
   Plus,
@@ -17,6 +18,7 @@ import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
+import { TimetableImportDialog } from "@/components/shared/timetable-import-dialog";
 import { Input } from "@/components/ui/input";
 import { errorMessage } from "@/lib/api/error-message";
 import {
@@ -61,6 +63,7 @@ function TeacherTimetablePage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [active, setActive] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   // Adding a teacher's subjects: several sections at once, because a teacher
   // usually takes the same subject across a whole grade.
@@ -393,11 +396,19 @@ function TeacherTimetablePage() {
 
   return (
     <>
+      <TimetableImportDialog open={importing} onOpenChange={setImporting} />
       <PageHeader
         title="بناء الجدول حسب المعلم"
         subtitle="اختر المعلم، أضف تكليفاته (شعبة ومادة وعدد حصص)، ثم وزّعها على الأسبوع"
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setImporting(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-soft/40 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary-soft"
+            >
+              <FileSpreadsheet className="size-3.5" />
+              استيراد من إكسل
+            </button>
             <Link
               to="/app/timetable-grid"
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
@@ -726,10 +737,10 @@ function TeacherTimetablePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {periods.map((p) => (
+                  {periods.map((p, index) => (
                     <tr key={p.order}>
                       <td className="whitespace-nowrap rounded-lg bg-secondary/40 px-2 py-2 text-center text-[11px] font-medium tabular-nums text-muted-foreground">
-                        <span className="block font-bold">{p.order}</span>
+                        <span className="block font-bold">{index + 1}</span>
                         <span dir="ltr">{p.from}</span>
                       </td>
                       {days.map((d) => {

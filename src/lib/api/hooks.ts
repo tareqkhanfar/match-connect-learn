@@ -1,7 +1,7 @@
 /** React Query hooks wrapping the Match Schools API. */
 
 import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, apiUpload } from "./client";
 import type {
   AdminDashboard,
   AnnouncementRow,
@@ -7497,6 +7497,61 @@ export function useSaveTeacherPattern() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["timetable-pattern"] });
       void qc.invalidateQueries({ queryKey: ["taken-periods"] });
+      void qc.invalidateQueries({ queryKey: ["timetable"] });
+    },
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * The whole timetable from one spreadsheet, laid out like the paper one
+ * ---------------------------------------------------------------------- */
+
+export interface TimetableImportResult {
+  teachers: Array<{
+    name: string;
+    label: string;
+    lessons: number;
+    groups: number;
+    quota: number | null;
+  }>;
+  lessons: number;
+  groups: number;
+  problems: Array<{ row: number | null; cell: string | null; teacher: string | null; message: string }>;
+  committed: boolean;
+}
+
+/** Fetches the pre-filled template and hands it to the browser as a file. */
+export async function downloadTimetableTemplate(): Promise<void> {
+  const res = await apiGet<{ filename: string; content: string }>(
+    "timetable_import.import_template",
+  );
+  const bytes = Uint8Array.from(atob(res.content), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = res.filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function useImportTimetable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { file: File; commit: boolean }) =>
+      apiUpload<TimetableImportResult>("timetable_import.import_timetable", vars.file, {
+        commit: vars.commit ? "1" : "0",
+      }),
+    onSuccess: (res) => {
+      if (!res.committed) return;
+      void qc.invalidateQueries({ queryKey: ["timetable-pattern"] });
+      void qc.invalidateQueries({ queryKey: ["taken-periods"] });
+      void qc.invalidateQueries({ queryKey: ["teacher-assignments"] });
+      void qc.invalidateQueries({ queryKey: ["teacher-grid-options"] });
       void qc.invalidateQueries({ queryKey: ["timetable"] });
     },
   });
