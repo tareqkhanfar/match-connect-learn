@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/lib/api/error-message";
+import { announceLessonSync } from "@/lib/lesson-sync";
 import {
   useCheckSlots,
   useGenerateLessons,
@@ -500,6 +501,7 @@ function TimetableGridPage() {
     try {
       const result = await save.mutateAsync({ student_group: group, slots: list });
       toast.success(`تم حفظ الجدول — ${result.slots} حصة`);
+      announceLessonSync(result.lessons);
       setDirty(false);
       setConflicts({});
     } catch (err) {

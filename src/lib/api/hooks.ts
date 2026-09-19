@@ -4913,7 +4913,7 @@ export function useSavePattern() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { student_group: string; slots: GridSlot[] }) =>
-      apiPost<{ studentGroup: string; slots: number }>(
+      apiPost<{ studentGroup: string; slots: number; lessons: LessonSync | null }>(
         "timetable_grid.save_pattern",
         vars as unknown as Record<string, unknown>,
       ),
@@ -7490,7 +7490,12 @@ export function useSaveTeacherPattern() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (vars: { instructor: string; slots: GridSlot[] }) =>
-      apiPost<{ instructor: string; slots: number; groups: string[] }>(
+      apiPost<{
+        instructor: string;
+        slots: number;
+        groups: string[];
+        lessons: LessonSync | null;
+      }>(
         "timetable_grid.save_teacher_pattern",
         vars as unknown as Record<string, unknown>,
       ),
@@ -7518,6 +7523,8 @@ export interface TimetableImportResult {
   groups: number;
   problems: Array<{ row: number | null; cell: string | null; teacher: string | null; message: string }>;
   committed: boolean;
+  /** What the import did to lessons already generated, if any were. */
+  lessonSync?: LessonSync | null;
 }
 
 /** Fetches the pre-filled template and hands it to the browser as a file. */
@@ -7555,6 +7562,59 @@ export function useImportTimetable() {
       void qc.invalidateQueries({ queryKey: ["teacher-assignments"] });
       void qc.invalidateQueries({ queryKey: ["teacher-grid-options"] });
       void qc.invalidateQueries({ queryKey: ["timetable"] });
+    },
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Dated lessons (Course Schedule) generated from the weekly pattern
+ * ---------------------------------------------------------------------- */
+
+/** What happened to the dated lessons when the week was saved or generated. */
+export interface LessonSync {
+  created: number;
+  removed: number;
+  keptAttended: number;
+  keptOver?: number;
+  skipped: Array<{ date: string; course: string | null; reason: string }>;
+  error?: string;
+  from?: string;
+  to?: string;
+}
+
+export function useTeacherLessonsStatus(instructor?: string) {
+  return useQuery<{
+    from: string;
+    to: string;
+    generated: number;
+    generatedTo: string;
+    audience: TimetableAudience;
+    slots: number;
+  }>({
+    queryKey: ["teacher-lessons-status", instructor ?? null],
+    queryFn: () =>
+      apiGet("timetable_grid.teacher_lessons_status", { instructor: instructor as string }),
+    enabled: !!instructor,
+  });
+}
+
+export function useGenerateTeacherLessons() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      instructor: string;
+      from_date?: string;
+      to_date?: string;
+      audience: TimetableAudience;
+    }) =>
+      apiPost<LessonSync & { instructor: string }>(
+        "timetable_grid.generate_teacher_lessons",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["teacher-lessons-status"] });
+      void qc.invalidateQueries({ queryKey: ["timetable"] });
+      void qc.invalidateQueries({ queryKey: ["taken-periods"] });
     },
   });
 }

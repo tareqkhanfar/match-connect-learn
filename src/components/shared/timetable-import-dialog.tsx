@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { errorMessage } from "@/lib/api/error-message";
+import { announceLessonSync } from "@/lib/lesson-sync";
 import {
   downloadTimetableTemplate,
   useImportTimetable,
@@ -72,6 +73,7 @@ export function TimetableImportDialog({
           setResult(res);
           if (res.committed) {
             toast.success(`تم استيراد ${res.lessons} حصة لـ${res.teachers.length} معلم`);
+            announceLessonSync(res.lessonSync);
             onOpenChange(false);
             reset();
           } else {

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   CalendarCog,
+  CalendarPlus,
   Check,
   ClipboardPaste,
   Copy,
@@ -27,6 +28,8 @@ import { ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
 import { TimetableImportDialog } from "@/components/shared/timetable-import-dialog";
+import { GenerateTeacherLessonsDialog } from "@/components/shared/generate-teacher-lessons";
+import { announceLessonSync } from "@/lib/lesson-sync";
 import { Input } from "@/components/ui/input";
 import {
   CellMenu,
@@ -86,6 +89,7 @@ function TeacherTimetablePage() {
   const [active, setActive] = useState("");
   const [dirty, setDirty] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [generatingLessons, setGeneratingLessons] = useState(false);
 
   // Editing the week: every change is undoable, a click selects rather than
   // deletes, and moving or swapping obeys the same rules as placing.
@@ -773,6 +777,7 @@ function TeacherTimetablePage() {
           setDirty(false);
           void assignments.refetch();
           toast.success(`تم حفظ ${res.slots} حصة في ${res.groups.length} شعبة`);
+          announceLessonSync(res.lessons);
         },
         onError: (e) => toast.error(errorMessage(e, "تعذّر حفظ الجدول")),
       },
@@ -823,6 +828,14 @@ function TeacherTimetablePage() {
   return (
     <>
       <TimetableImportDialog open={importing} onOpenChange={setImporting} />
+      {instructor && (
+        <GenerateTeacherLessonsDialog
+          instructor={instructor}
+          teacherName={teacher?.instructor_name || instructor}
+          open={generatingLessons}
+          onOpenChange={setGeneratingLessons}
+        />
+      )}
       <PageHeader
         title="بناء الجدول حسب المعلم"
         subtitle="اختر المعلم، أضف تكليفاته (شعبة ومادة وعدد حصص)، ثم وزّعها على الأسبوع"
@@ -842,6 +855,22 @@ function TeacherTimetablePage() {
               <CalendarCog className="size-3.5" />
               البناء حسب الشعبة
             </Link>
+            <button
+              onClick={() => {
+                // Lessons are generated from the saved week; an unsaved edit
+                // would silently be left out of them.
+                if (dirty) {
+                  toast.error("احفظ جدول المعلم أولاً، ثم ولّد الحصص");
+                  return;
+                }
+                setGeneratingLessons(true);
+              }}
+              disabled={!instructor}
+              className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-soft/40 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary-soft disabled:opacity-50"
+            >
+              <CalendarPlus className="size-3.5" />
+              توليد الحصص
+            </button>
             <button
               onClick={submit}
               disabled={!instructor || save.isPending || overQuota || problems.length > 0}
