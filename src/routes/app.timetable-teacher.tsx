@@ -1,11 +1,19 @@
-import { createFileRoute, Link, useBlocker } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useBlocker, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  ArrowLeftRight,
   CalendarCog,
   Check,
+  ClipboardPaste,
+  Copy,
+  ExternalLink,
   FileSpreadsheet,
+  Move,
+  Pencil,
+  Redo2,
+  Undo2,
   Eraser,
   Info,
   Plus,
@@ -20,6 +28,20 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
 import { TimetableImportDialog } from "@/components/shared/timetable-import-dialog";
 import { Input } from "@/components/ui/input";
+import {
+  CellMenu,
+  CellMenuGroup,
+  CellMenuItem,
+  CellMenuLabel,
+  CellMenuSeparator,
+} from "@/components/shared/cell-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { errorMessage } from "@/lib/api/error-message";
 import {
   useCheckTeacherSlots,
@@ -65,6 +87,22 @@ function TeacherTimetablePage() {
   const [dirty, setDirty] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  // Editing the week: every change is undoable, a click selects rather than
+  // deletes, and moving or swapping obeys the same rules as placing.
+  const [past, setPast] = useState<Array<Record<string, Cell>>>([]);
+  const [future, setFuture] = useState<Array<Record<string, Cell>>>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ kind: "move" | "swap"; from: string } | null>(null);
+  const [clip, setClip] = useState<Cell | null>(null);
+  const [dragFrom, setDragFrom] = useState<string | null>(null);
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ key: string; x: number; y: number } | null>(null);
+  const [changing, setChanging] = useState<string | null>(null);
+  const [changeGroup, setChangeGroup] = useState("");
+  const [changeCourse, setChangeCourse] = useState("");
+  const navigate = useNavigate();
+
   // Adding a teacher's subjects: several sections at once, because a teacher
   // usually takes the same subject across a whole grade.
   const [adding, setAdding] = useState(false);
@@ -104,6 +142,10 @@ function TeacherTimetablePage() {
     }
     setCells(next);
     setDirty(false);
+    setPast([]);
+    setFuture([]);
+    setSelected(null);
+    setPending(null);
   }, [pattern.data]);
 
   useEffect(() => {
@@ -163,51 +205,436 @@ function TeacherTimetablePage() {
   const remaining = (r: Row) =>
     r.required - (placedByRow.get(rowKey(r.studentGroup, r.course)) ?? 0);
 
-  function place(day: string, period: number) {
-    const key = cellKey(day, period);
+  const dayOf = (key: string) => key.split("#")[0] as string;
+  const describe = (c: Cell) => `${c.course} — ${groupLabel(c.studentGroup)}`;
+  const rowFor = (c: Cell) =>
+    rows.find((r) => rowKey(r.studentGroup, r.course) === rowKey(c.studentGroup, c.course));
+  const cellOf = (r: Row): Cell => ({
+    studentGroup: r.studentGroup,
+    course: r.course,
+    room: r.room,
+  });
+
+  function tally(map: Record<string, Cell>) {
+    const byRow = new Map<string, number>();
+    const byDay = new Map<string, number>();
+    for (const [key, c] of Object.entries(map)) {
+      const k = rowKey(c.studentGroup, c.course);
+      byRow.set(k, (byRow.get(k) ?? 0) + 1);
+      const d = `${dayOf(key)}|${k}`;
+      byDay.set(d, (byDay.get(d) ?? 0) + 1);
+    }
+    return { byRow, byDay, total: Object.keys(map).length };
+  }
+
+  /**
+   * Why `next` may not replace the current week, or null when it may.
+   *
+   * One rulebook for every edit — add, move, swap, change, paste — so no path
+   * through the menu can produce a week the plain click would have refused.
+   * A limit is only enforced when the edit makes it worse: a week that was
+   * already over (a requirement lowered after the fact) can still be tidied.
+   */
+  function violation(next: Record<string, Cell>, changed: string[]): string | null {
+    const now = tally(cells);
+    const then = tally(next);
+    if (quota > 0 && then.total > quota && then.total > now.total) {
+      return `اكتمل نصاب المعلم الأسبوعي (${quota} حصة)`;
+    }
+    for (const key of changed) {
+      const c = next[key];
+      if (!c) continue;
+      const blocked = busy.get(`${key}|${c.studentGroup}`);
+      if (blocked) {
+        return `${groupLabel(c.studentGroup)} محجوزة في هذه الحصة${
+          blocked.instructorName ? ` لدى ${blocked.instructorName}` : ""
+        }`;
+      }
+      const k = rowKey(c.studentGroup, c.course);
+      const row = rowFor(c);
+      const dk = `${dayOf(key)}|${k}`;
+      const max = row?.maxPerDay ?? 2;
+      const dayThen = then.byDay.get(dk) ?? 0;
+      if (dayThen > max && dayThen > (now.byDay.get(dk) ?? 0)) {
+        return `لا تتجاوز ${max} حصة من ${describe(c)} في اليوم الواحد`;
+      }
+      const rowThen = then.byRow.get(k) ?? 0;
+      if (row && rowThen > row.required && rowThen > (now.byRow.get(k) ?? 0)) {
+        return `اكتمل عدد حصص ${describe(c)} (${row.required} أسبوعياً) — زِد «المطلوب» في بطاقة التكليف إن أردت`;
+      }
+    }
+    return null;
+  }
+
+  /** Replace the week and remember the old one for undo. */
+  function record(next: Record<string, Cell>) {
+    setPast((p) => [...p.slice(-99), cells]);
+    setFuture([]);
+    setCells(next);
+    setDirty(true);
+  }
+
+  function commit(next: Record<string, Cell>, changed: string[]): boolean {
+    const why = violation(next, changed);
+    if (why) {
+      toast.error(why);
+      return false;
+    }
+    record(next);
+    return true;
+  }
+
+  function undo() {
+    const prev = past[past.length - 1];
+    if (!prev) return;
+    setPast(past.slice(0, -1));
+    setFuture([cells, ...future].slice(0, 100));
+    setCells(prev);
+    setDirty(true);
+    setSelected(null);
+    setPending(null);
+  }
+
+  function redo() {
+    const next = future[0];
+    if (!next) return;
+    setFuture(future.slice(1));
+    setPast([...past, cells].slice(-100));
+    setCells(next);
+    setDirty(true);
+    setSelected(null);
+  }
+
+  // Toasts outlive the render that raised them; the undo they offer must be
+  // the current one, not the one captured when the toast appeared.
+  const undoRef = useRef(undo);
+  undoRef.current = undo;
+
+  function addAt(key: string, c: Cell) {
+    if (cells[key]) return;
+    if (commit({ ...cells, [key]: c }, [key])) setSelected(key);
+  }
+
+  function clearAt(key: string) {
+    const c = cells[key];
+    if (!c) return;
+    const next = { ...cells };
+    delete next[key];
+    record(next);
+    if (selected === key) setSelected(null);
+    toast(`حُذفت حصة ${describe(c)}`, {
+      duration: 4000,
+      action: { label: "تراجع", onClick: () => undoRef.current() },
+    });
+  }
+
+  /** Onto an empty cell it moves; onto a lesson the two trade places. */
+  function moveOrSwap(from: string, to: string) {
+    if (from === to) return;
+    const a = cells[from];
+    if (!a) return;
+    const b = cells[to];
+    const next = { ...cells, [to]: a };
+    if (b) next[from] = b;
+    else delete next[from];
+    if (commit(next, b ? [to, from] : [to])) setSelected(to);
+  }
+
+  function replaceAt(key: string, c: Cell) {
+    const old = cells[key];
+    if (!old) {
+      addAt(key, c);
+      return;
+    }
+    if (rowKey(old.studentGroup, old.course) === rowKey(c.studentGroup, c.course)) return;
+    if (commit({ ...cells, [key]: c }, [key])) setSelected(key);
+  }
+
+  function onCellClick(key: string) {
+    if (swallowClick.current) {
+      swallowClick.current = false;
+      return;
+    }
+    if (pending) {
+      const { from } = pending;
+      setPending(null);
+      if (key !== from) moveOrSwap(from, key);
+      return;
+    }
     if (cells[key]) {
-      setCells((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      setDirty(true);
+      setSelected(selected === key ? null : key);
       return;
     }
     if (!activeRow) {
-      toast.error("اختر التكليف (الشعبة والمادة) من القائمة أولاً");
+      setSelected(null);
+      toast.info("اختر تكليفاً من القائمة، أو انقر بالزر الأيمن على الخلية لإضافة حصة");
       return;
     }
-    const blocked = busy.get(`${key}|${activeRow.studentGroup}`);
-    if (blocked) {
-      toast.error(
-        `${groupLabel(activeRow.studentGroup)} محجوزة في هذه الحصة${
-          blocked.instructorName ? ` لدى ${blocked.instructorName}` : ""
-        }`,
+    addAt(key, cellOf(activeRow));
+  }
+
+  // Keyboard: the shortcuts every spreadsheet user already reaches for. Read by
+  // physical key, so an Arabic keyboard layout works the same.
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
+  keyHandler.current = (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement | null;
+    if (
+      !instructor ||
+      (t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable))
+    ) {
+      return;
+    }
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.code === "KeyZ" && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if (mod && (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey))) {
+      e.preventDefault();
+      redo();
+    } else if (mod && e.code === "KeyC" && selected && cells[selected]) {
+      setClip(cells[selected]);
+      toast.success("نُسخت الحصة — الصقها بالزر الأيمن على خلية فارغة", { duration: 1800 });
+    } else if ((e.key === "Delete" || e.key === "Backspace") && selected && cells[selected]) {
+      e.preventDefault();
+      clearAt(selected);
+    } else if (e.key === "Escape") {
+      setPending(null);
+      setSelected(null);
+    }
+  };
+  useEffect(() => {
+    const listen = (e: KeyboardEvent) => keyHandler.current(e);
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, []);
+
+  // Dragging is done with pointer events rather than the browser's native
+  // drag-and-drop: the native session swallowed the next right-click, and it
+  // does not work on tablets at all. A few pixels of movement start a drag;
+  // less than that is an ordinary click.
+  const drag = useRef<{ from: string; x: number; y: number; active: boolean } | null>(null);
+  const dropRef = useRef<string | null>(null);
+  const swallowClick = useRef(false);
+  const dropHandler = useRef<(from: string, to: string) => void>(() => {});
+  dropHandler.current = moveOrSwap;
+
+  useEffect(() => {
+    function onMove(e: PointerEvent) {
+      const d = drag.current;
+      if (!d) return;
+      if (!d.active) {
+        if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+        d.active = true;
+        setDragFrom(d.from);
+        setSelected(d.from);
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = "grabbing";
+      }
+      setGhost({ x: e.clientX, y: e.clientY });
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const target = (under?.closest("[data-cell]") as HTMLElement | null)?.dataset["cell"] ?? null;
+      if (target !== dropRef.current) {
+        dropRef.current = target;
+        setDropOn(target);
+      }
+    }
+    function finish(commitDrop: boolean) {
+      const d = drag.current;
+      drag.current = null;
+      if (!d?.active) return;
+      swallowClick.current = true;
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      const target = dropRef.current;
+      dropRef.current = null;
+      setDragFrom(null);
+      setDropOn(null);
+      setGhost(null);
+      if (commitDrop && target && target !== d.from) dropHandler.current(d.from, target);
+      // The click that ends a drag fires right after pointerup, if at all —
+      // when the pointer lands elsewhere there is none, and the next real
+      // click must not be swallowed.
+      setTimeout(() => {
+        swallowClick.current = false;
+      }, 0);
+    }
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && finish(false);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const closeMenu = () => setMenu(null);
+  const then = (fn: () => void) => () => {
+    setMenu(null);
+    fn();
+  };
+
+  function renderMenu(m: { key: string; x: number; y: number }) {
+    const { key } = m;
+    const cell = cells[key];
+    const day = days.find((d) => d.value === dayOf(key))?.label ?? "";
+    const lesson = periods.findIndex((p) => p.order === Number(key.split("#")[1])) + 1;
+    const rowItem = (r: Row, action: () => void, disabledSame: boolean) => {
+      const k = rowKey(r.studentGroup, r.course);
+      const taken = busy.get(`${key}|${r.studentGroup}`);
+      return (
+        <CellMenuItem
+          key={k}
+          disabled={disabledSame || !!taken}
+          onSelect={then(action)}
+          hint={taken ? "محجوزة" : `${remaining(r)} متبقٍ`}
+        >
+          {r.course} — {r.studentGroupName}
+        </CellMenuItem>
       );
+    };
+    return (
+      <CellMenu x={m.x} y={m.y} onClose={closeMenu}>
+        <CellMenuLabel muted>
+          {day} — الحصة {lesson}
+        </CellMenuLabel>
+        {cell ? (
+          <>
+            <CellMenuLabel>{describe(cell)}</CellMenuLabel>
+            <CellMenuSeparator />
+            <CellMenuGroup icon={<Pencil />} title="تغيير إلى تكليف آخر" disabled={rows.length < 2}>
+              {rows.map((r) =>
+                rowItem(
+                  r,
+                  () => replaceAt(key, cellOf(r)),
+                  rowKey(r.studentGroup, r.course) === rowKey(cell.studentGroup, cell.course),
+                ),
+              )}
+            </CellMenuGroup>
+            <CellMenuItem icon={<Pencil />} onSelect={then(() => openChange(key))}>
+              تغيير إلى شعبة أو مادة أخرى…
+            </CellMenuItem>
+            <CellMenuSeparator />
+            <CellMenuItem
+              icon={<ArrowLeftRight />}
+              onSelect={then(() => setPending({ kind: "swap", from: key }))}
+            >
+              تبديل مع حصة أخرى…
+            </CellMenuItem>
+            <CellMenuItem
+              icon={<Move />}
+              onSelect={then(() => setPending({ kind: "move", from: key }))}
+            >
+              نقل إلى خلية أخرى…
+            </CellMenuItem>
+            <CellMenuItem
+              icon={<Copy />}
+              hint="Ctrl+C"
+              onSelect={then(() => {
+                setClip(cell);
+                toast.success("نُسخت الحصة — الصقها بالزر الأيمن على خلية فارغة", {
+                  duration: 1800,
+                });
+              })}
+            >
+              نسخ
+            </CellMenuItem>
+            <CellMenuItem
+              icon={<Check />}
+              disabled={!rowFor(cell)}
+              onSelect={then(() => setActive(rowKey(cell.studentGroup, cell.course)))}
+            >
+              اعتمادها للإضافة بالنقر
+            </CellMenuItem>
+            <CellMenuSeparator />
+            <CellMenuItem
+              icon={<ExternalLink />}
+              onSelect={then(
+                () =>
+                  void navigate({
+                    to: "/app/timetable-grid",
+                    search: { group: cell.studentGroup },
+                  }),
+              )}
+            >
+              فتح جدول الشعبة
+            </CellMenuItem>
+            <CellMenuSeparator />
+            <CellMenuItem icon={<Trash2 />} hint="Del" danger onSelect={then(() => clearAt(key))}>
+              حذف الحصة
+            </CellMenuItem>
+          </>
+        ) : (
+          <>
+            <CellMenuSeparator />
+            {rows.length ? (
+              <CellMenuGroup icon={<Plus />} title="إضافة حصة" defaultOpen>
+                {rows.map((r) => rowItem(r, () => addAt(key, cellOf(r)), false))}
+              </CellMenuGroup>
+            ) : null}
+            <CellMenuItem icon={<Plus />} onSelect={then(() => openChange(key))}>
+              إضافة شعبة أو مادة أخرى…
+            </CellMenuItem>
+            <CellMenuItem
+              icon={<ClipboardPaste />}
+              disabled={!clip}
+              onSelect={then(() => clip && addAt(key, clip))}
+            >
+              لصق{clip ? ` ${describe(clip)}` : ""}
+            </CellMenuItem>
+          </>
+        )}
+      </CellMenu>
+    );
+  }
+
+  function openChange(key: string) {
+    const c = cells[key];
+    setChangeGroup(c?.studentGroup ?? activeRow?.studentGroup ?? "");
+    setChangeCourse(c?.course ?? "");
+    setChanging(key);
+  }
+
+  function applyChange() {
+    if (!changing || !changeGroup || !changeCourse) return;
+    const c: Cell = { studentGroup: changeGroup, course: changeCourse, room: null };
+    const k = rowKey(changeGroup, changeCourse);
+    // A subject the teacher had no card for gets one, sized to what is placed
+    // after this edit — so the edit itself does not trip the weekly count.
+    const known = rows.some((r) => rowKey(r.studentGroup, r.course) === k);
+    const old = cells[changing];
+    if (old && rowKey(old.studentGroup, old.course) === k) {
+      setChanging(null);
       return;
     }
-    if (quota > 0 && placed >= quota) {
-      toast.error(`اكتمل نصاب المعلم الأسبوعي (${quota} حصة)`);
-      return;
+    // Same rulebook as every other edit; a subject with no card yet simply has
+    // no weekly count to exceed.
+    if (!commit({ ...cells, [changing]: c }, [changing])) return;
+    if (!known) {
+      setRows((prev) => [
+        ...prev,
+        {
+          studentGroup: changeGroup,
+          studentGroupName: groupLabel(changeGroup),
+          course: changeCourse,
+          required: (placedByRow.get(k) ?? 0) + 1,
+          maxPerDay: 2,
+          room: null,
+          placed: 0,
+        },
+      ]);
     }
-    if (remaining(activeRow) <= 0) {
-      toast.error("اكتمل عدد حصص هذه المادة لهذه الشعبة");
-      return;
-    }
-    if ((perDay.get(`${day}|${active}`) ?? 0) >= activeRow.maxPerDay) {
-      toast.error(`لا تتجاوز ${activeRow.maxPerDay} حصة لهذه المادة في اليوم الواحد`);
-      return;
-    }
-    setCells((prev) => ({
-      ...prev,
-      [key]: {
-        studentGroup: activeRow.studentGroup,
-        course: activeRow.course,
-        room: activeRow.room,
-      },
-    }));
-    setDirty(true);
+    setSelected(changing);
+    setChanging(null);
   }
 
   /** Fill what is still owed into free periods, spread across the week. */
@@ -245,9 +672,11 @@ function TeacherTimetablePage() {
       if (left > 0) skipped.push(`${groupLabel(r.studentGroup)} — ${r.course}: ${left}`);
     }
 
-    setCells(next);
-    setDirty(true);
-    if (added) toast.success(`تم توزيع ${added} حصة`);
+    if (added) record(next);
+    if (added)
+      toast.success(`تم توزيع ${added} حصة`, {
+        action: { label: "تراجع", onClick: () => undoRef.current() },
+      });
     if (skipped.length)
       toast.warning(`تعذّر توزيع: ${skipped.slice(0, 3).join("، ")}`, { duration: 6000 });
     if (!added && !skipped.length) toast.info("لا توجد حصص متبقية للتوزيع");
@@ -294,13 +723,10 @@ function TeacherTimetablePage() {
         confirmLabel: "حذف",
       });
       if (!ok) return;
-      setCells((prev) => {
-        const next: Record<string, Cell> = {};
-        for (const [key, c] of Object.entries(prev))
-          if (rowKey(c.studentGroup, c.course) !== k) next[key] = c;
-        return next;
-      });
-      setDirty(true);
+      const next: Record<string, Cell> = {};
+      for (const [key, c] of Object.entries(cells))
+        if (rowKey(c.studentGroup, c.course) !== k) next[key] = c;
+      record(next);
     }
     setRows((prev) => prev.filter((x) => rowKey(x.studentGroup, x.course) !== k));
     if (active === k) setActive("");
@@ -692,21 +1118,47 @@ function TeacherTimetablePage() {
           title={teacher ? `أسبوع ${teacher.instructor_name || teacher.name}` : "أسبوع المعلم"}
           description={
             activeRow
-              ? `التوزيع الحالي: ${activeRow.course} — ${activeRow.studentGroupName}`
-              : "اختر تكليفاً من الأعلى ثم اضغط على الخلايا"
+              ? `الإضافة بالنقر: ${activeRow.course} — ${activeRow.studentGroupName}`
+              : "اختر تكليفاً من الأعلى، أو استخدم الزر الأيمن على أي خلية"
           }
           actions={
-            placed > 0 ? (
-              <button
-                onClick={() => {
-                  setCells({});
-                  setDirty(true);
-                }}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
-              >
-                <Eraser className="size-3.5" />
-                تفريغ الأسبوع
-              </button>
+            instructor ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={undo}
+                  disabled={!past.length}
+                  title="تراجع (Ctrl+Z)"
+                  className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-secondary disabled:opacity-40"
+                >
+                  <Undo2 className="size-3.5" />
+                  تراجع
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={!future.length}
+                  title="إعادة (Ctrl+Y)"
+                  className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-secondary disabled:opacity-40"
+                >
+                  <Redo2 className="size-3.5" />
+                  إعادة
+                </button>
+                {placed > 0 && (
+                  <button
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: "تفريغ الأسبوع",
+                        description: `ستُزال ${placed} حصة من جدول هذا المعلم (يمكن التراجع قبل الحفظ).`,
+                        confirmLabel: "تفريغ",
+                      });
+                      if (ok) record({});
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-secondary"
+                  >
+                    <Eraser className="size-3.5" />
+                    تفريغ
+                  </button>
+                )}
+              </div>
             ) : undefined
           }
         >
@@ -722,6 +1174,21 @@ function TeacherTimetablePage() {
             <TableSkeleton />
           ) : (
             <div className="overflow-x-auto">
+              {pending && cells[pending.from] && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs">
+                  <span className="font-medium">
+                    {pending.kind === "swap"
+                      ? `اختر الحصة التي تريد تبديل «${describe(cells[pending.from] as Cell)}» معها`
+                      : `اختر الخلية التي تريد نقل «${describe(cells[pending.from] as Cell)}» إليها`}
+                  </span>
+                  <button
+                    onClick={() => setPending(null)}
+                    className="rounded-md border border-border bg-card px-2 py-0.5 hover:bg-secondary"
+                  >
+                    إلغاء (Esc)
+                  </button>
+                </div>
+              )}
               <table className="w-full border-separate border-spacing-1 text-sm">
                 <thead>
                   <tr>
@@ -750,33 +1217,74 @@ function TeacherTimetablePage() {
                           ? busy.get(`${key}|${activeRow.studentGroup}`)
                           : undefined;
                         const problem = problemAt.get(key);
+                        const isSelected = selected === key;
+                        const isSource = pending?.from === key || dragFrom === key;
+                        // While dragging, show whether letting go here would be accepted.
+                        let dropState: "ok" | "bad" | null = null;
+                        if (dragFrom && dropOn === key && dragFrom !== key) {
+                          const a = cells[dragFrom];
+                          if (a) {
+                            const next = { ...cells, [key]: a };
+                            if (cell) next[dragFrom] = cell;
+                            else delete next[dragFrom];
+                            dropState = violation(next, cell ? [key, dragFrom] : [key])
+                              ? "bad"
+                              : "ok";
+                          }
+                        }
+                        const label = `${d.label} — الحصة ${index + 1}`;
                         return (
                           <td key={d.value} className="p-0 align-top">
                             <button
-                              onClick={() => place(d.value, p.order)}
+                              onClick={() => onCellClick(key)}
+                              // Selected in the same event that opens the menu, so the
+                              // two land in one render instead of racing each other.
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                setPending(null);
+                                setSelected(key);
+                                setMenu({ key, x: e.clientX, y: e.clientY });
+                              }}
+                              data-cell={key}
+                              data-filled={cell ? "1" : undefined}
+                              onPointerDown={(e) => {
+                                if (e.button !== 0 || !cell) return;
+                                swallowClick.current = false;
+                                drag.current = {
+                                  from: key,
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                  active: false,
+                                };
+                              }}
                               title={
                                 problem ??
                                 (blocked
                                   ? `محجوزة لدى ${blocked.instructorName ?? "معلم آخر"}`
                                   : undefined)
                               }
-                              className={`h-full min-h-[3.5rem] w-full rounded-lg border px-2 py-2 text-right transition-colors ${
-                                problem
-                                  ? "border-destructive bg-destructive/10"
-                                  : cell
-                                    ? "border-primary/30 bg-primary-soft/50 hover:border-destructive/40"
-                                    : blocked
-                                      ? "cursor-not-allowed border-dashed border-border bg-secondary/40 text-muted-foreground"
-                                      : "border-dashed border-border/60 hover:border-primary/40 hover:bg-primary-soft/20"
+                              className={`h-full min-h-[3.5rem] w-full select-none rounded-lg border px-2 py-2 text-right transition-all duration-150 ${
+                                dropState === "ok"
+                                  ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/60"
+                                  : dropState === "bad"
+                                    ? "border-destructive bg-destructive/10 ring-2 ring-destructive/60"
+                                    : problem
+                                      ? "border-destructive bg-destructive/10"
+                                      : cell
+                                        ? "cursor-grab touch-none border-primary/30 bg-primary-soft/50 hover:border-primary/60 active:cursor-grabbing"
+                                        : blocked
+                                          ? "border-dashed border-border bg-secondary/40 text-muted-foreground"
+                                          : pending
+                                            ? "border-dashed border-amber-500/60 hover:bg-amber-500/10"
+                                            : "border-dashed border-border/60 hover:border-primary/40 hover:bg-primary-soft/20"
+                              } ${isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""} ${
+                                isSource ? "opacity-50" : ""
                               }`}
                             >
                               {cell ? (
                                 <>
-                                  <span className="flex items-center justify-between gap-1">
-                                    <span className="truncate text-xs font-bold">
-                                      {cell.course}
-                                    </span>
-                                    <X className="size-3 shrink-0 text-muted-foreground" />
+                                  <span className="block truncate text-xs font-bold">
+                                    {cell.course}
                                   </span>
                                   <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                                     {groupLabel(cell.studentGroup)}
@@ -800,15 +1308,107 @@ function TeacherTimetablePage() {
                 </tbody>
               </table>
 
-              <p className="mt-3 flex items-start gap-2 rounded-lg bg-secondary/50 p-2.5 text-[11px] text-muted-foreground">
+              <p className="mt-3 flex items-start gap-2 rounded-lg bg-secondary/50 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
                 <Info className="mt-0.5 size-3.5 shrink-0" />
-                الحفظ يستبدل جدول هذا المعلم وحده ولا يمسّ حصص المعلمين الآخرين، ويُحدّث خطة كل شعبة
-                بعدد الحصص الموزّعة. توليد حصص الفصل يتم من شاشة «البناء حسب الشعبة».
+                <span>
+                  النقر على خلية فارغة يضيف التكليف المختار، والنقر على حصة يحدّدها فقط.{" "}
+                  <b>اسحب الحصة</b> إلى خلية فارغة لنقلها أو إلى حصة أخرى لتبديلهما.{" "}
+                  <b>الزر الأيمن</b> لكل الخيارات: تغيير، تبديل، نقل، نسخ ولصق، حذف. Ctrl+Z تراجع،
+                  Ctrl+Y إعادة، Delete حذف المحدّدة، Esc إلغاء. الحفظ يستبدل جدول هذا المعلم وحده.
+                </span>
               </p>
             </div>
           )}
         </SectionCard>
       </div>
+
+      {/* Right-click menu — one for the whole grid ------------------------- */}
+      {menu && renderMenu(menu)}
+
+      {/* The lesson being dragged, following the pointer ------------------- */}
+      {ghost && dragFrom && cells[dragFrom] && (
+        <div
+          className="pointer-events-none fixed z-50 w-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-primary bg-card px-2 py-1.5 text-right shadow-xl"
+          style={{ left: ghost.x, top: ghost.y }}
+        >
+          <span className="block truncate text-xs font-bold">{cells[dragFrom]?.course}</span>
+          <span className="block truncate text-[11px] text-muted-foreground">
+            {groupLabel(cells[dragFrom]?.studentGroup ?? "")}
+          </span>
+          {dropOn && dropOn !== dragFrom && (
+            <span className="mt-0.5 block text-[10px] font-medium text-primary">
+              {cells[dropOn] ? "إفلات للتبديل" : "إفلات للنقل"}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Change a lesson (or add one) to any section and subject ------------ */}
+      <Dialog open={!!changing} onOpenChange={(o) => !o && setChanging(null)}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>{changing && cells[changing] ? "تغيير الحصة" : "إضافة حصة"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {changing && cells[changing] && (
+              <p className="rounded-lg bg-secondary/50 p-2 text-xs text-muted-foreground">
+                الحالية: {describe(cells[changing] as Cell)}
+              </p>
+            )}
+            <div>
+              <p className="mb-1 text-[11px] text-muted-foreground">الشعبة</p>
+              <SearchableSelect
+                options={groups.map((g) => ({
+                  value: g.name,
+                  label: g.student_group_name || g.name,
+                }))}
+                value={changeGroup}
+                onChange={(v) => {
+                  setChangeGroup(v);
+                  setChangeCourse("");
+                }}
+                placeholder="اختر الشعبة…"
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] text-muted-foreground">المادة</p>
+              <SearchableSelect
+                options={(groups.find((g) => g.name === changeGroup)?.courses ?? []).map((c) => ({
+                  value: c,
+                  label: c,
+                }))}
+                value={changeCourse}
+                onChange={setChangeCourse}
+                placeholder={changeGroup ? "اختر المادة…" : "اختر الشعبة أولاً"}
+                disabled={!changeGroup}
+              />
+            </div>
+            {changing && changeGroup && busy.get(`${changing}|${changeGroup}`) && (
+              <p className="flex items-center gap-1.5 text-xs text-destructive">
+                <AlertTriangle className="size-3.5" />
+                هذه الشعبة محجوزة في هذه الحصة لدى{" "}
+                {busy.get(`${changing}|${changeGroup}`)?.instructorName ?? "معلم آخر"}
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <button
+              onClick={() => setChanging(null)}
+              className="rounded-lg border border-border px-3 py-2 text-xs font-medium hover:bg-secondary"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={applyChange}
+              disabled={!changeGroup || !changeCourse}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              <Check className="size-3.5" />
+              تطبيق
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
