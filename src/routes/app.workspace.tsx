@@ -4,7 +4,7 @@ import { ArrowUpLeft, Search, Star, X } from "lucide-react";
 import { EmptyBlock } from "@/components/shared/states";
 import { Input } from "@/components/ui/input";
 import { useApp } from "@/lib/app-context";
-import { useWorkspaceShortcuts } from "@/lib/api/hooks";
+import { useMyWorkspaceLayout, useWorkspaceShortcuts } from "@/lib/api/hooks";
 import { groupFor, groupsForRole, labelFor, navForRole } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -61,9 +61,38 @@ function WorkspacePage() {
   const [query, setQuery] = useState("");
   const [pins, setPins] = useState<string[]>(() => readPins());
   const shortcuts = useWorkspaceShortcuts();
+  const custom = useMyWorkspaceLayout();
 
-  const items = useMemo(() => navForRole(role), [role]);
-  const groups = useMemo(() => groupsForRole(role), [role]);
+  // What this user was given: sections and links may be hidden, and the
+  // sections reordered. Everyone without an arrangement of their own keeps the
+  // default for their role, which is what `layout` being empty means.
+  const layout = custom.data?.layout ?? {};
+  const hiddenItems = useMemo(() => new Set(layout.hiddenItems ?? []), [layout.hiddenItems]);
+  const hiddenGroups = useMemo(() => new Set(layout.hiddenGroups ?? []), [layout.hiddenGroups]);
+  const hiddenCards = useMemo(() => new Set(layout.hiddenCards ?? []), [layout.hiddenCards]);
+
+  const items = useMemo(
+    () => navForRole(role).filter((i) => !hiddenItems.has(i.to) && !hiddenGroups.has(groupFor(i, role))),
+    [role, hiddenItems, hiddenGroups],
+  );
+  const groups = useMemo(() => {
+    const visible = groupsForRole(role).filter((g) => !hiddenGroups.has(g));
+    const order = layout.groupOrder ?? [];
+    if (!order.length) return visible;
+    // Sections the arrangement names come first, in its order; anything added
+    // to the system since keeps its place after them rather than vanishing.
+    return [...visible].sort((a, b) => {
+      const ai = order.indexOf(a);
+      const bi = order.indexOf(b);
+      return (ai === -1 ? order.length + visible.indexOf(a) : ai) -
+        (bi === -1 ? order.length + visible.indexOf(b) : bi);
+    });
+  }, [role, hiddenGroups, layout.groupOrder]);
+
+  const cards = useMemo(
+    () => (shortcuts.data?.shortcuts ?? []).filter((s) => !hiddenCards.has(s.key)),
+    [shortcuts.data, hiddenCards],
+  );
 
   function togglePin(to: string) {
     setPins((prev) => {
@@ -121,11 +150,11 @@ function WorkspacePage() {
       {/* The numbers first: a shortcut without one is a second link to what is
           already in the sidebar. "٣٩ فاتورة غير مدفوعة" is read and opened;
           "الفواتير" is read and left. */}
-      {!matches && (shortcuts.data?.shortcuts.length ?? 0) > 0 && (
+      {!matches && cards.length > 0 && (
         <section className="mb-8">
           <h2 className="mb-2.5 text-xs font-bold text-muted-foreground">اختصاراتك</h2>
           <div className="flex flex-wrap gap-2">
-            {shortcuts.data!.shortcuts.map((s) => (
+            {cards.map((s) => (
               <Link
                 key={s.key}
                 to={s.route}

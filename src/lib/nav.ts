@@ -410,6 +410,13 @@ export const navItems: NavItem[] = [
     group: "النماذج المتخصصة",
   },
   {
+    label: "تخصيص مساحة العمل",
+    to: "/app/workspace-setup",
+    icon: LayoutDashboard,
+    roles: ["admin"],
+    group: "النظام",
+  },
+  {
     label: "تقييم المعلمين",
     labelByRole: { teacher: "ملف أدائي" },
     to: "/app/appraisal",

@@ -7820,3 +7820,68 @@ export function usePreviewFormPrint() {
       apiPost<{ html: string }>("forms.preview_print", vars as unknown as Record<string, unknown>),
   });
 }
+
+/* -------------------------------------------------------------------------
+ * The workspace, arranged per user
+ * ---------------------------------------------------------------------- */
+
+export interface WorkspaceLayout {
+  hiddenGroups?: string[];
+  hiddenItems?: string[];
+  hiddenCards?: string[];
+  groupOrder?: string[];
+}
+
+/** This user's own arrangement. Empty means the default for their role. */
+export function useMyWorkspaceLayout() {
+  return useQuery<{ layout: WorkspaceLayout; user: string }>({
+    queryKey: ["workspace-layout", "me"],
+    queryFn: () => apiGet("workspace.my_layout"),
+    staleTime: 60_000,
+  });
+}
+
+export function useWorkspaceLayoutUsers(search: string) {
+  return useQuery<{
+    users: Array<{
+      user: string;
+      name: string;
+      persona: string;
+      personaLabel: string;
+      customised: boolean;
+    }>;
+  }>({
+    queryKey: ["workspace-layout-users", search],
+    queryFn: () => apiGet("workspace.layout_users", { search }),
+  });
+}
+
+export function useWorkspaceLayoutFor(user?: string) {
+  return useQuery<{
+    user: string;
+    persona: string;
+    personaLabel: string;
+    layout: WorkspaceLayout;
+    cards: Array<{ key: string; label: string }>;
+  }>({
+    queryKey: ["workspace-layout", user ?? null],
+    queryFn: () => apiGet("workspace.layout_for", { user: user as string }),
+    enabled: !!user,
+  });
+}
+
+export function useSaveWorkspaceLayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { user: string; layout: WorkspaceLayout }) =>
+      apiPost<{ user: string; layout: WorkspaceLayout; reset: boolean }>("workspace.save_layout", {
+        user: vars.user,
+        layout: vars.layout,
+      }),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: ["workspace-layout"] });
+      void qc.invalidateQueries({ queryKey: ["workspace-layout-users"] });
+      void qc.invalidateQueries({ queryKey: ["workspace-layout", res.user] });
+    },
+  });
+}
