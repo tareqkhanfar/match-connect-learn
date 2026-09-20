@@ -7618,3 +7618,205 @@ export function useGenerateTeacherLessons() {
     },
   });
 }
+
+/* -------------------------------------------------------------------------
+ * Specialist files: nursing, counselling, special needs, learning
+ * difficulties, speech and language
+ * ---------------------------------------------------------------------- */
+
+export type FormFieldType =
+  | "Section"
+  | "Heading"
+  | "Data"
+  | "Long Text"
+  | "Number"
+  | "Date"
+  | "Time"
+  | "Datetime"
+  | "Select"
+  | "Multi Select"
+  | "Checkbox"
+  | "Rating"
+  | "Table"
+  | "Attach";
+
+export interface FormField {
+  fieldname: string;
+  label: string;
+  fieldtype: FormFieldType;
+  options: string;
+  default: string;
+  reqd: number;
+  width: "half" | "full" | "third";
+  description: string;
+  idx?: number;
+}
+
+export interface FormTemplate {
+  name: string;
+  title: string;
+  category: string;
+  categoryLabel: string;
+  description: string;
+  isActive: number;
+  printTemplate: string;
+  fields: FormField[];
+}
+
+export interface FormTemplateRow {
+  name: string;
+  title: string;
+  description: string;
+  isActive: number;
+  fields: number;
+  entries: number;
+  modified: string;
+}
+
+export interface FormEntryRow {
+  name: string;
+  template: string;
+  templateTitle: string;
+  category: string;
+  student: string;
+  studentName: string;
+  studentGroup: string | null;
+  status: string;
+  filledBy: string;
+  filledOn: string;
+  modified: string;
+}
+
+export interface FormEntry extends Omit<FormEntryRow, "modified"> {
+  notes: string;
+  values: Record<string, string>;
+}
+
+export function useFormCategories() {
+  return useQuery<{
+    categories: Array<{ key: string; label: string; forms: number }>;
+    fieldTypes: Array<{ value: FormFieldType; label: string }>;
+  }>({
+    queryKey: ["form-categories"],
+    queryFn: () => apiGet("forms.categories"),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFormTemplates(category: string, includeInactive = false) {
+  return useQuery<{ category: string; label: string; templates: FormTemplateRow[] }>({
+    queryKey: ["form-templates", category, includeInactive],
+    queryFn: () =>
+      apiGet("forms.list_templates", { category, include_inactive: includeInactive ? 1 : 0 }),
+    enabled: !!category,
+  });
+}
+
+export function useFormTemplate(template?: string) {
+  return useQuery<FormTemplate>({
+    queryKey: ["form-template", template ?? null],
+    queryFn: () => apiGet("forms.get_template", { template: template as string }),
+    enabled: !!template,
+  });
+}
+
+export function useSaveFormTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<FormTemplate>("forms.save_template", { payload }),
+    onSuccess: (t) => {
+      void qc.invalidateQueries({ queryKey: ["form-templates"] });
+      void qc.invalidateQueries({ queryKey: ["form-template", t.name] });
+      void qc.invalidateQueries({ queryKey: ["form-categories"] });
+    },
+  });
+}
+
+export function useDeleteFormTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (template: string) => apiPost<{ deleted: string }>("forms.delete_template", { template }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["form-templates"] }),
+  });
+}
+
+export function useDuplicateFormTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (template: string) => apiPost<FormTemplate>("forms.duplicate_template", { template }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["form-templates"] }),
+  });
+}
+
+export function useFormStudents(search: string) {
+  return useQuery<{
+    students: Array<{
+      id: string;
+      name: string;
+      image: string | null;
+      group: string | null;
+      groupLabel: string;
+    }>;
+  }>({
+    queryKey: ["form-students", search],
+    queryFn: () => apiGet("forms.students", { search, limit: 60 }),
+    staleTime: 60_000,
+  });
+}
+
+export function useFormEntries(params: { category?: string; template?: string; student?: string }) {
+  return useQuery<{ entries: FormEntryRow[] }>({
+    queryKey: ["form-entries", params],
+    queryFn: () => apiGet("forms.list_entries", { ...params, limit: 100 }),
+    enabled: !!(params.category || params.template || params.student),
+  });
+}
+
+export function useFormEntry(entry?: string) {
+  return useQuery<FormEntry>({
+    queryKey: ["form-entry", entry ?? null],
+    queryFn: () => apiGet("forms.get_entry", { entry: entry as string }),
+    enabled: !!entry,
+  });
+}
+
+export function useSaveFormEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      apiPost<FormEntry>("forms.save_entry", { payload }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["form-entries"] });
+      void qc.invalidateQueries({ queryKey: ["form-templates"] });
+    },
+  });
+}
+
+export function useDeleteFormEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entry: string) => apiPost<{ deleted: string }>("forms.delete_entry", { entry }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["form-entries"] }),
+  });
+}
+
+/** The filled form as printable HTML, opened in a print window. */
+export async function printFormEntry(entry: string): Promise<void> {
+  const res = await apiGet<{ html: string; title: string }>("forms.print_entry", { entry });
+  const win = window.open("", "_blank", "width=900,height=1000");
+  if (!win) throw new Error("نافذة الطباعة محجوبة — اسمح بالنوافذ المنبثقة");
+  win.document.write(
+    `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${res.title}</title></head><body>${res.html}</body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 350);
+}
+
+export function usePreviewFormPrint() {
+  return useMutation({
+    mutationFn: (vars: { template: string; html: string }) =>
+      apiPost<{ html: string }>("forms.preview_print", vars as unknown as Record<string, unknown>),
+  });
+}

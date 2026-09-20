@@ -61,6 +61,7 @@ import { Route as AppTimetableGridRouteImport } from './routes/app.timetable-gri
 import { Route as AppTimetableTeacherRouteImport } from './routes/app.timetable-teacher'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
 import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
+import { Route as AppFormsCategoryRouteImport } from './routes/app.forms.$category'
 import { Route as AppGuardiansIndexRouteImport } from './routes/app.guardians.index'
 import { Route as AppGuardiansGuardianIdRouteImport } from './routes/app.guardians.$guardianId'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
@@ -328,6 +329,11 @@ const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
   path: '/workspace',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFormsCategoryRoute = AppFormsCategoryRouteImport.update({
+  id: '/forms/$category',
+  path: '/forms/$category',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppGuardiansIndexRoute = AppGuardiansIndexRouteImport.update({
   id: '/guardians/',
   path: '/guardians/',
@@ -412,6 +418,7 @@ export interface FileRoutesByFullPath {
   '/app/transport': typeof AppTransportRoute
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/': typeof AppIndexRoute
+  '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
@@ -471,6 +478,7 @@ export interface FileRoutesByTo {
   '/app/transport': typeof AppTransportRoute
   '/app/workspace': typeof AppWorkspaceRoute
   '/app': typeof AppIndexRoute
+  '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
@@ -532,6 +540,7 @@ export interface FileRoutesById {
   '/app/transport': typeof AppTransportRoute
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/': typeof AppIndexRoute
+  '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
@@ -594,6 +603,7 @@ export interface FileRouteTypes {
     | '/app/transport'
     | '/app/workspace'
     | '/app/'
+    | '/app/forms/$category'
     | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
@@ -653,6 +663,7 @@ export interface FileRouteTypes {
     | '/app/transport'
     | '/app/workspace'
     | '/app'
+    | '/app/forms/$category'
     | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
@@ -713,6 +724,7 @@ export interface FileRouteTypes {
     | '/app/transport'
     | '/app/workspace'
     | '/app/'
+    | '/app/forms/$category'
     | '/app/guardians/$guardianId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
@@ -1093,6 +1105,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspaceRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/forms/$category': {
+      id: '/app/forms/$category'
+      path: '/forms/$category'
+      fullPath: '/app/forms/$category'
+      preLoaderRoute: typeof AppFormsCategoryRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/guardians/': {
       id: '/app/guardians/'
       path: '/guardians'
@@ -1188,6 +1207,7 @@ interface AppRouteChildren {
   AppTransportRoute: typeof AppTransportRoute
   AppWorkspaceRoute: typeof AppWorkspaceRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppFormsCategoryRoute: typeof AppFormsCategoryRoute
   AppGuardiansGuardianIdRoute: typeof AppGuardiansGuardianIdRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
   AppTeachersInstructorIdRoute: typeof AppTeachersInstructorIdRoute
@@ -1246,6 +1266,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTransportRoute: AppTransportRoute,
   AppWorkspaceRoute: AppWorkspaceRoute,
   AppIndexRoute: AppIndexRoute,
+  AppFormsCategoryRoute: AppFormsCategoryRoute,
   AppGuardiansGuardianIdRoute: AppGuardiansGuardianIdRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
   AppTeachersInstructorIdRoute: AppTeachersInstructorIdRoute,
