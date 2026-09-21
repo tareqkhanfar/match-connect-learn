@@ -97,6 +97,10 @@ function WeeklyGrid({
   timetable: {
     days: Array<{ value: string; label: string }>;
     periods: string[];
+    /** The rows of the grid: the school day, period by period, with the times
+     *  this student's class runs them at. `order` is 0 for a lesson recorded
+     *  outside the school day, which keeps a row of its own. */
+    periodRows?: Array<{ order: number; from: string; to: string }>;
     cells: Array<{
       day: string;
       from: string;
@@ -109,6 +113,12 @@ function WeeklyGrid({
 }) {
   const at = new Map<string, (typeof timetable.cells)[number]>();
   for (const c of timetable.cells) at.set(`${c.day}|${c.from}`, c);
+  // Every period of the school day, numbered as the school numbers them — a
+  // free period is part of a timetable, and dropping its row shifted every
+  // period below it up.
+  const rows = timetable.periodRows?.length
+    ? timetable.periodRows
+    : timetable.periods.map((from, i) => ({ order: i + 1, from, to: "" }));
 
   return (
     <div className="overflow-x-auto">
@@ -127,13 +137,17 @@ function WeeklyGrid({
           </tr>
         </thead>
         <tbody>
-          {timetable.periods.map((start) => (
-            <tr key={start}>
+          {rows.map((period) => (
+            <tr key={`${period.order}#${period.from}`}>
               <td className="whitespace-nowrap rounded-lg bg-secondary/40 px-2 py-2 text-center text-[11px] font-medium tabular-nums text-muted-foreground">
-                <span dir="ltr">{start}</span>
+                {period.order > 0 && <span className="block font-bold">الحصة {period.order}</span>}
+                <span dir="ltr">
+                  {period.from}
+                  {period.to ? `–${period.to}` : ""}
+                </span>
               </td>
               {timetable.days.map((day) => {
-                const cell = at.get(`${day.value}|${start}`);
+                const cell = at.get(`${day.value}|${period.from}`);
                 if (!cell) {
                   return (
                     <td
@@ -770,10 +784,20 @@ function StudentProfile() {
           {/* --- Timetable --- */}
           <TabsContent value="timetable" className="space-y-6">
             <SectionCard title="الجدول الأسبوعي">
-              {timetableGrid.cells.length === 0 ? (
-                <Empty title="لا توجد حصص" />
+              {/* A week with nothing in it is still a week: the same rows, every
+                  cell empty. Replacing the grid with a notice made a class
+                  whose timetable is not built yet look like a broken screen. */}
+              {timetableGrid.periodRows?.length || timetableGrid.periods.length ? (
+                <>
+                  {timetableGrid.cells.length === 0 && (
+                    <p className="mb-3 rounded-xl border border-dashed border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
+                      لا توجد حصص مجدولة — الشبكة تعرض أوقات الحصص كما هي معرّفة.
+                    </p>
+                  )}
+                  <WeeklyGrid timetable={timetableGrid} />
+                </>
               ) : (
-                <WeeklyGrid timetable={timetableGrid} />
+                <Empty title="لا توجد حصص" />
               )}
             </SectionCard>
 

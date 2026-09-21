@@ -16,6 +16,7 @@ import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole } from "@/lib/roles";
 import { useClasses, useTeachers, useTimetable } from "@/lib/api/hooks";
+import type { ScheduleSlot, TimetablePeriod } from "@/lib/api/types";
 
 export const Route = createFileRoute("/app/timetable")({
   validateSearch: groupSearch,
@@ -56,13 +57,25 @@ function shortTime(t: string) {
   return (t || "").slice(0, 5);
 }
 
+/** A row's time. A period two stages run at different hours shows both, so a
+ *  teacher reading one grid across the school can tell them apart. */
+function periodTime(p: TimetablePeriod) {
+  const times = p.varies && p.times?.length ? p.times : [{ from: p.from, to: p.to }];
+  const seen = new Set<string>();
+  for (const t of times) if (t.from) seen.add(`${t.from}–${t.to || ""}`);
+  return Array.from(seen).join(" / ") || "—";
+}
+
 /**
  * The lesson happening right now, as "day#start".
  *
  * Only when the week on screen is this week — the same grid is used to look
  * back and forward, and a mark on a past week would be a lie.
  */
-function useNowSlot(weekStart: string | undefined, days: Record<string, Array<{ from_time: string; to_time: string }>>) {
+function useNowSlot(
+  weekStart: string | undefined,
+  days: Record<string, Array<{ from_time: string; to_time: string }>>,
+) {
   const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setTick(Date.now()), 60_000);
@@ -125,30 +138,58 @@ function TimetablePage() {
         ? { instructor: instructorId }
         : {}
       : showsClassPicker && groupId
-      ? { student_group: groupId }
-      : // No argument for a teacher: the server resolves the instructor from
-        // the session, so one teacher can never request another's week.
-        isTeacher
-        ? {}
-        : viewed
-          ? { student: viewed }
-          : {},
+        ? { student_group: groupId }
+        : // No argument for a teacher: the server resolves the instructor from
+          // the session, so one teacher can never request another's week.
+          isTeacher
+          ? {}
+          : viewed
+            ? { student: viewed }
+            : {},
   );
 
   // `?? []` builds a new array every render, so every memo downstream
   // recomputed on each one. Memoised so the identity is stable.
   const days = useMemo(() => timetableQuery.data?.days ?? {}, [timetableQuery.data]);
 
-  // Build the period rows from the distinct start times present in the week.
-  const periods = useMemo(() => {
+  // The rows are the school day, sent by the server: seven periods with the
+  // times this class actually runs them at. Building them here from the times
+  // present in the week was the bug — a class with no lesson in period 1 lost
+  // the row and every period below it was renumbered, so "الحصة 4" on screen
+  // could be period 5 in the register.
+  const periods = useMemo<TimetablePeriod[]>(() => {
+    const sent = timetableQuery.data?.periods;
+    if (sent?.length) return sent;
+    // An older server, or a week with no clock to read: fall back to the
+    // distinct start times rather than showing nothing.
     const times = new Set<string>();
     for (const slots of Object.values(days)) {
       for (const s of slots) times.add(shortTime(s.from_time));
     }
-    return Array.from(times).sort();
-  }, [days]);
+    return Array.from(times)
+      .sort()
+      .map((from, i) => ({ order: i + 1, from, to: "" }));
+  }, [timetableQuery.data, days]);
 
+  // Lessons by row, so a cell is found by its period and not by matching a
+  // time string: two classes in a teacher's week may run the same period at
+  // different hours.
+  const byCell = useMemo(() => {
+    const map = new Map<string, ScheduleSlot>();
+    for (const [day, slots] of Object.entries(days)) {
+      for (const s of slots) {
+        const row = s.period_order ?? periods.find((p) => p.from === shortTime(s.from_time))?.order;
+        if (row != null) map.set(`${day}#${row}`, s);
+      }
+    }
+    return map;
+  }, [days, periods]);
+
+  // The grid is drawn whenever there is a class to draw it for: an empty week
+  // is a timetable with nothing in it, which is an answer, where a blank
+  // screen only looks broken.
   const hasData = periods.length > 0;
+  const hasLessons = useMemo(() => Object.values(days).some((slots) => slots.length > 0), [days]);
   const selectedClass = classesQuery.data?.find((c) => c.name === groupId);
   const selectedTeacher = (teachersQuery.data ?? []).find((t) => t.name === instructorId);
   const nowSlot = useNowSlot(timetableQuery.data?.week_start, days);
@@ -165,10 +206,10 @@ function TimetablePage() {
           byTeacher
             ? `${selectedTeacher?.instructor_name ?? "اختر معلماً"} • ${timetableQuery.data?.week_start ?? ""}`
             : showsClassPicker
-            ? `${selectedClass?.student_group_name ?? ""} • ${timetableQuery.data?.week_start ?? ""}`
-            : isTeacher
-              ? `حصصي أنا • الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
-              : `الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
+              ? `${selectedClass?.student_group_name ?? ""} • ${timetableQuery.data?.week_start ?? ""}`
+              : isTeacher
+                ? `حصصي أنا • الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
+                : `الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
         }
         actions={
           <>
@@ -243,10 +284,7 @@ function TimetablePage() {
         ) : timetableQuery.isLoading ? (
           <TableSkeleton rows={6} />
         ) : byTeacher && !instructorId ? (
-          <EmptyBlock
-            title="اختر معلماً لعرض جدوله"
-            icon={<CalendarDays className="size-6" />}
-          />
+          <EmptyBlock title="اختر معلماً لعرض جدوله" icon={<CalendarDays className="size-6" />} />
         ) : !hasData ? (
           <EmptyBlock
             title="لا توجد حصص مجدولة هذا الأسبوع"
@@ -254,6 +292,14 @@ function TimetablePage() {
           />
         ) : (
           <div className="overflow-x-auto">
+            {/* An empty week is still drawn as a week: the same seven rows,
+                every cell "—". Replacing the grid with a notice made a class
+                with nothing scheduled look like a failure to load. */}
+            {!hasLessons && (
+              <p className="mb-3 rounded-xl border border-dashed border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
+                لا توجد حصص مجدولة هذا الأسبوع — الشبكة تعرض أوقات الحصص كما هي معرّفة.
+              </p>
+            )}
             <table className="w-full border-collapse text-right text-sm">
               <thead>
                 <tr>
@@ -271,15 +317,20 @@ function TimetablePage() {
                 </tr>
               </thead>
               <tbody>
-                {periods.map((time, pi) => (
-                  <tr key={time}>
+                {periods.map((period) => (
+                  <tr key={period.order}>
                     <td className="num whitespace-nowrap border-b border-border p-2 text-xs text-muted-foreground">
-                      <span className="font-semibold">الحصة {pi + 1}</span>
-                      <span className="block">{time}</span>
+                      <span className="font-semibold">
+                        {period.extra ? "خارج الدوام" : `الحصة ${period.order}`}
+                      </span>
+                      <span className="block">{periodTime(period)}</span>
+                      {period.varies && (
+                        <span className="block text-[10px] opacity-70">يختلف حسب الصف</span>
+                      )}
                     </td>
                     {WEEK_DAYS.map((day) => {
-                      const slot = (days[day] ?? []).find((s) => shortTime(s.from_time) === time);
-                      const isNow = nowSlot === `${day}#${time}`;
+                      const slot = byCell.get(`${day}#${period.order}`);
+                      const isNow = !!slot && nowSlot === `${day}#${shortTime(slot.from_time)}`;
                       return (
                         <td key={day} className="border-b border-border p-1.5 align-top">
                           {slot ? (
@@ -352,7 +403,7 @@ function TimetablePage() {
         )}
       </SectionCard>
 
-      {hasData && (
+      {hasLessons && (
         <div className="mt-5">
           <SectionCard title="المواد في هذا الأسبوع" description="الألوان المستخدمة في الجدول">
             <div className="flex flex-wrap gap-2">

@@ -5409,6 +5409,9 @@ export type StudentDossier = {
   timetableGrid: {
     days: Array<{ value: string; label: string }>;
     periods: string[];
+    /** The rows of the grid: every period of the school day with the times
+     *  this class runs them at, whether or not a lesson falls in them. */
+    periodRows?: Array<{ order: number; from: string; to: string }>;
     cells: Array<{
       day: string;
       from: string;
@@ -7369,9 +7372,15 @@ export function useSaveRecordFields(doctype: RecordFieldsDoctype, name: string) 
       apiPost<RecordFieldsLayout>("records.save_record_fields", { doctype, name, values }),
     onSuccess: (layout) => {
       qc.setQueryData(["record-fields", doctype, name], layout);
-      const dossier = { Student: "student-dossier", Guardian: "guardian-dossier", Instructor: "teacher-dossier" }[doctype];
+      const dossier = {
+        Student: "student-dossier",
+        Guardian: "guardian-dossier",
+        Instructor: "teacher-dossier",
+      }[doctype];
       qc.invalidateQueries({ queryKey: [dossier, name] });
-      qc.invalidateQueries({ queryKey: [{ Student: "students", Guardian: "guardians", Instructor: "teachers" }[doctype]] });
+      qc.invalidateQueries({
+        queryKey: [{ Student: "students", Guardian: "guardians", Instructor: "teachers" }[doctype]],
+      });
     },
   });
 }
@@ -7398,6 +7407,10 @@ export interface TeacherGridOptions {
     academic_year: string | null;
     batch: string | null;
     courses: string[];
+    /** This class's own bell: what time each period runs at for it. Two
+     *  stages break at different points in the morning, so the same period
+     *  number is a different hour for each. */
+    clock?: Array<{ order: number; from: string; to: string }>;
   }>;
   instructors: Array<{
     name: string;
@@ -7500,10 +7513,7 @@ export function useSaveTeacherPattern() {
         slots: number;
         groups: string[];
         lessons: LessonSync | null;
-      }>(
-        "timetable_grid.save_teacher_pattern",
-        vars as unknown as Record<string, unknown>,
-      ),
+      }>("timetable_grid.save_teacher_pattern", vars as unknown as Record<string, unknown>),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["timetable-pattern"] });
       void qc.invalidateQueries({ queryKey: ["taken-periods"] });
@@ -7526,7 +7536,12 @@ export interface TimetableImportResult {
   }>;
   lessons: number;
   groups: number;
-  problems: Array<{ row: number | null; cell: string | null; teacher: string | null; message: string }>;
+  problems: Array<{
+    row: number | null;
+    cell: string | null;
+    teacher: string | null;
+    message: string;
+  }>;
   committed: boolean;
   /** What the import did to lessons already generated, if any were. */
   lessonSync?: LessonSync | null;
@@ -7746,7 +7761,8 @@ export function useSaveFormTemplate() {
 export function useDeleteFormTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (template: string) => apiPost<{ deleted: string }>("forms.delete_template", { template }),
+    mutationFn: (template: string) =>
+      apiPost<{ deleted: string }>("forms.delete_template", { template }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["form-templates"] }),
   });
 }
@@ -7754,7 +7770,8 @@ export function useDeleteFormTemplate() {
 export function useDuplicateFormTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (template: string) => apiPost<FormTemplate>("forms.duplicate_template", { template }),
+    mutationFn: (template: string) =>
+      apiPost<FormTemplate>("forms.duplicate_template", { template }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["form-templates"] }),
   });
 }

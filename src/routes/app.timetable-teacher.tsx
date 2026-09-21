@@ -123,7 +123,10 @@ function TeacherTimetablePage() {
   const check = useCheckTeacherSlots();
   const [problems, setProblems] = useState<TeacherProblem[]>([]);
 
-  const groups = options.data?.groups ?? [];
+  // `?? []` builds a new array every render, and the clock below is derived
+  // from it: memoised so it is rebuilt when the options change, not on every
+  // keystroke in the grid.
+  const groups = useMemo(() => options.data?.groups ?? [], [options.data]);
   const periods = (options.data?.periods ?? []).filter((p) => !p.isBreak);
   const workingDays = options.data?.workingDays ?? [];
   const days = (options.data?.days ?? []).filter((d) => workingDays.includes(d.value));
@@ -212,6 +215,44 @@ function TeacherTimetablePage() {
 
   const groupLabel = (name: string) =>
     groups.find((g) => g.name === name)?.student_group_name || name;
+
+  // What a period actually runs at, for one section. The younger grades break
+  // before the fourth lesson and the older ones after it, so "الحصة 4" is
+  // 10:35 for one class and 10:10 for another: one time at the head of the
+  // row would be wrong for half the school.
+  const clockOf = useMemo(() => {
+    const map = new Map<string, Map<number, { from: string; to: string }>>();
+    for (const g of groups) {
+      const byOrder = new Map<number, { from: string; to: string }>();
+      for (const p of g.clock ?? []) byOrder.set(p.order, { from: p.from, to: p.to });
+      map.set(g.name, byOrder);
+    }
+    return map;
+  }, [groups]);
+
+  const timeOf = (group: string, order: number) => clockOf.get(group)?.get(order) ?? null;
+  const timeLabel = (group: string, order: number) => {
+    const t = timeOf(group, order);
+    return t ? `${t.from}–${t.to}` : "";
+  };
+
+  // The times this period runs at across the sections on the grid — one when
+  // the teacher's classes all share a bell, two when their week crosses both.
+  const rowTimes = (order: number) => {
+    const seen = new Set<string>();
+    for (const key of Object.keys(cells)) {
+      if (Number(key.split("#")[1]) !== order) continue;
+      const label = timeLabel(cells[key]!.studentGroup, order);
+      if (label) seen.add(label);
+    }
+    if (!seen.size) {
+      for (const r of rows) {
+        const label = timeLabel(r.studentGroup, order);
+        if (label) seen.add(label);
+      }
+    }
+    return Array.from(seen).sort();
+  };
 
   const remaining = (r: Row) =>
     r.required - (placedByRow.get(rowKey(r.studentGroup, r.course)) ?? 0);
@@ -498,7 +539,10 @@ function TeacherTimetablePage() {
     const { key } = m;
     const cell = cells[key];
     const day = days.find((d) => d.value === dayOf(key))?.label ?? "";
-    const lesson = periods.findIndex((p) => p.order === Number(key.split("#")[1])) + 1;
+    // The period's own number, not its place in the list: the number on screen
+    // has to be the number that gets stored.
+    const lesson = Number(key.split("#")[1]);
+    const lessonTime = cell ? timeLabel(cell.studentGroup, lesson) : "";
     const rowItem = (r: Row, action: () => void, disabledSame: boolean) => {
       const k = rowKey(r.studentGroup, r.course);
       const taken = busy.get(`${key}|${r.studentGroup}`);
@@ -517,6 +561,7 @@ function TeacherTimetablePage() {
       <CellMenu x={m.x} y={m.y} onClose={closeMenu}>
         <CellMenuLabel muted>
           {day} — الحصة {lesson}
+          {lessonTime ? ` (${lessonTime})` : ""}
         </CellMenuLabel>
         {cell ? (
           <>
@@ -1265,11 +1310,32 @@ function TeacherTimetablePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {periods.map((p, index) => (
+                  {periods.map((p) => (
                     <tr key={p.order}>
                       <td className="whitespace-nowrap rounded-lg bg-secondary/40 px-2 py-2 text-center text-[11px] font-medium tabular-nums text-muted-foreground">
-                        <span className="block font-bold">{index + 1}</span>
-                        <span dir="ltr">{p.from}</span>
+                        <span className="block font-bold">{p.order}</span>
+                        {(() => {
+                          const times = rowTimes(p.order);
+                          if (!times.length)
+                            return (
+                              <span dir="ltr">
+                                {p.from}
+                                {p.to ? `–${p.to}` : ""}
+                              </span>
+                            );
+                          return (
+                            <>
+                              {times.map((t) => (
+                                <span key={t} dir="ltr" className="block">
+                                  {t}
+                                </span>
+                              ))}
+                              {times.length > 1 && (
+                                <span className="block text-[9px] opacity-70">يختلف حسب الصف</span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </td>
                       {days.map((d) => {
                         const key = cellKey(d.value, p.order);
@@ -1293,7 +1359,7 @@ function TeacherTimetablePage() {
                               : "ok";
                           }
                         }
-                        const label = `${d.label} — الحصة ${index + 1}`;
+                        const label = `${d.label} — الحصة ${p.order}`;
                         return (
                           <td key={d.value} className="p-0 align-top">
                             <button
@@ -1322,7 +1388,13 @@ function TeacherTimetablePage() {
                                 problem ??
                                 (blocked
                                   ? `محجوزة لدى ${blocked.instructorName ?? "معلم آخر"}`
-                                  : undefined)
+                                  : cell
+                                    ? `${label} — ${groupLabel(cell.studentGroup)}${
+                                        timeLabel(cell.studentGroup, p.order)
+                                          ? ` (${timeLabel(cell.studentGroup, p.order)})`
+                                          : ""
+                                      }`
+                                    : undefined)
                               }
                               className={`h-full min-h-[3.5rem] w-full select-none rounded-lg border px-2 py-2 text-right transition-all duration-150 ${
                                 dropState === "ok"
@@ -1350,6 +1422,16 @@ function TeacherTimetablePage() {
                                   <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                                     {groupLabel(cell.studentGroup)}
                                   </span>
+                                  {/* This cell's own time, not the row's: the
+                                      section decides when its period 4 runs. */}
+                                  {timeLabel(cell.studentGroup, p.order) && (
+                                    <span
+                                      dir="ltr"
+                                      className="mt-0.5 block truncate text-[10px] tabular-nums text-muted-foreground/80"
+                                    >
+                                      {timeLabel(cell.studentGroup, p.order)}
+                                    </span>
+                                  )}
                                 </>
                               ) : blocked ? (
                                 <span className="block truncate text-[11px]">

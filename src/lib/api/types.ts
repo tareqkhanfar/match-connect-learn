@@ -313,6 +313,9 @@ export interface ScheduleSlot {
   date?: string;
   from_time: string;
   to_time: string;
+  /** Which row of the grid this lesson belongs in, decided by the server from
+   *  the time it actually runs — not by its place in the day's list. */
+  period_order?: number | null;
   subject: string;
   teacher?: string | null;
   course?: string;
@@ -338,10 +341,28 @@ export interface ScheduleSlot {
   plan_title?: string | null;
 }
 
+/** One row of the weekly grid: a period of the school day with its real time.
+ *  `varies` marks a period two stages run at different hours — the break
+ *  before the fourth lesson moves for the younger grades — and `times` then
+ *  carries one entry per class. `extra` marks a row that is not part of the
+ *  school day at all: a lesson recorded at some other time, given a row of
+ *  its own so it is never hidden. */
+export interface TimetablePeriod {
+  order: number;
+  from: string;
+  to: string;
+  varies?: boolean;
+  extra?: boolean;
+  times?: Array<{ from: string; to: string; student_group?: string | null }>;
+}
+
 export interface Timetable {
   week_start: string;
   week_end?: string;
   days: Record<string, ScheduleSlot[]>;
+  /** The rows of the grid, from the server: the school day, whether or not a
+   *  lesson falls in each period. */
+  periods?: TimetablePeriod[];
 }
 
 export interface ExamRow {

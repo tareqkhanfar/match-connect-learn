@@ -267,14 +267,16 @@ function TeacherProfile() {
                 <SectionCard title="الحصص القادمة" description="الحصص المؤرخة المولّدة من الجدول">
                   <Table
                     head={["التاريخ", "المادة", "من", "إلى", "الشعبة", "القاعة"]}
-                    rows={lessons.slice(0, 20).map((l) => [
-                      d(l.date),
-                      <span className="font-medium">{l.course}</span>,
-                      <span dir="ltr">{l.from?.slice(0, 5)}</span>,
-                      <span dir="ltr">{l.to?.slice(0, 5)}</span>,
-                      l.group ?? "—",
-                      l.room ?? "—",
-                    ])}
+                    rows={lessons
+                      .slice(0, 20)
+                      .map((l) => [
+                        d(l.date),
+                        <span className="font-medium">{l.course}</span>,
+                        <span dir="ltr">{l.from?.slice(0, 5)}</span>,
+                        <span dir="ltr">{l.to?.slice(0, 5)}</span>,
+                        l.group ?? "—",
+                        l.room ?? "—",
+                      ])}
                   />
                 </SectionCard>
               </div>
@@ -346,16 +348,35 @@ function TeacherWeek({
   days,
   loading,
 }: {
-  slots: Array<{ day: string; period: number; course: string | null; studentGroup?: string | null; room: string | null }>;
+  slots: Array<{
+    day: string;
+    period: number;
+    course: string | null;
+    studentGroup?: string | null;
+    room: string | null;
+    from?: string;
+    to?: string;
+  }>;
   periods: Array<{ order: number; from: string; to: string }>;
   days: Array<{ value: string; label: string }>;
   loading: boolean;
 }) {
-  if (loading) return <p className="py-6 text-center text-sm text-muted-foreground">جارِ التحميل…</p>;
-  if (!slots.length || !periods.length || !days.length) {
+  if (loading)
+    return <p className="py-6 text-center text-sm text-muted-foreground">جارِ التحميل…</p>;
+  if (!periods.length || !days.length) {
     return <Empty title="لا يوجد جدول أسبوعي محفوظ لهذا المعلم" />;
   }
   const at = new Map(slots.map((s) => [`${s.day}#${s.period}`, s]));
+  // A teacher's week crosses stages, and the stages break at different times,
+  // so each cell carries the time its own class runs that period at. The row
+  // header can only say what most of them share.
+  const rowTime = (order: number) => {
+    const seen = new Set<string>();
+    for (const s of slots) {
+      if (s.period === order && s.from) seen.add(`${s.from}${s.to ? `–${s.to}` : ""}`);
+    }
+    return Array.from(seen).sort();
+  };
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-separate border-spacing-1 text-sm">
@@ -363,29 +384,56 @@ function TeacherWeek({
           <tr>
             <th className="w-20 text-xs font-medium text-muted-foreground">الحصة</th>
             {days.map((d) => (
-              <th key={d.value} className="min-w-[9rem] rounded-lg bg-secondary/60 px-2 py-2 text-xs font-bold">
+              <th
+                key={d.value}
+                className="min-w-[9rem] rounded-lg bg-secondary/60 px-2 py-2 text-xs font-bold"
+              >
                 {d.label}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {periods.map((p, index) => (
+          {periods.map((p) => (
             <tr key={p.order}>
               <td className="whitespace-nowrap rounded-lg bg-secondary/40 px-2 py-2 text-center text-[11px] font-medium tabular-nums text-muted-foreground">
-                <span className="block font-bold">{index + 1}</span>
-                <span dir="ltr">{p.from}</span>
+                <span className="block font-bold">{p.order}</span>
+                {(rowTime(p.order).length
+                  ? rowTime(p.order)
+                  : [`${p.from}${p.to ? `–${p.to}` : ""}`]
+                ).map((t) => (
+                  <span key={t} dir="ltr" className="block">
+                    {t}
+                  </span>
+                ))}
+                {rowTime(p.order).length > 1 && (
+                  <span className="block text-[9px] opacity-70">يختلف حسب الصف</span>
+                )}
               </td>
               {days.map((day) => {
                 const cell = at.get(`${day.value}#${p.order}`);
                 return (
                   <td key={day.value} className="align-top">
                     {cell ? (
-                      <div className="h-full rounded-lg border border-primary/20 bg-primary-soft/50 px-2 py-2">
+                      <div
+                        className="h-full rounded-lg border border-primary/20 bg-primary-soft/50 px-2 py-2"
+                        title={`${day.label} — الحصة ${p.order}${
+                          cell.from ? ` (${cell.from}${cell.to ? `–${cell.to}` : ""})` : ""
+                        }`}
+                      >
                         <p className="truncate text-xs font-bold">{cell.course}</p>
                         <p className="truncate text-[11px] text-muted-foreground">
                           {cell.studentGroup ?? ""}
                         </p>
+                        {cell.from && (
+                          <p
+                            dir="ltr"
+                            className="truncate text-[10px] tabular-nums text-muted-foreground/80"
+                          >
+                            {cell.from}
+                            {cell.to ? `–${cell.to}` : ""}
+                          </p>
+                        )}
                         {cell.room && (
                           <p className="truncate text-[10px] text-muted-foreground">{cell.room}</p>
                         )}
