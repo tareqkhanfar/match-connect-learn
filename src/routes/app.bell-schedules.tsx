@@ -73,6 +73,10 @@ function BellSchedulesPage() {
   const confirm = useConfirm();
 
   const [selected, setSelected] = useState<string | null>(null);
+  // Starting a new schedule is its own state, not "nothing selected": with
+  // nothing selected the page picks the first schedule for you, so "new"
+  // snapped straight back to an existing one and saving overwrote it.
+  const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [isDefault, setIsDefault] = useState(false);
   const [rows, setRows] = useState<BellPeriod[]>([]);
@@ -95,11 +99,11 @@ function BellSchedulesPage() {
   const current = schedules.find((s) => s.name === selected) ?? null;
 
   useEffect(() => {
-    if (!selected && schedules.length) setSelected(schedules[0]!.name);
-  }, [schedules, selected]);
+    if (!selected && !creating && schedules.length) setSelected(schedules[0]!.name);
+  }, [schedules, selected, creating]);
 
   useEffect(() => {
-    if (!current) return;
+    if (!current || creating) return;
     setTitle(current.title);
     setIsDefault(current.isDefault);
     setRows(current.periods.map((p) => ({ ...p })));
@@ -167,20 +171,22 @@ function BellSchedulesPage() {
     }
     try {
       const saved = await save.mutateAsync({
-        ...(current ? { name: current.name } : {}),
+        ...(current && !creating ? { name: current.name } : {}),
         title: title.trim(),
         periods: numbered,
         is_default: isDefault ? 1 : 0,
       });
+      setCreating(false);
       setSelected(saved.name);
       setDirty(false);
-      toast.success("تم حفظ التوقيت");
+      toast.success(creating ? "تم إنشاء التوقيت" : "تم حفظ التوقيت");
     } catch (e) {
       toast.error(errorMessage(e, "تعذّر إكمال العملية"));
     }
   }
 
   function startNew() {
+    setCreating(true);
     setSelected(null);
     setTitle("");
     setIsDefault(false);
@@ -257,7 +263,10 @@ function BellSchedulesPage() {
                 <li key={s.name}>
                   <button
                     type="button"
-                    onClick={() => setSelected(s.name)}
+                    onClick={() => {
+                      setCreating(false);
+                      setSelected(s.name);
+                    }}
                     className={cn(
                       "w-full rounded-xl border px-3 py-2.5 text-right transition-colors",
                       s.name === selected
@@ -282,11 +291,11 @@ function BellSchedulesPage() {
         <div className="space-y-5">
           {/* The day itself ------------------------------------------- */}
           <SectionCard
-            title={current ? `تعديل «${current.title}»` : "توقيت جديد"}
+            title={current && !creating ? `تعديل «${current.title}»` : "توقيت جديد"}
             description="كل سطر حصة أو استراحة. الترقيم يتبع الوقت، والاستراحة بلا رقم."
             actions={
               <div className="flex items-center gap-2">
-                {current && (
+                {current && !creating && (
                   <button
                     type="button"
                     onClick={() => onDelete(current)}
@@ -518,7 +527,7 @@ function BellSchedulesPage() {
             </div>
           </SectionCard>
 
-          {current && (
+          {current && !creating && (
             <>
               <Assignment schedule={current} />
 
