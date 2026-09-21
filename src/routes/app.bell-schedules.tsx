@@ -332,7 +332,8 @@ function BellSchedulesPage() {
                     className="size-4 accent-[var(--primary)]"
                   />
                   <span className="text-xs">
-                    التوقيت الافتراضي — تتبعه الصفوف التي لم يُسنَد لها توقيت
+                    التوقيت الافتراضي — للشُعب التي لا جدول لها ولم يُسنَد لها توقيت. لا يغيّر
+                    جدولاً مبنياً.
                   </span>
                 </label>
               </div>
@@ -550,10 +551,15 @@ function BellSchedulesPage() {
                 {preview && (
                   <div className="mt-3 space-y-2 text-[11px]">
                     <p className="text-muted-foreground">
-                      {preview.groups} شعبة تتبع هذا التوقيت · {preview.slots} حصة في الجدول
+                      {preview.groups} شعبة مسنَدة لهذا التوقيت · {preview.slots} حصة في الجدول
                       الأسبوعي · {preview.lessons} حصة مجدولة قادمة
                       {preview.protected > 0 && ` · ${preview.protected} محمية (حضور أو نيابة)`}
                     </p>
+                    {preview.sections && preview.sections.length > 0 && (
+                      <p className="rounded-lg bg-secondary/50 p-2 leading-relaxed">
+                        <b>الشُعب التي ستتغيّر:</b> {preview.sections.join("، ")}
+                      </p>
+                    )}
                     {preview.sample?.map((c, i) => (
                       <p key={i} className="tabular-nums text-muted-foreground">
                         {c.group} — الحصة {c.order}: {c.was} ← {c.now}

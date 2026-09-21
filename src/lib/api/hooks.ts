@@ -3226,6 +3226,8 @@ export interface ApplyTimesResult {
   lessons: number;
   protected: number;
   missing: string[];
+  /** The sections whose saved week would change, by name. */
+  sections?: string[];
   sample?: Array<{ group: string; day: string; order: number; was: string; now: string }>;
   message_ar?: string;
 }
