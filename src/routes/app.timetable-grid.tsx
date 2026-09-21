@@ -105,8 +105,15 @@ function TimetableGridPage() {
   // A week is built over several minutes and lives only in this component
   // until it is saved, so leaving the screen used to discard it silently.
   // Both exits are guarded: moving to another screen, and closing the tab.
+  // Leaving with unsaved work asks first. It used to refuse the click in
+  // silence, which reads as a broken screen rather than a warning.
   useBlocker({
-    shouldBlockFn: () => dirty && !save.isPending,
+    shouldBlockFn: () => {
+      if (!dirty || save.isPending) return false;
+      return !window.confirm(
+        "لديك تعديلات غير محفوظة في الجدول. الخروج الآن سيُلغيها.\n\nاضغط «موافق» للخروج دون حفظ، أو «إلغاء» للبقاء والحفظ.",
+      );
+    },
     withResolver: false,
     enableBeforeUnload: () => dirty && !save.isPending,
   });

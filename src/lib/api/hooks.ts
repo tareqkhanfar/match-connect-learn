@@ -7489,7 +7489,12 @@ export function useCheckTeacherSlots() {
 export function useSaveTeacherPattern() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { instructor: string; slots: GridSlot[] }) =>
+    mutationFn: (vars: {
+      instructor: string;
+      slots: GridSlot[];
+      /** Per section and subject: how many lessons of it fit in one day. */
+      limits: Record<string, number>;
+    }) =>
       apiPost<{
         instructor: string;
         slots: number;
@@ -7694,7 +7699,7 @@ export interface FormEntry extends Omit<FormEntryRow, "modified"> {
 
 export function useFormCategories() {
   return useQuery<{
-    categories: Array<{ key: string; label: string; forms: number }>;
+    categories: Array<{ key: string; label: string; forms: number; teachersMayFill: boolean }>;
     fieldTypes: Array<{ value: FormFieldType; label: string }>;
   }>({
     queryKey: ["form-categories"],
@@ -7704,7 +7709,12 @@ export function useFormCategories() {
 }
 
 export function useFormTemplates(category: string, includeInactive = false) {
-  return useQuery<{ category: string; label: string; templates: FormTemplateRow[] }>({
+  return useQuery<{
+    category: string;
+    label: string;
+    teachersMayFill: boolean;
+    templates: FormTemplateRow[];
+  }>({
     queryKey: ["form-templates", category, includeInactive],
     queryFn: () =>
       apiGet("forms.list_templates", { category, include_inactive: includeInactive ? 1 : 0 }),
@@ -7882,6 +7892,22 @@ export function useSaveWorkspaceLayout() {
       void qc.invalidateQueries({ queryKey: ["workspace-layout"] });
       void qc.invalidateQueries({ queryKey: ["workspace-layout-users"] });
       void qc.invalidateQueries({ queryKey: ["workspace-layout", res.user] });
+    },
+  });
+}
+
+/** Whether teachers may fill forms in one file. The design stays with admin. */
+export function useSetFormCategorySettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { category: string; teachers_may_fill: boolean }) =>
+      apiPost<{ category: string; teachersMayFill: boolean }>("forms.set_category_settings", {
+        category: vars.category,
+        teachers_may_fill: vars.teachers_may_fill ? 1 : 0,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["form-templates"] });
+      void qc.invalidateQueries({ queryKey: ["form-categories"] });
     },
   });
 }

@@ -34,6 +34,7 @@ import {
   useFormTemplate,
   useFormTemplates,
   useSaveFormEntry,
+  useSetFormCategorySettings,
   type FormTemplate,
 } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
@@ -96,6 +97,10 @@ function FormsPage() {
   const deleteEntry = useDeleteFormEntry();
   const deleteTemplate = useDeleteFormTemplate();
   const duplicate = useDuplicateFormTemplate();
+  const setSettings = useSetFormCategorySettings();
+  // Filling is the administration's decision, per file.
+  const teachersMayFill = templates.data?.teachersMayFill ?? true;
+  const mayFill = backOffice || teachersMayFill;
 
   // Managing
   const [editing, setEditing] = useState<FormTemplate | null>(null);
@@ -112,6 +117,11 @@ function FormsPage() {
     setEditing(null);
     setTab("fill");
   }, [category]);
+
+  // A teacher who may not fill lands on the records instead of an empty tab.
+  useEffect(() => {
+    if (!mayFill && tab === "fill") setTab("records");
+  }, [mayFill, tab]);
 
   const rows = templates.data?.templates ?? [];
   const active = useMemo(() => rows.filter((r) => r.isActive), [rows]);
@@ -180,7 +190,7 @@ function FormsPage() {
     return <ErrorState error={templates.error} onRetry={() => templates.refetch()} />;
 
   const tabs = [
-    { key: "fill" as const, label: "تعبئة نموذج", icon: ClipboardList },
+    ...(mayFill ? [{ key: "fill" as const, label: "تعبئة نموذج", icon: ClipboardList }] : []),
     { key: "records" as const, label: `النماذج المعبّأة (${entries.data?.entries.length ?? 0})`, icon: Files },
     ...(backOffice ? [{ key: "manage" as const, label: "إدارة النماذج", icon: Settings2 }] : []),
   ];
@@ -220,8 +230,18 @@ function FormsPage() {
         ))}
       </div>
 
+      {tab === "fill" && !mayFill && (
+        <div className="mt-5">
+          <EmptyBlock
+            title="تعبئة النماذج في هذا القسم مقصورة على الإدارة"
+            description="يمكنك الاطلاع على النماذج المعبّأة. لتفعيل التعبئة للمعلمين، تُغيَّر من إعدادات القسم لدى الإدارة."
+            icon={<ClipboardList className="size-6" />}
+          />
+        </div>
+      )}
+
       {/* --- Fill ------------------------------------------------------- */}
-      {tab === "fill" && (
+      {tab === "fill" && mayFill && (
         <div className="mt-5 space-y-4">
           <SectionCard title="النموذج والطالب" description="اختر النموذج ثم الطالب، ثم عبّئ البيانات">
             <div className="grid gap-4 lg:grid-cols-2">
@@ -454,6 +474,37 @@ function FormsPage() {
       {/* --- Manage ------------------------------------------------------ */}
       {tab === "manage" && backOffice && (
         <div className="mt-5">
+          {!designing && (
+            <div className="mb-4">
+              <SectionCard title="إعدادات القسم" description="من يُسمح له بتعبئة نماذج هذا القسم">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-[var(--primary)]"
+                    checked={teachersMayFill}
+                    onChange={(e) =>
+                      setSettings.mutate(
+                        { category, teachers_may_fill: e.target.checked },
+                        {
+                          onSuccess: (res) =>
+                            toast.success(
+                              res.teachersMayFill
+                                ? "أصبح بإمكان المعلمين تعبئة نماذج هذا القسم"
+                                : "تعبئة نماذج هذا القسم صارت مقصورة على الإدارة",
+                            ),
+                          onError: (err) => toast.error(errorMessage(err, "تعذّر حفظ الإعداد")),
+                        },
+                      )
+                    }
+                  />
+                  السماح للمعلمين بتعبئة نماذج {FORM_CATEGORIES[category]?.replace("نماذج ", "") ?? ""}
+                </label>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  تصميم النماذج يبقى للإدارة في كل الأحوال. المعلم يرى النماذج المعبّأة لطلابه فقط.
+                </p>
+              </SectionCard>
+            </div>
+          )}
           {designing ? (
             <FormDesigner
               category={category}

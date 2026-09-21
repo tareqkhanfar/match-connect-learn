@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
-import { CalendarDays, Printer } from "lucide-react";
+import { CalendarDays, Printer, Radio } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { LessonPlanDialog, PlanMarker } from "@/components/shared/lesson-plan-dialog";
@@ -15,7 +15,7 @@ import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/state
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole } from "@/lib/roles";
-import { useClasses, useTimetable } from "@/lib/api/hooks";
+import { useClasses, useTeachers, useTimetable } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/timetable")({
   validateSearch: groupSearch,
@@ -56,6 +56,35 @@ function shortTime(t: string) {
   return (t || "").slice(0, 5);
 }
 
+/**
+ * The lesson happening right now, as "day#start".
+ *
+ * Only when the week on screen is this week — the same grid is used to look
+ * back and forward, and a mark on a past week would be a lie.
+ */
+function useNowSlot(weekStart: string | undefined, days: Record<string, Array<{ from_time: string; to_time: string }>>) {
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setTick(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  return useMemo(() => {
+    if (!weekStart) return null;
+    const now = new Date(tick);
+    const start = new Date(`${weekStart}T00:00:00`);
+    if (Number.isNaN(start.getTime())) return null;
+    const end = new Date(start.getTime() + 7 * 864e5);
+    if (now < start || now >= end) return null;
+    const day = WEEK_DAYS[now.getDay()];
+    if (!day) return null;
+    const clock = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const slot = (days[day] ?? []).find(
+      (s) => shortTime(s.from_time) <= clock && clock < shortTime(s.to_time),
+    );
+    return slot ? `${day}#${shortTime(slot.from_time)}` : null;
+  }, [weekStart, days, tick]);
+}
+
 function TimetablePage() {
   const { role } = useApp();
   const isTeacher = role === "teacher";
@@ -72,10 +101,16 @@ function TimetablePage() {
 
   // A teacher may still look at a whole class, but only by asking for it.
   const [teacherViewsClass, setTeacherViewsClass] = useState(false);
+  // The back office reads this screen two ways: a section's week, or one
+  // teacher's. Both are the same grid; only the question differs.
+  const [mode, setMode] = useState<"class" | "teacher">("class");
+  const [instructorId, setInstructorId] = useState("");
+  const teachersQuery = useTeachers({});
+  const byTeacher = picksClass && mode === "teacher";
   // Which lesson's preparation is open. Every role can open one; what they
   // see inside is the server's decision, not this screen's.
   const [planFor, setPlanFor] = useState<string | null>(null);
-  const showsClassPicker = picksClass || (isTeacher && teacherViewsClass);
+  const showsClassPicker = (picksClass && mode === "class") || (isTeacher && teacherViewsClass);
 
   useEffect(() => {
     if (showsClassPicker && !groupId && classesQuery.data?.length) {
@@ -85,7 +120,11 @@ function TimetablePage() {
 
   const viewed = useViewedStudent();
   const timetableQuery = useTimetable(
-    showsClassPicker && groupId
+    byTeacher
+      ? instructorId
+        ? { instructor: instructorId }
+        : {}
+      : showsClassPicker && groupId
       ? { student_group: groupId }
       : // No argument for a teacher: the server resolves the instructor from
         // the session, so one teacher can never request another's week.
@@ -111,6 +150,8 @@ function TimetablePage() {
 
   const hasData = periods.length > 0;
   const selectedClass = classesQuery.data?.find((c) => c.name === groupId);
+  const selectedTeacher = (teachersQuery.data ?? []).find((t) => t.name === instructorId);
+  const nowSlot = useNowSlot(timetableQuery.data?.week_start, days);
 
   return (
     <>
@@ -121,7 +162,9 @@ function TimetablePage() {
           parent: "جدول الأبناء",
         })}
         subtitle={
-          showsClassPicker
+          byTeacher
+            ? `${selectedTeacher?.instructor_name ?? "اختر معلماً"} • ${timetableQuery.data?.week_start ?? ""}`
+            : showsClassPicker
             ? `${selectedClass?.student_group_name ?? ""} • ${timetableQuery.data?.week_start ?? ""}`
             : isTeacher
               ? `حصصي أنا • الأسبوع من ${timetableQuery.data?.week_start ?? ""}`
@@ -136,6 +179,38 @@ function TimetablePage() {
               >
                 {teacherViewsClass ? "عرض حصصي أنا" : "عرض جدول شعبة كاملة"}
               </button>
+            )}
+            {picksClass && (
+              <div className="inline-flex h-10 items-center rounded-xl border border-border bg-card p-0.5 text-sm font-semibold">
+                {[
+                  { key: "class" as const, label: "حسب الشعبة" },
+                  { key: "teacher" as const, label: "حسب المعلم" },
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    onClick={() => setMode(m.key)}
+                    className={`h-9 rounded-[10px] px-3 transition-colors ${
+                      mode === m.key ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {byTeacher && (
+              <Select value={instructorId} onValueChange={setInstructorId}>
+                <SelectTrigger className="h-10 w-[220px] rounded-xl">
+                  <SelectValue placeholder="اختر المعلم" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(teachersQuery.data ?? []).map((t) => (
+                    <SelectItem key={t.name} value={t.name}>
+                      {t.instructor_name || t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
             {showsClassPicker && (
               <Select value={groupId} onValueChange={setGroupId}>
@@ -167,6 +242,11 @@ function TimetablePage() {
           <ErrorState error={timetableQuery.error} onRetry={() => timetableQuery.refetch()} />
         ) : timetableQuery.isLoading ? (
           <TableSkeleton rows={6} />
+        ) : byTeacher && !instructorId ? (
+          <EmptyBlock
+            title="اختر معلماً لعرض جدوله"
+            icon={<CalendarDays className="size-6" />}
+          />
         ) : !hasData ? (
           <EmptyBlock
             title="لا توجد حصص مجدولة هذا الأسبوع"
@@ -199,6 +279,7 @@ function TimetablePage() {
                     </td>
                     {WEEK_DAYS.map((day) => {
                       const slot = (days[day] ?? []).find((s) => shortTime(s.from_time) === time);
+                      const isNow = nowSlot === `${day}#${time}`;
                       return (
                         <td key={day} className="border-b border-border p-1.5 align-top">
                           {slot ? (
@@ -210,8 +291,14 @@ function TimetablePage() {
                                 slot.cancelled
                                   ? "border-destructive/40 bg-destructive-soft"
                                   : colorFor(slot.subject)
-                              }`}
+                              } ${isNow ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                             >
+                              {isNow && (
+                                <span className="mb-1 inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                                  <Radio className="size-3 animate-pulse" />
+                                  الآن
+                                </span>
+                              )}
                               <p
                                 className={`truncate text-xs font-bold ${
                                   slot.cancelled ? "text-destructive line-through" : ""

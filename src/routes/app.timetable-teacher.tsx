@@ -157,8 +157,15 @@ function TeacherTimetablePage() {
     setActive("");
   }, [assignments.data]);
 
+  // Leaving with unsaved work asks first. It used to refuse the click in
+  // silence, which reads as a broken screen rather than a warning.
   useBlocker({
-    shouldBlockFn: () => dirty && !save.isPending,
+    shouldBlockFn: () => {
+      if (!dirty || save.isPending) return false;
+      return !window.confirm(
+        "لديك تعديلات غير محفوظة في الجدول. الخروج الآن سيُلغيها.\n\nاضغط «موافق» للخروج دون حفظ، أو «إلغاء» للبقاء والحفظ.",
+      );
+    },
     withResolver: false,
     enableBeforeUnload: () => dirty && !save.isPending,
   });
@@ -770,8 +777,10 @@ function TeacherTimetablePage() {
 
   function submit() {
     const slots = slotList();
+    const limits: Record<string, number> = {};
+    for (const r of rows) limits[rowKey(r.studentGroup, r.course)] = r.maxPerDay;
     save.mutate(
-      { instructor, slots },
+      { instructor, slots, limits },
       {
         onSuccess: (res) => {
           setDirty(false);
@@ -1111,6 +1120,29 @@ function TeacherTimetablePage() {
                                 prev.map((x) =>
                                   rowKey(x.studentGroup, x.course) === k
                                     ? { ...x, required: Math.max(0, Number(e.target.value) || 0) }
+                                    : x,
+                                ),
+                              )
+                            }
+                          />
+                        </label>
+                        <label
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground"
+                          onClick={(e) => e.stopPropagation()}
+                          title="أقصى عدد حصص من هذه المادة لهذه الشعبة في اليوم الواحد"
+                        >
+                          باليوم
+                          <Input
+                            type="number"
+                            min={1}
+                            dir="ltr"
+                            className="h-7 w-12 px-1 text-xs"
+                            value={r.maxPerDay}
+                            onChange={(e) =>
+                              setRows((prev) =>
+                                prev.map((x) =>
+                                  rowKey(x.studentGroup, x.course) === k
+                                    ? { ...x, maxPerDay: Math.max(1, Number(e.target.value) || 1) }
                                     : x,
                                 ),
                               )

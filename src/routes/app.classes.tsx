@@ -1,6 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
-import { DoorOpen, Images, LayoutGrid, Link2, Plus, School, Trash2, Users } from "lucide-react";
+import {
+  DoorOpen,
+  Images,
+  LayoutGrid,
+  Link2,
+  Plus,
+  School,
+  Search,
+  Trash2,
+  Users,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/components/shared/ui-kit";
@@ -72,7 +83,19 @@ function ClassesPage() {
   const { group: groupFromUrl } = Route.useSearch();
   const [openedFromUrl, setOpenedFromUrl] = useState(false);
   const [connectionsFor, setConnectionsFor] = useState<ClassRow | null>(null);
-  const classes = data ?? [];
+  // Searching is the first thing anyone does on a list of forty sections, so
+  // the box is on the screen rather than behind the filter panel. It matches
+  // the section, the grade and the batch — whichever the reader remembers.
+  const [query, setQuery] = useState("");
+  const all = data ?? [];
+  const needle = query.trim();
+  const classes = needle
+    ? all.filter((c) =>
+        [c.student_group_name, c.name, c.program, c.batch, c.course]
+          .filter(Boolean)
+          .some((v) => String(v).includes(needle)),
+      )
+    : all;
   const canManage = role === "admin" || role === "secretary";
 
   // Once the list arrives, open the gallery for the class we came for. Guarded
@@ -327,7 +350,31 @@ function ClassesPage() {
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="relative mt-6 max-w-md">
+        <Search className="pointer-events-none absolute inset-y-0 start-3 my-auto size-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="ابحث باسم الشعبة أو الصف…"
+          className="h-10 rounded-xl ps-9 pe-9"
+        />
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            className="absolute inset-y-0 end-3 my-auto grid size-6 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"
+            aria-label="مسح البحث"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
+      </div>
+      {needle && (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {classes.length} من {all.length} شعبة
+        </p>
+      )}
+
+      <div className="mt-4">
         <DataTable
           columns={columns}
           rows={classes}
