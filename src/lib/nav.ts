@@ -1,4 +1,5 @@
 import {
+  AlarmClock,
   ShieldCheck,
   FileText,
   Layers,
@@ -368,6 +369,14 @@ export const navItems: NavItem[] = [
     label: "بناء الجدول حسب المعلم",
     to: "/app/timetable-teacher",
     icon: CalendarCog,
+    roles: ["admin", "secretary"],
+    group: "الجداول والمواعيد",
+  },
+  {
+    // Before any timetable can be built: how long the day is, for whom.
+    label: "أوقات الدوام",
+    to: "/app/bell-schedules",
+    icon: AlarmClock,
     roles: ["admin", "secretary"],
     group: "الجداول والمواعيد",
   },

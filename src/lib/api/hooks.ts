@@ -3117,6 +3117,134 @@ export function useSaveSchoolDayShape() {
   });
 }
 
+/** One school day: how many lessons, how long each is, when the break falls.
+ *  A break carries no number — the lesson after it is the next one. */
+export interface BellPeriod {
+  name: string;
+  order: number;
+  from: string;
+  to: string;
+  isBreak: boolean;
+}
+
+export interface BellSchedule {
+  name: string;
+  title: string;
+  isDefault: boolean;
+  workingDays: string[];
+  notes: string | null;
+  periods: BellPeriod[];
+  lessons: number;
+  programs: string[];
+  studentGroups: string[];
+}
+
+export interface BellSchedules {
+  schedules: BellSchedule[];
+  programs: Array<{ name: string; program_name: string | null; schedule: string | null }>;
+  studentGroups: Array<{
+    name: string;
+    student_group_name: string | null;
+    program: string | null;
+    schedule: string | null;
+  }>;
+  days: Array<{ value: string; label: string }>;
+  default: string | null;
+}
+
+/** Every school day the school has defined, and who follows each. */
+export function useBellSchedules() {
+  return useQuery<BellSchedules>({
+    queryKey: ["bell-schedules"],
+    queryFn: () => apiGet<BellSchedules>("bell_schedules.list_schedules"),
+    staleTime: 60 * 1000,
+  });
+}
+
+/** Everything that draws a timetable reads the school day, so a change to one
+ *  has to reach all of them. */
+function invalidateTimetables(qc: ReturnType<typeof useQueryClient>) {
+  for (const key of [
+    "bell-schedules",
+    "timetable",
+    "timetable-pattern",
+    "teacher-grid-options",
+    "grid-options",
+    "taken-periods",
+    "school-day-shape",
+    "student-dossier",
+    "teacher-dossier",
+  ]) {
+    void qc.invalidateQueries({ queryKey: [key] });
+  }
+}
+
+export function useSaveBellSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      name?: string;
+      title: string;
+      periods: BellPeriod[];
+      is_default?: number;
+      working_days?: string[];
+      notes?: string;
+    }) =>
+      apiPost<{ name: string; periods: BellPeriod[] }>("bell_schedules.save_schedule", {
+        ...vars,
+        periods: JSON.stringify(vars.periods),
+        ...(vars.working_days ? { working_days: JSON.stringify(vars.working_days) } : {}),
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateTimetables(qc),
+  });
+}
+
+export function useDeleteBellSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => apiPost("bell_schedules.delete_schedule", { name }),
+    onSuccess: () => invalidateTimetables(qc),
+  });
+}
+
+export function useAssignBellSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { name: string | null; programs?: string[]; student_groups?: string[] }) =>
+      apiPost<{ programs: number; studentGroups: number }>("bell_schedules.assign_schedule", {
+        ...(vars.name ? { name: vars.name } : {}),
+        programs: JSON.stringify(vars.programs ?? []),
+        student_groups: JSON.stringify(vars.student_groups ?? []),
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => invalidateTimetables(qc),
+  });
+}
+
+export interface ApplyTimesResult {
+  groups: number;
+  slots: number;
+  lessons: number;
+  protected: number;
+  missing: string[];
+  sample?: Array<{ group: string; day: string; order: number; was: string; now: string }>;
+  message_ar?: string;
+}
+
+/** Make the weeks already built follow this schedule. */
+export function useApplyBellTimes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { name: string; dry_run: number }) =>
+      apiPost<ApplyTimesResult>("bell_schedules.apply_times", {
+        name: vars.name,
+        dry_run: vars.dry_run,
+      } as unknown as Record<string, unknown>),
+    onSuccess: (_d, vars) => {
+      if (!vars.dry_run) invalidateTimetables(qc);
+    },
+  });
+}
+
 export type TimetableAudience = "draft" | "teachers" | "all";
 
 /** How much of a class's timetable each audience can currently see. */

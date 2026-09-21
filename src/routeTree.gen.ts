@@ -22,6 +22,7 @@ import { Route as AppAssessmentPlanRouteImport } from './routes/app.assessment-p
 import { Route as AppAssignmentsRouteImport } from './routes/app.assignments'
 import { Route as AppAttendanceRouteImport } from './routes/app.attendance'
 import { Route as AppBehaviourRouteImport } from './routes/app.behaviour'
+import { Route as AppBellSchedulesRouteImport } from './routes/app.bell-schedules'
 import { Route as AppCalendarRouteImport } from './routes/app.calendar'
 import { Route as AppCertificatesRouteImport } from './routes/app.certificates'
 import { Route as AppChatRouteImport } from './routes/app.chat'
@@ -133,6 +134,11 @@ const AppAttendanceRoute = AppAttendanceRouteImport.update({
 const AppBehaviourRoute = AppBehaviourRouteImport.update({
   id: '/behaviour',
   path: '/behaviour',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBellSchedulesRoute = AppBellSchedulesRouteImport.update({
+  id: '/bell-schedules',
+  path: '/bell-schedules',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
@@ -384,6 +390,7 @@ export interface FileRoutesByFullPath {
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/behaviour': typeof AppBehaviourRoute
+  '/app/bell-schedules': typeof AppBellSchedulesRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/certificates': typeof AppCertificatesRoute
   '/app/chat': typeof AppChatRoute
@@ -445,6 +452,7 @@ export interface FileRoutesByTo {
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/behaviour': typeof AppBehaviourRoute
+  '/app/bell-schedules': typeof AppBellSchedulesRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/certificates': typeof AppCertificatesRoute
   '/app/chat': typeof AppChatRoute
@@ -508,6 +516,7 @@ export interface FileRoutesById {
   '/app/assignments': typeof AppAssignmentsRoute
   '/app/attendance': typeof AppAttendanceRoute
   '/app/behaviour': typeof AppBehaviourRoute
+  '/app/bell-schedules': typeof AppBellSchedulesRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/certificates': typeof AppCertificatesRoute
   '/app/chat': typeof AppChatRoute
@@ -572,6 +581,7 @@ export interface FileRouteTypes {
     | '/app/assignments'
     | '/app/attendance'
     | '/app/behaviour'
+    | '/app/bell-schedules'
     | '/app/calendar'
     | '/app/certificates'
     | '/app/chat'
@@ -633,6 +643,7 @@ export interface FileRouteTypes {
     | '/app/assignments'
     | '/app/attendance'
     | '/app/behaviour'
+    | '/app/bell-schedules'
     | '/app/calendar'
     | '/app/certificates'
     | '/app/chat'
@@ -695,6 +706,7 @@ export interface FileRouteTypes {
     | '/app/assignments'
     | '/app/attendance'
     | '/app/behaviour'
+    | '/app/bell-schedules'
     | '/app/calendar'
     | '/app/certificates'
     | '/app/chat'
@@ -842,6 +854,13 @@ declare module '@tanstack/react-router' {
       path: '/behaviour'
       fullPath: '/app/behaviour'
       preLoaderRoute: typeof AppBehaviourRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bell-schedules': {
+      id: '/app/bell-schedules'
+      path: '/bell-schedules'
+      fullPath: '/app/bell-schedules'
+      preLoaderRoute: typeof AppBellSchedulesRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/calendar': {
@@ -1186,6 +1205,7 @@ interface AppRouteChildren {
   AppAssignmentsRoute: typeof AppAssignmentsRoute
   AppAttendanceRoute: typeof AppAttendanceRoute
   AppBehaviourRoute: typeof AppBehaviourRoute
+  AppBellSchedulesRoute: typeof AppBellSchedulesRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppCertificatesRoute: typeof AppCertificatesRoute
   AppChatRoute: typeof AppChatRoute
@@ -1246,6 +1266,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAssignmentsRoute: AppAssignmentsRoute,
   AppAttendanceRoute: AppAttendanceRoute,
   AppBehaviourRoute: AppBehaviourRoute,
+  AppBellSchedulesRoute: AppBellSchedulesRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppCertificatesRoute: AppCertificatesRoute,
   AppChatRoute: AppChatRoute,
