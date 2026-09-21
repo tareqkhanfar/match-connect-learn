@@ -90,7 +90,7 @@ function TeacherProfile() {
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!data) return <Empty title="لا توجد بيانات" />;
 
-  const { profile, summary, groups, lessons, loads, observations, assignments } = data;
+  const { profile, summary, groups, lessons, observations, assignments } = data;
   const backOffice = isBackOffice(role);
 
   return (
@@ -197,9 +197,6 @@ function TeacherProfile() {
             <TabsTrigger value="timetable" className="rounded-lg">
               الجدول
             </TabsTrigger>
-            <TabsTrigger value="load" className="rounded-lg">
-              النصاب
-            </TabsTrigger>
             <TabsTrigger value="assignments" className="rounded-lg">
               الواجبات
             </TabsTrigger>
@@ -282,39 +279,6 @@ function TeacherProfile() {
                 </SectionCard>
               </div>
             )}
-          </TabsContent>
-
-          <TabsContent value="load">
-            <SectionCard title="النصاب الأسبوعي">
-              {loads.length === 0 ? (
-                <Empty title="لم يُحدَّد نصاب" />
-              ) : (
-                <Table
-                  head={["المادة", "الشعبة", "حصص/أسبوع", "حد أقصى/يوم", "القاعة المفضلة", ""]}
-                  rows={loads.map((l) => [
-                    <span className="font-medium">{l.course}</span>,
-                    l.section ?? "—",
-                    <span className="tabular-nums">{l.periodsPerWeek}</span>,
-                    <span className="tabular-nums">{l.maxPerDay || "—"}</span>,
-                    l.room ?? "—",
-                    // The plan's own code means nothing to a reader, so it
-                    // becomes a link to the builder for that section instead.
-                    l.section ? (
-                      <Link
-                        to="/app/timetable-grid"
-                        search={{ group: l.section }}
-                        className="flex items-center gap-1 whitespace-nowrap text-xs text-primary hover:underline"
-                      >
-                        <CalendarDays className="size-3.5" />
-                        عرض الجدول
-                      </Link>
-                    ) : (
-                      "—"
-                    ),
-                  ])}
-                />
-              )}
-            </SectionCard>
           </TabsContent>
 
           <TabsContent value="assignments">

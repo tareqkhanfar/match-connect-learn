@@ -1204,7 +1204,7 @@ export function useMarkAttendance() {
     mutationFn: (vars: {
       student_group: string;
       date: string;
-      entries: Array<{ student: string; status: string }>;
+      entries: Array<{ student: string; status: string; reason?: string }>;
     }) =>
       apiPost<{ created: number; updated: number; unchanged: number }>(
         "attendance.mark_attendance",

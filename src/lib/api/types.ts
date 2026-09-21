@@ -397,6 +397,8 @@ export interface AttendanceSheet {
     roll_number: number | null;
     status: string | null;
     status_label: string | null;
+    /** Why the absence was excused. Empty for every other status. */
+    reason: string;
     attendance_id: string | null;
     submitted: boolean;
   }>;

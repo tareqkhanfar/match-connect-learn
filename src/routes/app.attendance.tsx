@@ -207,16 +207,26 @@ function StaffAttendanceView() {
 
   // Local edits layered over whatever is already saved on the server.
   const [edits, setEdits] = useState<Record<string, Status>>({});
+  // An excused absence carries a reason. Kept beside the marks so one saved
+  // sheet can be corrected without retyping the rest.
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [bulkReason, setBulkReason] = useState("");
   const { data: context } = useAcademicContext();
   const { data: holidayInfo } = useUpcomingHolidays(365);
   useEffect(() => {
     // Reset local edits whenever the sheet identity changes.
     setEdits({});
+    setReasons({});
+    setBulkReason("");
   }, [groupId, date]);
 
   // `?? []` builds a new array every render, so every memo downstream
   // recomputed on each one. Memoised so the identity is stable.
   const rows = useMemo(() => sheetQuery.data?.students ?? [], [sheetQuery.data]);
+  const savedReason = (student: string) =>
+    rows.find((r) => r.student === student)?.reason ?? "";
+  const reasonOf = (student: string) => reasons[student] ?? savedReason(student);
+  const isExcused = (status: Status) => status === "Excused" || status === "Leave";
   const marks = useMemo(() => {
     const out: Record<string, Status> = {};
     for (const r of rows) {
@@ -238,7 +248,11 @@ function StaffAttendanceView() {
     // because an attendance record is submitted and cannot be edited in place.
     const entries = rows
       .filter((r) => isPending(r.student))
-      .map((r) => ({ student: r.student, status: marks[r.student]! }));
+      .map((r) => ({
+        student: r.student,
+        status: marks[r.student]!,
+        reason: isExcused(marks[r.student]!) ? reasonOf(r.student) : "",
+      }));
     if (entries.length === 0) {
       toast.error("لا تغييرات لحفظها");
       return;
@@ -247,6 +261,7 @@ function StaffAttendanceView() {
       const res = await markAttendance.mutateAsync({ student_group: groupId, date, entries });
       toast.success(`تم حفظ الحضور لـ ${res.created + res.updated} طالباً`);
       setEdits({});
+      setReasons({});
     } catch (error) {
       const message =
         (error as { messageAr?: string }).messageAr ||
@@ -264,11 +279,21 @@ function StaffAttendanceView() {
    * cancel and rewrite the record for nothing.
    */
   function isPending(student: string): boolean {
+    const row = rows.find((r) => r.student === student);
+    const stored = row?.status as Status | null | undefined;
     const local = edits[student];
+    // Never marked: the register has no record for this pupil, so even
+    // "present" is something to save. Marking a whole class present on a
+    // fresh sheet used to leave the save button dead, because every row
+    // matched the default the screen was showing.
+    if (!stored) return local !== undefined;
+    const mark = local ?? stored;
+    if (isExcused(mark) && isExcused(stored)) {
+      // Same status; a changed reason is still a change worth saving.
+      return reasonOf(student) !== (row?.reason ?? "");
+    }
     if (local === undefined) return false;
-    const stored = (rows.find((r) => r.student === student)?.status ?? "Present") as Status;
-    if (local === stored) return false;
-    return !(local === "Excused" && stored === "Leave");
+    return local !== stored;
   }
 
   const pendingCount = rows.filter((r) => isPending(r.student)).length;
@@ -294,7 +319,16 @@ function StaffAttendanceView() {
     const next: Record<string, Status> = {};
     for (const r of rows) next[r.student] = status;
     setEdits(next);
+    if (!isExcused(status)) setBulkReason("");
     toast.success(`تم تعيين ${rows.length} طالباً كـ ${STATUS_META[status].label}`);
+  }
+
+  /** Write one reason onto every excused row. */
+  function applyBulkReason(value: string) {
+    setBulkReason(value);
+    const next: Record<string, string> = {};
+    for (const r of rows) if (isExcused(marks[r.student]!)) next[r.student] = value;
+    setReasons((prev) => ({ ...prev, ...next }));
   }
 
   return (
@@ -388,6 +422,19 @@ function StaffAttendanceView() {
           <span className="mr-auto text-[11px] text-muted-foreground">
             يمكن تعديل أي طالب بعد التعيين الجماعي
           </span>
+          {counts.Excused > 0 && (
+            <div className="flex w-full items-center gap-2 border-t border-border pt-2">
+              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                سبب الغياب للجميع:
+              </span>
+              <Input
+                value={bulkReason}
+                onChange={(e) => applyBulkReason(e.target.value)}
+                placeholder="يُكتب مرة واحدة ويُطبَّق على كل الغائبين بعذر…"
+                className="h-9 max-w-md"
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -433,7 +480,19 @@ function StaffAttendanceView() {
                       )}
                     </p>
                   </div>
-                  <div className="flex gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    {isExcused(current) && (
+                      <Input
+                        value={reasonOf(s.student)}
+                        disabled={!canMark}
+                        onChange={(e) =>
+                          setReasons((prev) => ({ ...prev, [s.student]: e.target.value }))
+                        }
+                        placeholder="سبب الغياب…"
+                        className="h-9 w-44"
+                        aria-label={`سبب غياب ${s.student_name}`}
+                      />
+                    )}
                     {SELECTABLE.map((state) => {
                       const meta = STATUS_META[state];
                       const Icon = meta.icon;
