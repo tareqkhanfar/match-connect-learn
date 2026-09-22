@@ -19,7 +19,10 @@ import { cn } from "@/lib/utils";
  * «الطلاب الخاضعون» — which students each form applies to. Filling a form
  * offers only these students; removing one keeps what was already filed.
  */
-export function FormSubjects({ templates }: { templates: FormTemplateRow[] }) {
+export function FormSubjects({ templates: all }: { templates: FormTemplateRow[] }) {
+  // Only a form filled per student has students it applies to.
+  const templates = all.filter((t) => (t.entryFor ?? "Student") === "Student");
+  const others = all.length - templates.length;
   const confirm = useConfirm();
   const [template, setTemplate] = useState("");
   const [filter, setFilter] = useState("");
@@ -67,7 +70,8 @@ export function FormSubjects({ templates }: { templates: FormTemplateRow[] }) {
       >
         {templates.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-            لا توجد نماذج في هذا القسم — أنشئ نموذجاً من «إدارة النماذج».
+            لا توجد نماذج تُعبّأ لكل طالب في هذا القسم
+            {others ? " — نماذج الشعبة والنماذج العامة لا تحتاج طلاباً خاضعين." : "."}
           </p>
         ) : (
           <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
@@ -96,6 +100,11 @@ export function FormSubjects({ templates }: { templates: FormTemplateRow[] }) {
               </button>
             ))}
           </div>
+        )}
+        {others > 0 && templates.length > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {others} نموذج يُعبّأ لشعبة أو عام لا يظهر هنا — لا يحتاج طلاباً خاضعين.
+          </p>
         )}
       </SectionCard>
 

@@ -26,6 +26,7 @@ import { errorMessage } from "@/lib/api/error-message";
 import { FormBody, FormDesigner } from "@/components/forms/form-designer";
 import { FormSubjects } from "@/components/forms/form-subjects";
 import {
+  printBlankForm,
   printFormEntry,
   useDeleteFormEntry,
   useDeleteFormTemplate,
@@ -35,6 +36,7 @@ import {
   useFormStudents,
   useFormTemplate,
   useFormTemplates,
+  useMyGroups,
   useSaveFormEntry,
   useSetFormCategorySettings,
   type FormTemplate,
@@ -87,14 +89,30 @@ function FormsPage() {
   const [student, setStudent] = useState<{ id: string; name: string; group: string | null } | null>(
     null,
   );
+  const [section, setSection] = useState<{ id: string; label: string } | null>(null);
   const [search, setSearch] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [entryName, setEntryName] = useState("");
 
   const template = useFormTemplate(templateName || undefined);
+  const rowsAll = templates.data?.templates ?? [];
+  // Who one copy is about: a student, a whole section, or nobody in particular.
+  const entryFor =
+    template.data?.entryFor ?? rowsAll.find((r) => r.name === templateName)?.entryFor ?? "Student";
   // Only the students the chosen form applies to.
-  const studentList = useFormStudents(search, templateName || undefined);
+  const studentList = useFormStudents(
+    search,
+    templateName || undefined,
+    undefined,
+    !!templateName && entryFor === "Student",
+  );
+  const sections = useMyGroups(!!templateName && entryFor === "Section");
+  // The section's pupils, for a «جدول طلاب».
+  const sectionPupils = useFormStudents("", undefined, section?.id, !!section);
+  const sectionStudents = section
+    ? (sectionPupils.data?.students ?? []).map((s) => ({ id: s.id, name: s.name }))
+    : undefined;
   const entries = useFormEntries({ category });
   const saveEntry = useSaveFormEntry();
   const deleteEntry = useDeleteFormEntry();
@@ -116,6 +134,7 @@ function FormsPage() {
   useEffect(() => {
     setTemplateName("");
     setStudent(null);
+    setSection(null);
     setValues({});
     setNotes("");
     setEntryName("");
@@ -129,7 +148,7 @@ function FormsPage() {
     if (!mayFill && tab === "fill") setTab("records");
   }, [mayFill, tab]);
 
-  const rows = templates.data?.templates ?? [];
+  const rows = rowsAll;
   const active = useMemo(() => rows.filter((r) => r.isActive), [rows]);
 
   const openEntry = useFormEntry(entryName || undefined);
@@ -137,7 +156,12 @@ function FormsPage() {
     const e = openEntry.data;
     if (!e) return;
     setTemplateName(e.template);
-    setStudent({ id: e.student, name: e.studentName, group: e.studentGroup });
+    setStudent(e.student ? { id: e.student, name: e.studentName, group: e.studentGroup } : null);
+    setSection(
+      !e.student && e.studentGroup
+        ? { id: e.studentGroup, label: e.studentGroupLabel || e.studentGroup }
+        : null,
+    );
     setValues(e.values);
     setNotes(e.notes);
     setTab("fill");
@@ -148,6 +172,7 @@ function FormsPage() {
     setNotes("");
     setEntryName("");
     setStudent(null);
+    setSection(null);
   }
 
   function submit(status: "مسودة" | "مكتمل") {
@@ -155,16 +180,25 @@ function FormsPage() {
       toast.error("اختر النموذج");
       return;
     }
-    if (!student) {
+    if (entryFor === "Student" && !student) {
       toast.error("اختر الطالب");
+      return;
+    }
+    if (entryFor === "Section" && !section) {
+      toast.error("اختر الشعبة");
       return;
     }
     saveEntry.mutate(
       {
         ...(entryName ? { name: entryName } : {}),
         template: templateName,
-        student: student.id,
-        studentGroup: student.group,
+        ...(entryFor === "Student" && student ? { student: student.id } : {}),
+        studentGroup:
+          entryFor === "Student"
+            ? (student?.group ?? null)
+            : entryFor === "Section"
+              ? section?.id
+              : null,
         status,
         values,
         notes,
@@ -259,8 +293,8 @@ function FormsPage() {
       {tab === "fill" && mayFill && (
         <div className="mt-5 space-y-4">
           <SectionCard
-            title="النموذج والطالب"
-            description="اختر النموذج ثم الطالب، ثم عبّئ البيانات"
+            title="النموذج ولمن يُعبّأ"
+            description="اختر النموذج، ثم الطالب أو الشعبة إن كان النموذج لهما، ثم عبّئ البيانات"
           >
             <div className="grid gap-4 lg:grid-cols-2">
               <div>
@@ -280,6 +314,7 @@ function FormsPage() {
                           setEntryName("");
                           setValues({});
                           setStudent(null);
+                          setSection(null);
                         }}
                         className={cn(
                           "rounded-xl border p-2.5 text-right transition-colors",
@@ -290,7 +325,12 @@ function FormsPage() {
                       >
                         <p className="truncate text-sm font-bold">{t.title}</p>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {t.subjects ?? 0} طالب خاضع · {t.entries} معبّأ
+                          {t.entryFor === "Section"
+                            ? "لشعبة كاملة"
+                            : t.entryFor === "General"
+                              ? "نموذج عام"
+                              : `${t.subjects ?? 0} طالب خاضع`}{" "}
+                          · {t.entries} معبّأ
                         </p>
                       </button>
                     ))}
@@ -299,8 +339,62 @@ function FormsPage() {
               </div>
 
               <div>
-                <p className="mb-1.5 text-[11px] text-muted-foreground">الطالب</p>
-                {!templateName ? (
+                <p className="mb-1.5 text-[11px] text-muted-foreground">
+                  {entryFor === "Section" ? "الشعبة" : entryFor === "General" ? "" : "الطالب"}
+                </p>
+                {templateName && entryFor === "General" ? (
+                  <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    هذا نموذج عام لا يخص طالباً ولا شعبة — عبّئه مباشرة أدناه.
+                  </p>
+                ) : templateName && entryFor === "Section" ? (
+                  section ? (
+                    <div className="flex items-center justify-between gap-2 rounded-xl border border-primary bg-primary-soft/40 p-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold">{section.label}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {sectionPupils.data ? `${sectionPupils.data.students.length} طالب` : "…"}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSection(null);
+                          if (!entryName) setValues({});
+                        }}
+                        className="shrink-0 rounded-lg border border-border bg-card px-2 py-1 text-[11px] hover:bg-secondary"
+                      >
+                        تغيير
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="max-h-52 overflow-y-auto rounded-xl border border-border">
+                      {(sections.data ?? []).map((g) => (
+                        <button
+                          key={g.name}
+                          onClick={() =>
+                            setSection({ id: g.name, label: g.student_group_name || g.name })
+                          }
+                          className="flex w-full items-center gap-2 border-b border-border/60 px-2.5 py-1.5 text-right last:border-0 hover:bg-secondary"
+                        >
+                          <Users className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 flex-1 truncate text-xs">
+                            {g.student_group_name || g.name}
+                          </span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {g.students} طالب
+                          </span>
+                        </button>
+                      ))}
+                      {sections.isLoading && (
+                        <p className="p-3 text-center text-xs text-muted-foreground">
+                          جارِ التحميل…
+                        </p>
+                      )}
+                      {sections.data?.length === 0 && (
+                        <p className="p-3 text-center text-xs text-muted-foreground">لا توجد شعب</p>
+                      )}
+                    </div>
+                  )
+                ) : !templateName ? (
                   <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
                     اختر النموذج أولاً — يظهر هنا الطلاب الخاضعون له فقط.
                   </p>
@@ -379,56 +473,73 @@ function FormsPage() {
             </div>
           </SectionCard>
 
-          {templateName && student && (
-            <SectionCard
-              title={template.data?.title ?? "النموذج"}
-              description={template.data?.description || "عبّئ الحقول ثم احفظ"}
-              actions={
-                <div className="flex items-center gap-2">
-                  {entryName && (
+          {templateName &&
+            (entryFor === "General" || (entryFor === "Section" ? section : student)) && (
+              <SectionCard
+                title={template.data?.title ?? "النموذج"}
+                description={
+                  (entryFor === "Section" && section ? `${section.label} — ` : "") +
+                  (template.data?.description || "عبّئ الحقول ثم احفظ")
+                }
+                actions={
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => void print()}
-                      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+                      onClick={() =>
+                        void printBlankForm(templateName).catch((e) =>
+                          toast.error(errorMessage(e, "تعذّرت الطباعة")),
+                        )
+                      }
+                      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary"
+                      title="النموذج بلا إجابات، للتعبئة باليد"
                     >
                       <Printer className="size-3.5" />
-                      طباعة
+                      فارغ
                     </button>
-                  )}
-                  <button
-                    onClick={() => submit("مسودة")}
-                    disabled={saveEntry.isPending}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary disabled:opacity-50"
-                  >
-                    حفظ كمسودة
-                  </button>
-                  <button
-                    onClick={() => submit("مكتمل")}
-                    disabled={saveEntry.isPending}
-                    className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    <Save className="size-3.5" />
-                    حفظ مكتملاً
-                  </button>
-                </div>
-              }
-            >
-              {template.isLoading ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">جارِ التحميل…</p>
-              ) : (
-                <>
-                  <FormBody
-                    fields={template.data?.fields ?? []}
-                    values={values}
-                    onChange={(k, v) => setValues((s) => ({ ...s, [k]: v }))}
-                  />
-                  <div className="mt-4">
-                    <p className="mb-1 text-[11px] text-muted-foreground">ملاحظات عامة</p>
-                    <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    {entryName && (
+                      <button
+                        onClick={() => void print()}
+                        className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+                      >
+                        <Printer className="size-3.5" />
+                        طباعة
+                      </button>
+                    )}
+                    <button
+                      onClick={() => submit("مسودة")}
+                      disabled={saveEntry.isPending}
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary disabled:opacity-50"
+                    >
+                      حفظ كمسودة
+                    </button>
+                    <button
+                      onClick={() => submit("مكتمل")}
+                      disabled={saveEntry.isPending}
+                      className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      <Save className="size-3.5" />
+                      حفظ مكتملاً
+                    </button>
                   </div>
-                </>
-              )}
-            </SectionCard>
-          )}
+                }
+              >
+                {template.isLoading ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">جارِ التحميل…</p>
+                ) : (
+                  <>
+                    <FormBody
+                      students={sectionStudents}
+                      fields={template.data?.fields ?? []}
+                      values={values}
+                      onChange={(k, v) => setValues((s) => ({ ...s, [k]: v }))}
+                    />
+                    <div className="mt-4">
+                      <p className="mb-1 text-[11px] text-muted-foreground">ملاحظات عامة</p>
+                      <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    </div>
+                  </>
+                )}
+              </SectionCard>
+            )}
         </div>
       )}
 
@@ -453,7 +564,7 @@ function FormsPage() {
                   <thead>
                     <tr className="border-b border-border text-xs text-muted-foreground">
                       <th className="py-2 pl-4 font-medium">النموذج</th>
-                      <th className="py-2 pl-4 font-medium">الطالب</th>
+                      <th className="py-2 pl-4 font-medium">الطالب / الشعبة</th>
                       <th className="py-2 pl-4 font-medium">الحالة</th>
                       <th className="py-2 pl-4 font-medium">التاريخ</th>
                       <th className="py-2 pl-4 font-medium">عبّأه</th>
@@ -464,7 +575,11 @@ function FormsPage() {
                     {(entries.data?.entries ?? []).map((e) => (
                       <tr key={e.name} className="border-b border-border/60 last:border-0">
                         <td className="py-2 pl-4">{e.templateTitle}</td>
-                        <td className="py-2 pl-4">{e.studentName}</td>
+                        <td className="py-2 pl-4">
+                          {e.studentName || e.studentGroupLabel || (
+                            <span className="text-muted-foreground">عام</span>
+                          )}
+                        </td>
                         <td className="py-2 pl-4">
                           <Pill tone={e.status === "مكتمل" ? "success" : "warning"}>
                             {e.status}
@@ -498,7 +613,11 @@ function FormsPage() {
                                 onClick={async () => {
                                   const ok = await confirm({
                                     title: "حذف النموذج المعبّأ",
-                                    description: `سيُحذف نموذج «${e.templateTitle}» للطالب ${e.studentName}.`,
+                                    description: `سيُحذف نموذج «${e.templateTitle}»${
+                                      e.studentName || e.studentGroupLabel
+                                        ? ` — ${e.studentName || e.studentGroupLabel}`
+                                        : ""
+                                    }.`,
                                     confirmLabel: "حذف",
                                   });
                                   if (!ok) return;
@@ -642,7 +761,13 @@ function FormsPage() {
                         {!t.isActive && <Pill tone="muted">معطّل</Pill>}
                       </div>
                       <p className="mt-2 text-[11px] text-muted-foreground">
-                        {t.fields} حقل · {t.subjects ?? 0} طالب خاضع · {t.entries} نموذج معبّأ
+                        {t.fields} حقل ·{" "}
+                        {t.entryFor === "Section"
+                          ? "لشعبة"
+                          : t.entryFor === "General"
+                            ? "عام"
+                            : `${t.subjects ?? 0} طالب خاضع`}{" "}
+                        · {t.entries} نموذج معبّأ
                       </p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <button
@@ -665,6 +790,18 @@ function FormsPage() {
                           className="rounded-lg border border-border px-2 py-1 text-[11px] hover:bg-secondary"
                         >
                           نسخة
+                        </button>
+                        <button
+                          onClick={() =>
+                            void printBlankForm(t.name).catch((e) =>
+                              toast.error(errorMessage(e, "تعذّرت الطباعة")),
+                            )
+                          }
+                          className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] hover:bg-secondary"
+                          title="النموذج بلا إجابات، للتعبئة باليد"
+                        >
+                          <Printer className="size-3" />
+                          فارغ
                         </button>
                         {backOffice && (
                           <button

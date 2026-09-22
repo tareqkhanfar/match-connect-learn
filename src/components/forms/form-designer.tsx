@@ -1,38 +1,45 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowDown,
   ArrowUp,
-  Check,
   Code2,
-  Copy,
   Eye,
+  FileImage,
   Heading1,
   HelpCircle,
   LayoutList,
+  Loader2,
   Palette,
   Plus,
+  Printer,
   Repeat,
   Save,
+  Stamp,
   Trash2,
+  X,
 } from "lucide-react";
 import { SectionCard } from "@/components/shared/ui-kit";
 import { useConfirm } from "@/components/shared/confirm";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/api/error-message";
+import { fileUrl } from "@/lib/api/client";
 import { FormDesignHelp } from "@/components/forms/form-design-help";
 import {
   useDesignFromFields,
   useFieldsFromDesign,
   useFormCategories,
+  printHtml as openPrint,
+  uploadFormLogo,
   usePreviewFormPrint,
   useSaveFormTemplate,
+  type FormEntryFor,
   type FormField,
   type FormFieldType,
   type FormTemplate,
 } from "@/lib/api/hooks";
-import { FormFieldInput, WIDTH_CLASS } from "@/components/forms/form-fields";
+import { FormFieldInput, WIDTH_CLASS, type SectionStudent } from "@/components/forms/form-fields";
 import { cn } from "@/lib/utils";
 
 const WIDTHS: Array<{ value: FormField["width"]; label: string }> = [
@@ -41,7 +48,29 @@ const WIDTHS: Array<{ value: FormField["width"]; label: string }> = [
   { value: "full", label: "كامل" },
 ];
 
-const NEEDS_OPTIONS: FormFieldType[] = ["Select", "Multi Select", "Table"];
+const NEEDS_OPTIONS: FormFieldType[] = [
+  "Select",
+  "Multi Select",
+  "Table",
+  "Student Table",
+  "Text Block",
+];
+
+const OPTIONS_LABEL: Partial<Record<FormFieldType, string>> = {
+  Table: "الأعمدة (سطر لكل عمود)",
+  "Student Table":
+    "الأعمدة، سطر لكل عمود — عمود اختيار: «العنوان: خيار1|خيار2»، وعمود كتابة: العنوان وحده",
+  "Text Block": "النص كما سيظهر ويُطبع",
+};
+
+// Types that leave lines to write on when printed blank.
+const HAS_LINES: FormFieldType[] = ["Long Text", "Data", "Table", "Student Table"];
+
+const ENTRY_FOR: Array<{ value: FormEntryFor; label: string; hint: string }> = [
+  { value: "Student", label: "طالب", hint: "نموذج لكل طالب من الخاضعين له" },
+  { value: "Section", label: "شعبة", hint: "نموذج لشعبة كاملة — حصة جمعية، متابعة صف" },
+  { value: "General", label: "عام", hint: "بلا طالب ولا شعبة — سجل يومي، تقرير" },
+];
 
 const blank = (category: string): FormTemplate => ({
   name: "",
@@ -52,6 +81,15 @@ const blank = (category: string): FormTemplate => ({
   isActive: 1,
   printTemplate: "",
   printCss: "",
+  entryFor: "Student",
+  printTheme: "soft",
+  printOrientation: "Portrait",
+  printLogo: "",
+  printSchool: "",
+  printDepartment: "",
+  printMotto: "",
+  printSignatures: "",
+  printFooter: "",
   fields: [],
 });
 
@@ -81,10 +119,13 @@ export function FormDesigner({
   const confirm = useConfirm();
 
   const [draft, setDraft] = useState<FormTemplate>(template ?? blank(category));
-  const [tab, setTab] = useState<"fields" | "print" | "css">("fields");
+  const [tab, setTab] = useState<"fields" | "letterhead" | "print" | "css">("fields");
   const [help, setHelp] = useState(false);
   const [printHtml, setPrintHtml] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [blankPreview, setBlankPreview] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const logoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDraft(template ?? blank(category));
@@ -92,7 +133,10 @@ export function FormDesigner({
   }, [template, category]);
 
   const fieldTypes = meta.data?.fieldTypes ?? [];
+  const icons = meta.data?.icons ?? [];
+  const tones = meta.data?.tones ?? [];
   const typeLabel = (t: string) => fieldTypes.find((f) => f.value === t)?.label ?? t;
+  const design = printHtml || draft.printTemplate;
 
   function patch(index: number, change: Partial<FormField>) {
     setDraft((d) => ({
@@ -101,7 +145,23 @@ export function FormDesigner({
     }));
   }
 
+  function set<K extends keyof FormTemplate>(key: K, value: FormTemplate[K]) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
   function add(fieldtype: FormFieldType) {
+    const starter: Partial<Record<FormFieldType, string>> = {
+      Table: "العمود الأول\nالعمود الثاني",
+      "Student Table": "الوضع السلوكي: ممتاز|جيد جداً|جيد|يحتاج إلى متابعة\nملاحظات",
+      "Text Block": "اكتب هنا النص الثابت الذي يظهر في النموذج.",
+    };
+    const wide: FormFieldType[] = [
+      "Long Text",
+      "Table",
+      "Student Table",
+      "Text Block",
+      "Multi Select",
+    ];
     setDraft((d) => ({
       ...d,
       fields: [
@@ -110,11 +170,14 @@ export function FormDesigner({
           fieldname: "",
           label: fieldtype === "Section" ? "قسم جديد" : "حقل جديد",
           fieldtype,
-          options: fieldtype === "Table" ? "العمود الأول\nالعمود الثاني" : "",
+          options: starter[fieldtype] ?? "",
           default: "",
           reqd: 0,
-          width: fieldtype === "Long Text" || fieldtype === "Table" ? "full" : "half",
+          width: wide.includes(fieldtype) ? "full" : "half",
           description: "",
+          icon: "",
+          tone: "",
+          print_rows: 0,
         },
       ],
     }));
@@ -148,6 +211,12 @@ export function FormDesigner({
     setDraft((d) => ({ ...d, fields: d.fields.filter((_, i) => i !== index) }));
   }
 
+  /** The draft as the server takes it — for saving and for the preview. */
+  const payload = useMemo(
+    () => ({ ...draft, printTemplate: printHtml || draft.printTemplate, category }),
+    [draft, printHtml, category],
+  );
+
   function persist() {
     if (!draft.title.trim()) {
       toast.error("اكتب اسم النموذج");
@@ -157,38 +226,61 @@ export function FormDesigner({
       toast.error("أضف حقلاً واحداً على الأقل");
       return;
     }
-    save.mutate(
-      {
-        ...draft,
-        printTemplate: printHtml || draft.printTemplate,
-        printCss: draft.printCss ?? "",
-        category,
+    save.mutate(payload, {
+      onSuccess: (t) => {
+        toast.success("تم حفظ النموذج");
+        setDraft(t);
+        setPrintHtml("");
+        onSaved(t);
       },
+      onError: (e) => toast.error(errorMessage(e, "تعذّر حفظ النموذج")),
+    });
+  }
+
+  function runPreview(blankPage = blankPreview, then?: (html: string) => void) {
+    preview.mutate(
+      { ...(draft.name ? { template: draft.name } : {}), payload, blank: blankPage },
       {
-        onSuccess: (t) => {
-          toast.success("تم حفظ النموذج");
-          setDraft(t);
-          setPrintHtml("");
-          onSaved(t);
-        },
-        onError: (e) => toast.error(errorMessage(e, "تعذّر حفظ النموذج")),
+        onSuccess: (res) => then?.(res.html),
+        onError: (e) => toast.error(errorMessage(e, "تعذّر عرض المعاينة")),
       },
     );
   }
 
-  function runPreview() {
-    if (!draft.name) {
-      toast.error("احفظ النموذج أولاً لمعاينة الطباعة");
-      return;
+  // The print preview follows the draft while a print tab is open.
+  const previewRef = useRef(runPreview);
+  previewRef.current = runPreview;
+  useEffect(() => {
+    if (tab === "fields") return;
+    const t = setTimeout(() => previewRef.current(), 600);
+    return () => clearTimeout(t);
+  }, [payload, tab, blankPreview]);
+
+  function printBlank() {
+    runPreview(true, (html) => {
+      try {
+        openPrint(html, draft.title || "نموذج");
+      } catch (e) {
+        toast.error(errorMessage(e, "تعذّرت الطباعة"));
+      }
+    });
+  }
+
+  async function onLogo(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      set("printLogo", await uploadFormLogo(file));
+      toast.success("تم رفع الشعار");
+    } catch (e) {
+      toast.error(errorMessage(e, "تعذّر رفع الشعار"));
+    } finally {
+      setUploading(false);
+      if (logoInput.current) logoInput.current.value = "";
     }
-    preview.mutate(
-      { template: draft.name, html: printHtml || draft.printTemplate, css: draft.printCss ?? "" },
-      { onError: (e) => toast.error(errorMessage(e, "تعذّر عرض المعاينة")) },
-    );
   }
 
   const previewFields = useMemo(() => draft.fields, [draft.fields]);
-  const design = printHtml || draft.printTemplate;
 
   /** «تحويل الحقول إلى تصميم طباعة» — replaces the design, not the fields. */
   async function fieldsToDesign() {
@@ -208,12 +300,10 @@ export function FormDesigner({
       return;
     }
     toDesign.mutate(
-      { fields: draft.fields, category },
+      { fields: draft.fields, category, entryFor: draft.entryFor ?? "Student" },
       {
         onSuccess: (res) => {
           setPrintHtml(res.html);
-          // Keep a CSS the school already wrote; give a starting one otherwise.
-          if (!(draft.printCss ?? "").trim()) setDraft((d) => ({ ...d, printCss: res.css }));
           setTab("print");
           toast.success("تم إنشاء تصميم الطباعة من الحقول — راجعه ثم احفظ النموذج");
         },
@@ -225,7 +315,7 @@ export function FormDesigner({
   /** «تحويل التصميم إلى حقول» — replaces the fields with what the design places. */
   function designToFields() {
     if (!design.trim()) {
-      toast.error("اكتب تصميم الطباعة أولاً أو أدرج قالباً");
+      toast.error("اكتب تصميم الطباعة أولاً، أو حوّل الحقول إلى تصميم");
       return;
     }
     toFields.mutate(
@@ -266,11 +356,37 @@ export function FormDesigner({
     );
   }
 
+  const previewPane = (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[11px]">
+          <input
+            type="checkbox"
+            className="size-3.5 accent-[var(--primary)]"
+            checked={blankPreview}
+            onChange={(e) => setBlankPreview(e.target.checked)}
+          />
+          معاينة فارغة (كما تُطبع للتعبئة باليد)
+        </label>
+        {preview.isPending && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+        <button
+          onClick={printBlank}
+          disabled={preview.isPending}
+          className="ms-auto flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-secondary disabled:opacity-50"
+        >
+          <Printer className="size-3.5" />
+          طباعة نموذج فارغ
+        </button>
+      </div>
+      <PrintPreview html={preview.data?.html} />
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       <SectionCard
         title={draft.name ? "تعديل النموذج" : "نموذج جديد"}
-        description="الاسم والوصف، ثم الحقول، ثم تصميم الطباعة"
+        description="الاسم ولمن يُعبّأ، ثم الحقول، ثم الترويسة وتصميم الطباعة"
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -297,21 +413,42 @@ export function FormDesigner({
           </div>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="mb-1 text-[11px] text-muted-foreground">اسم النموذج</p>
             <Input
               value={draft.title}
-              onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-              placeholder="مثال: تقرير زيارة العيادة"
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="مثال: توثيق حصة إرشاد جمعي"
             />
           </div>
           <div>
             <p className="mb-1 text-[11px] text-muted-foreground">الوصف (اختياري)</p>
-            <Input
-              value={draft.description}
-              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-            />
+            <Input value={draft.description} onChange={(e) => set("description", e.target.value)} />
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] text-muted-foreground">يُعبّأ لـ</p>
+            <div className="flex gap-1">
+              {ENTRY_FOR.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  title={o.hint}
+                  onClick={() => set("entryFor", o.value)}
+                  className={cn(
+                    "h-9 flex-1 rounded-lg border text-xs font-medium transition-colors",
+                    (draft.entryFor ?? "Student") === o.value
+                      ? "border-primary bg-primary-soft/50 text-primary"
+                      : "border-border hover:bg-secondary",
+                  )}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {ENTRY_FOR.find((o) => o.value === (draft.entryFor ?? "Student"))?.hint}
+            </p>
           </div>
           <div>
             <p className="mb-1 text-[11px] text-muted-foreground">الحالة</p>
@@ -320,16 +457,17 @@ export function FormDesigner({
                 type="checkbox"
                 className="size-4 accent-[var(--primary)]"
                 checked={!!draft.isActive}
-                onChange={(e) => setDraft((d) => ({ ...d, isActive: e.target.checked ? 1 : 0 }))}
+                onChange={(e) => set("isActive", e.target.checked ? 1 : 0)}
               />
               {draft.isActive ? "مفعّل — يظهر عند التعبئة" : "معطّل — لا يظهر عند التعبئة"}
             </label>
           </div>
         </div>
 
-        <div className="mt-4 flex gap-1.5 border-b border-border">
+        <div className="mt-4 flex flex-wrap gap-1.5 border-b border-border">
           {[
             { key: "fields" as const, label: "الحقول", icon: LayoutList },
+            { key: "letterhead" as const, label: "الترويسة والطباعة", icon: Stamp },
             { key: "print" as const, label: "تصميم الطباعة", icon: Code2 },
             { key: "css" as const, label: "CSS", icon: Palette },
           ].map((t) => (
@@ -347,7 +485,7 @@ export function FormDesigner({
               {t.label}
             </button>
           ))}
-          <div className="ms-auto flex items-center gap-1.5 pb-1">
+          <div className="ms-auto flex flex-wrap items-center gap-1.5 pb-1">
             <button
               onClick={() => void fieldsToDesign()}
               disabled={toDesign.isPending}
@@ -369,43 +507,196 @@ export function FormDesigner({
           </div>
         </div>
 
-        {tab === "css" ? (
+        {tab === "letterhead" && (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">شكل الطباعة</p>
+                  <select
+                    value={draft.printTheme ?? "soft"}
+                    onChange={(e) => set("printTheme", e.target.value as "soft" | "classic")}
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+                  >
+                    <option value="soft">بطاقات ملوّنة بإطار وزخرفة</option>
+                    <option value="classic">بسيط بلا إطار</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">اتجاه الورقة</p>
+                  <select
+                    value={draft.printOrientation ?? "Portrait"}
+                    onChange={(e) =>
+                      set("printOrientation", e.target.value as "Portrait" | "Landscape")
+                    }
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+                  >
+                    <option value="Portrait">عمودي (A4)</option>
+                    <option value="Landscape">أفقي (A4)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">الشعار</p>
+                <div className="flex items-center gap-3 rounded-xl border border-border p-2">
+                  <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary/40">
+                    {draft.printLogo ? (
+                      <img
+                        src={fileUrl(draft.printLogo)}
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <FileImage className="size-6 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      ref={logoInput}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => void onLogo(e.target.files?.[0])}
+                    />
+                    <button
+                      type="button"
+                      disabled={uploading}
+                      onClick={() => logoInput.current?.click()}
+                      className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary disabled:opacity-50"
+                    >
+                      {uploading ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <FileImage className="size-3.5" />
+                      )}
+                      {draft.printLogo ? "تغيير الشعار" : "رفع شعار"}
+                    </button>
+                    {draft.printLogo && (
+                      <button
+                        type="button"
+                        onClick={() => set("printLogo", "")}
+                        className="flex items-center gap-1 rounded-lg border border-border px-2 py-1.5 text-xs hover:bg-secondary"
+                      >
+                        <X className="size-3.5" />
+                        إزالة
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  بلا شعار يُستخدم شعار المدرسة إن وُجد. يُفضَّل PNG بخلفية شفافة.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">اسم المدرسة</p>
+                  <Input
+                    value={draft.printSchool ?? ""}
+                    onChange={(e) => set("printSchool", e.target.value)}
+                    placeholder="فارغ = اسم المدرسة من النظام"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">القسم</p>
+                  <Input
+                    value={draft.printDepartment ?? ""}
+                    onChange={(e) => set("printDepartment", e.target.value)}
+                    placeholder="مثال: قسم الإرشاد التربوي"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">
+                    عبارة جانبية (سطر لكل سطر)
+                  </p>
+                  <Textarea
+                    rows={3}
+                    value={draft.printMotto ?? ""}
+                    onChange={(e) => set("printMotto", e.target.value)}
+                    placeholder={"معاً ..\nنُسهم في بناء\nجيل واعٍ وقادر ♡"}
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">التواقيع (سطر لكل توقيع)</p>
+                  <Textarea
+                    rows={3}
+                    value={draft.printSignatures ?? ""}
+                    onChange={(e) => set("printSignatures", e.target.value)}
+                    placeholder={"اسم المرشد/ة\nالتوقيع"}
+                  />
+                </div>
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] text-muted-foreground">تذييل الصفحة</p>
+                <Input
+                  value={draft.printFooter ?? ""}
+                  onChange={(e) => set("printFooter", e.target.value)}
+                  placeholder="مثال: لأن كل طالب يستحق أن يُسمع .. ويُساند .. ويُدعم"
+                />
+              </div>
+              <p className="rounded-lg bg-secondary/40 p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                ألوان البطاقات وأيقوناتها وعدد أسطر الكتابة تُضبط لكل حقل من تبويب «الحقول». إن كان
+                تصميم الطباعة فارغاً يُبنى تلقائياً من الحقول بهذه الإعدادات.
+              </p>
+            </div>
+            {previewPane}
+          </div>
+        )}
+
+        {tab === "css" && (
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div>
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={runPreview}
-                  disabled={preview.isPending}
-                  className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-soft/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-50"
-                >
-                  <Eye className="size-3.5" />
-                  معاينة الطباعة
-                </button>
-                <span className="text-[11px] text-muted-foreground">
-                  يُطبَّق بعد التنسيق الأساسي، فيمكنه تغيير أي شيء فيه.
-                </span>
-              </div>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                يُطبَّق بعد التنسيق الأساسي، فيمكنه تغيير أي شيء فيه. المعاينة تتحدّث تلقائياً.
+              </p>
               <Textarea
                 dir="ltr"
-                rows={18}
+                rows={20}
                 className="font-mono text-[11px]"
                 value={draft.printCss ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, printCss: e.target.value }))}
+                onChange={(e) => set("printCss", e.target.value)}
                 placeholder={
-                  ".ms-form h1 { color: #16A34A; }\n.ms-form table.fields th { width: 35%; }"
+                  ".ms-card { border-radius: 6px; }\n.ms-card-head { font-size: 15px; }\n.lh-title { background: #dcfce7; }"
                 }
               />
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                اكتب CSS فقط، بدون وسم <code dir="ltr">&lt;style&gt;</code>. الأصناف الجاهزة:{" "}
-                <code dir="ltr">.ms-form</code>، <code dir="ltr">.ms-head</code>،{" "}
-                <code dir="ltr">table.info</code>، <code dir="ltr">table.fields</code>،{" "}
-                <code dir="ltr">h2.section</code>، <code dir="ltr">table.grid</code>،{" "}
-                <code dir="ltr">.signatures</code>.
+                اكتب CSS فقط، بدون وسم <code dir="ltr">&lt;style&gt;</code>. الأصناف المتاحة في
+                «مساعدة».
               </p>
             </div>
-            <PrintPreview html={preview.data?.html} />
+            {previewPane}
           </div>
-        ) : tab === "fields" ? (
+        )}
+
+        {tab === "print" && (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                اتركه فارغاً ليُبنى تلقائياً من الحقول، أو اضغط «تحويل الحقول إلى تصميم طباعة» ثم
+                عدّل عليه. المعاينة تتحدّث تلقائياً.
+              </p>
+              <Textarea
+                dir="ltr"
+                rows={20}
+                className="font-mono text-[11px]"
+                value={design}
+                onChange={(e) => setPrintHtml(e.target.value)}
+                placeholder={'{{ letterhead() }}\n{{ box("موضوع الحصة", "Long Text") }}'}
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                بطاقة لحقل:{" "}
+                <code dir="ltr">{'{{ box("اسم الحقل", "النوع", "خيار1|خيار2") }}'}</code> · سطر:{" "}
+                <code dir="ltr">{'{{ inline("اسم الحقل") }}'}</code> · التفاصيل في «مساعدة».
+              </p>
+            </div>
+            {previewPane}
+          </div>
+        )}
+
+        {tab === "fields" && (
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {/* The design ------------------------------------------------ */}
             <div className="space-y-2">
@@ -428,7 +719,7 @@ export function FormDesigner({
 
               {draft.fields.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                  أضف حقولاً من الأزرار أعلاه — ابدأ بـ«قسم» ثم الحقول التي تحته.
+                  أضف حقولاً من الأزرار أعلاه — لكل حقل بطاقة في الطباعة بلونها وأيقونتها.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -495,36 +786,105 @@ export function FormDesigner({
                               ))}
                             </select>
                           </label>
-                          <label className="flex items-center gap-2 text-[11px]">
-                            <input
-                              type="checkbox"
-                              className="size-3.5 accent-[var(--primary)]"
-                              checked={!!f.reqd}
-                              onChange={(e) => patch(i, { reqd: e.target.checked ? 1 : 0 })}
-                            />
-                            حقل مطلوب
-                          </label>
+                          {f.fieldtype !== "Text Block" && (
+                            <label className="flex items-center gap-2 text-[11px]">
+                              <input
+                                type="checkbox"
+                                className="size-3.5 accent-[var(--primary)]"
+                                checked={!!f.reqd}
+                                onChange={(e) => patch(i, { reqd: e.target.checked ? 1 : 0 })}
+                              />
+                              حقل مطلوب
+                            </label>
+                          )}
                           {NEEDS_OPTIONS.includes(f.fieldtype) && (
                             <label className="text-[11px] sm:col-span-2">
-                              {f.fieldtype === "Table"
-                                ? "الأعمدة (سطر لكل عمود)"
-                                : "الخيارات (سطر لكل خيار)"}
+                              {OPTIONS_LABEL[f.fieldtype] ??
+                                "الخيارات (سطر لكل خيار — خيار ينتهي بـ «:» يترك سطراً للكتابة)"}
                               <Textarea
-                                rows={2}
+                                rows={f.fieldtype === "Student Table" ? 3 : 2}
                                 className="mt-1"
                                 value={f.options}
                                 onChange={(e) => patch(i, { options: e.target.value })}
                               />
                             </label>
                           )}
-                          <label className="text-[11px] sm:col-span-2">
-                            توضيح للمعبّئ (اختياري)
-                            <Input
-                              className="mt-1 h-8"
-                              value={f.description}
-                              onChange={(e) => patch(i, { description: e.target.value })}
-                            />
-                          </label>
+                          {f.fieldtype !== "Text Block" && (
+                            <label className="text-[11px] sm:col-span-2">
+                              توضيح للمعبّئ (اختياري)
+                              <Input
+                                className="mt-1 h-8"
+                                value={f.description}
+                                onChange={(e) => patch(i, { description: e.target.value })}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      )}
+
+                      {/* How it prints */}
+                      {f.fieldtype !== "Heading" && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-secondary/30 px-2 py-1.5 text-[11px]">
+                          <span className="text-muted-foreground">الطباعة:</span>
+                          <select
+                            value={f.icon ?? ""}
+                            onChange={(e) => patch(i, { icon: e.target.value })}
+                            className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+                            title="أيقونة البطاقة"
+                          >
+                            <option value="">أيقونة تلقائية</option>
+                            {icons.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                          {f.fieldtype !== "Section" && (
+                            <div className="flex items-center gap-1" title="لون البطاقة">
+                              <button
+                                type="button"
+                                onClick={() => patch(i, { tone: "" })}
+                                className={cn(
+                                  "h-5 rounded-full border px-1.5 text-[10px]",
+                                  !f.tone ? "border-primary text-primary" : "border-border",
+                                )}
+                              >
+                                تلقائي
+                              </button>
+                              {tones.map((t) => (
+                                <button
+                                  key={t.value}
+                                  type="button"
+                                  title={t.label}
+                                  onClick={() => patch(i, { tone: t.value })}
+                                  className={cn(
+                                    "size-5 rounded-full border-2",
+                                    f.tone === t.value ? "ring-2 ring-primary/60" : "",
+                                  )}
+                                  style={{ background: t.background, borderColor: t.color }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {HAS_LINES.includes(f.fieldtype) && (
+                            <label className="flex items-center gap-1">
+                              {f.fieldtype === "Table" || f.fieldtype === "Student Table"
+                                ? "صفوف فارغة"
+                                : "أسطر الكتابة"}
+                              <Input
+                                type="number"
+                                min={0}
+                                max={40}
+                                dir="ltr"
+                                className="h-7 w-14 text-xs"
+                                value={f.print_rows || ""}
+                                placeholder="تلقائي"
+                                onChange={(e) =>
+                                  patch(i, { print_rows: Number(e.target.value) || 0 })
+                                }
+                              />
+                            </label>
+                          )}
                         </div>
                       )}
                     </div>
@@ -543,50 +903,9 @@ export function FormDesigner({
                 fields={previewFields}
                 values={values}
                 onChange={(k, v) => setValues((s) => ({ ...s, [k]: v }))}
+                students={SAMPLE_STUDENTS}
               />
             </div>
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div>
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <button
-                  onClick={runPreview}
-                  disabled={preview.isPending}
-                  className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-soft/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-50"
-                >
-                  <Eye className="size-3.5" />
-                  معاينة الطباعة
-                </button>
-                <button
-                  onClick={() => {
-                    setPrintHtml(DEFAULT_PRINT);
-                    toast.success("أُدرج القالب الافتراضي — عدّله كما تشاء");
-                  }}
-                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
-                >
-                  <Copy className="size-3.5" />
-                  إدراج القالب الافتراضي
-                </button>
-                <span className="text-[11px] text-muted-foreground">
-                  اتركه فارغاً لاستخدام التصميم الافتراضي تلقائياً.
-                </span>
-              </div>
-              <Textarea
-                dir="ltr"
-                rows={18}
-                className="font-mono text-[11px]"
-                value={printHtml || draft.printTemplate}
-                onChange={(e) => setPrintHtml(e.target.value)}
-                placeholder='HTML + Jinja — مثال: {{ field("الوزن", "Number") }}'
-              />
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                ضع كل حقل هكذا:{" "}
-                <code dir="ltr">{'{{ field("اسم الحقل", "النوع", "خيار1|خيار2") }}'}</code> وكل قسم:{" "}
-                <code dir="ltr">{'{{ section("اسم القسم") }}'}</code>. التفاصيل في «مساعدة».
-              </p>
-            </div>
-            <PrintPreview html={preview.data?.html} />
           </div>
         )}
       </SectionCard>
@@ -595,19 +914,22 @@ export function FormDesigner({
   );
 }
 
+const SAMPLE_STUDENTS: SectionStudent[] = [
+  { id: "sample-1", name: "طالب تجريبي ١" },
+  { id: "sample-2", name: "طالب تجريبي ٢" },
+];
+
 function PrintPreview({ html }: { html?: string | undefined }) {
   return (
-    <div className="rounded-xl border border-border bg-white">
+    <div className="overflow-hidden rounded-xl border border-border bg-white">
       {html ? (
         <iframe
           title="معاينة"
-          className="h-[28rem] w-full rounded-xl"
-          srcDoc={`<!doctype html><html dir="rtl"><head><meta charset="utf-8"></head><body>${html}</body></html>`}
+          className="h-[40rem] w-full"
+          srcDoc={`<!doctype html><html dir="rtl"><head><meta charset="utf-8"><style>body{padding:12px;background:#fff}</style></head><body>${html}</body></html>`}
         />
       ) : (
-        <p className="p-6 text-center text-sm text-muted-foreground">
-          اضغط «معاينة الطباعة» لعرض الشكل النهائي هنا.
-        </p>
+        <p className="p-6 text-center text-sm text-muted-foreground">جارِ تجهيز المعاينة…</p>
       )}
     </div>
   );
@@ -619,11 +941,14 @@ export function FormBody({
   values,
   onChange,
   readOnly,
+  students,
 }: {
   fields: FormField[];
   values: Record<string, string>;
   onChange: (fieldname: string, value: string) => void;
   readOnly?: boolean;
+  /** The section's pupils, for a «جدول طلاب». */
+  students?: SectionStudent[] | undefined;
 }) {
   if (!fields.length) {
     return <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حقول بعد.</p>;
@@ -669,6 +994,7 @@ export function FormBody({
                   field={f}
                   value={values[f.fieldname] ?? f.default ?? ""}
                   onChange={(v) => onChange(f.fieldname, v)}
+                  students={students}
                   {...(readOnly ? { readOnly: true } : {})}
                 />
                 {f.description && !readOnly && (
@@ -682,22 +1008,3 @@ export function FormBody({
     </div>
   );
 }
-
-const DEFAULT_PRINT = `<div class="ms-form">
-  <h1>{{ template.title }}</h1>
-  <table class="head">
-    <tr><td><b>الطالب:</b> {{ entry.student_name }}</td><td><b>الشعبة:</b> {{ entry.student_group or "—" }}</td></tr>
-    <tr><td><b>التاريخ:</b> {{ filled_on }}</td><td><b>عبّأه:</b> {{ entry.filled_by }}</td></tr>
-  </table>
-  {% for field in fields %}
-    {% if field.fieldtype in ("Section", "Heading") %}
-      <h2>{{ field.label }}</h2>
-    {% else %}
-      <div class="row"><span class="label">{{ field.label }}:</span>
-        <span class="value">{{ values.get(field.fieldname) or "—" }}</span></div>
-    {% endif %}
-  {% endfor %}
-  {% if entry.notes %}<h2>ملاحظات</h2><p>{{ entry.notes }}</p>{% endif %}
-</div>`;
-
-export { DEFAULT_PRINT };

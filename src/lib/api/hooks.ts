@@ -7841,7 +7841,14 @@ export type FormFieldType =
   | "Checkbox"
   | "Rating"
   | "Table"
-  | "Attach";
+  | "Attach"
+  /** Rows are a section's students; columns come from the options. */
+  | "Student Table"
+  /** Fixed text, printed as written — a key, an instruction. */
+  | "Text Block";
+
+/** Who one filled copy of a form is about. */
+export type FormEntryFor = "Student" | "Section" | "General";
 
 export interface FormField {
   fieldname: string;
@@ -7852,6 +7859,10 @@ export interface FormField {
   reqd: number;
   width: "half" | "full" | "third";
   description: string;
+  /** Print: the card's icon and colour, and lines left to write on. */
+  icon?: string;
+  tone?: string;
+  print_rows?: number;
   idx?: number;
 }
 
@@ -7867,6 +7878,15 @@ export interface FormTemplate {
   printCss?: string;
   /** How many students the form applies to. */
   subjectsCount?: number;
+  entryFor?: FormEntryFor;
+  printTheme?: "soft" | "classic";
+  printOrientation?: "Portrait" | "Landscape";
+  printLogo?: string;
+  printSchool?: string;
+  printDepartment?: string;
+  printMotto?: string;
+  printSignatures?: string;
+  printFooter?: string;
   fields: FormField[];
 }
 
@@ -7879,6 +7899,7 @@ export interface FormTemplateRow {
   entries: number;
   /** Students the form applies to. */
   subjects?: number;
+  entryFor?: FormEntryFor;
   modified: string;
 }
 
@@ -7890,6 +7911,7 @@ export interface FormEntryRow {
   student: string;
   studentName: string;
   studentGroup: string | null;
+  studentGroupLabel?: string;
   status: string;
   filledBy: string;
   filledOn: string;
@@ -7911,6 +7933,9 @@ export function useFormCategories() {
       teachersMayDesign?: boolean;
     }>;
     fieldTypes: Array<{ value: FormFieldType; label: string }>;
+    icons?: Array<{ value: string; label: string }>;
+    tones?: Array<{ value: string; label: string; color: string; background: string }>;
+    entryFor?: Array<{ value: FormEntryFor; label: string }>;
   }>({
     queryKey: ["form-categories"],
     queryFn: () => apiGet("forms.categories"),
@@ -7973,7 +7998,7 @@ export function useDuplicateFormTemplate() {
   });
 }
 
-export function useFormStudents(search: string, template?: string) {
+export function useFormStudents(search: string, template?: string, group?: string, enabled = true) {
   return useQuery<{
     students: Array<{
       id: string;
@@ -7984,11 +8009,17 @@ export function useFormStudents(search: string, template?: string) {
     }>;
     subjectsCount?: number;
   }>({
-    // With a form: only the students it applies to.
-    queryKey: ["form-students", search, template ?? ""],
+    // With a form: only the students it applies to. With a section: its pupils.
+    queryKey: ["form-students", search, template ?? "", group ?? ""],
     queryFn: () =>
-      apiGet("forms.students", { search, limit: 200, ...(template ? { template } : {}) }),
+      apiGet("forms.students", {
+        search,
+        limit: 200,
+        ...(template ? { template } : {}),
+        ...(group ? { group } : {}),
+      }),
     staleTime: 60_000,
+    enabled,
   });
 }
 
@@ -8031,14 +8062,7 @@ export function useDeleteFormEntry() {
 /** The filled form as printable HTML, opened in a print window. */
 export async function printFormEntry(entry: string): Promise<void> {
   const res = await apiGet<{ html: string; title: string }>("forms.print_entry", { entry });
-  const win = window.open("", "_blank", "width=900,height=1000");
-  if (!win) throw new Error("نافذة الطباعة محجوبة — اسمح بالنوافذ المنبثقة");
-  win.document.write(
-    `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${res.title}</title></head><body>${res.html}</body></html>`,
-  );
-  win.document.close();
-  win.focus();
-  setTimeout(() => win.print(), 350);
+  printHtml(res.html, res.title);
 }
 
 /** The students a form applies to. */
@@ -8089,10 +8113,11 @@ export function useSetFormSubjects() {
 /** «تحويل الحقول إلى تصميم طباعة». */
 export function useDesignFromFields() {
   return useMutation({
-    mutationFn: (vars: { fields: FormField[]; category: string }) =>
+    mutationFn: (vars: { fields: FormField[]; category: string; entryFor?: FormEntryFor }) =>
       apiPost<{ html: string; css: string }>("forms.design_from_fields", {
         fields: JSON.stringify(vars.fields),
         category: vars.category,
+        entry_for: vars.entryFor ?? "Student",
       }),
   });
 }
@@ -8117,9 +8142,40 @@ export function useFieldsFromDesign() {
 
 export function usePreviewFormPrint() {
   return useMutation({
-    mutationFn: (vars: { template: string; html: string; css?: string }) =>
-      apiPost<{ html: string }>("forms.preview_print", vars as unknown as Record<string, unknown>),
+    // The whole draft goes along, so the preview follows unsaved changes.
+    mutationFn: (vars: { template?: string; payload: Record<string, unknown>; blank?: boolean }) =>
+      apiPost<{ html: string; blank: boolean }>("forms.preview_print", {
+        ...(vars.template ? { template: vars.template } : {}),
+        payload: JSON.stringify(vars.payload),
+        blank: vars.blank ? 1 : 0,
+      }),
   });
+}
+
+/** Open printable HTML in a window and print it once its fonts are in. */
+export function printHtml(html: string, title: string): void {
+  const win = window.open("", "_blank", "width=900,height=1000");
+  if (!win) throw new Error("نافذة الطباعة محجوبة — اسمح بالنوافذ المنبثقة");
+  win.document.write(
+    `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title></head><body>${html}</body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  const go = () => setTimeout(() => win.print(), 150);
+  if (win.document.fonts?.ready) void win.document.fonts.ready.then(go);
+  else setTimeout(go, 400);
+}
+
+/** The form with no answers, to print and fill by hand. */
+export async function printBlankForm(template: string): Promise<void> {
+  const res = await apiGet<{ html: string; title: string }>("forms.print_blank", { template });
+  printHtml(res.html, res.title);
+}
+
+/** A logo for a form's letterhead; returns its URL. */
+export async function uploadFormLogo(file: File): Promise<string> {
+  const res = await apiUpload<{ url: string }>("forms.upload_logo", file);
+  return res.url;
 }
 
 /* -------------------------------------------------------------------------
