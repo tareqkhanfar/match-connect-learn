@@ -8,8 +8,11 @@ import {
   Copy,
   Eye,
   Heading1,
+  HelpCircle,
   LayoutList,
+  Palette,
   Plus,
+  Repeat,
   Save,
   Trash2,
 } from "lucide-react";
@@ -18,7 +21,10 @@ import { useConfirm } from "@/components/shared/confirm";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/api/error-message";
+import { FormDesignHelp } from "@/components/forms/form-design-help";
 import {
+  useDesignFromFields,
+  useFieldsFromDesign,
   useFormCategories,
   usePreviewFormPrint,
   useSaveFormTemplate,
@@ -45,6 +51,7 @@ const blank = (category: string): FormTemplate => ({
   description: "",
   isActive: 1,
   printTemplate: "",
+  printCss: "",
   fields: [],
 });
 
@@ -69,10 +76,13 @@ export function FormDesigner({
   const meta = useFormCategories();
   const save = useSaveFormTemplate();
   const preview = usePreviewFormPrint();
+  const toDesign = useDesignFromFields();
+  const toFields = useFieldsFromDesign();
   const confirm = useConfirm();
 
   const [draft, setDraft] = useState<FormTemplate>(template ?? blank(category));
-  const [tab, setTab] = useState<"fields" | "print">("fields");
+  const [tab, setTab] = useState<"fields" | "print" | "css">("fields");
+  const [help, setHelp] = useState(false);
   const [printHtml, setPrintHtml] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
 
@@ -148,7 +158,12 @@ export function FormDesigner({
       return;
     }
     save.mutate(
-      { ...draft, printTemplate: printHtml || draft.printTemplate, category },
+      {
+        ...draft,
+        printTemplate: printHtml || draft.printTemplate,
+        printCss: draft.printCss ?? "",
+        category,
+      },
       {
         onSuccess: (t) => {
           toast.success("تم حفظ النموذج");
@@ -167,12 +182,89 @@ export function FormDesigner({
       return;
     }
     preview.mutate(
-      { template: draft.name, html: printHtml || draft.printTemplate },
+      { template: draft.name, html: printHtml || draft.printTemplate, css: draft.printCss ?? "" },
       { onError: (e) => toast.error(errorMessage(e, "تعذّر عرض المعاينة")) },
     );
   }
 
   const previewFields = useMemo(() => draft.fields, [draft.fields]);
+  const design = printHtml || draft.printTemplate;
+
+  /** «تحويل الحقول إلى تصميم طباعة» — replaces the design, not the fields. */
+  async function fieldsToDesign() {
+    if (!draft.fields.length) {
+      toast.error("أضف حقولاً أولاً");
+      return;
+    }
+    if (
+      design.trim() &&
+      !(await confirm({
+        title: "تحويل الحقول إلى تصميم طباعة",
+        description:
+          "سيُستبدل تصميم الطباعة الحالي بتصميم جديد مولَّد من الحقول. التغيير لا يُحفظ حتى تضغط «حفظ النموذج».",
+        confirmLabel: "تحويل",
+      }))
+    ) {
+      return;
+    }
+    toDesign.mutate(
+      { fields: draft.fields },
+      {
+        onSuccess: (res) => {
+          setPrintHtml(res.html);
+          // Keep a CSS the school already wrote; give a starting one otherwise.
+          if (!(draft.printCss ?? "").trim()) setDraft((d) => ({ ...d, printCss: res.css }));
+          setTab("print");
+          toast.success("تم إنشاء تصميم الطباعة من الحقول — راجعه ثم احفظ النموذج");
+        },
+        onError: (e) => toast.error(errorMessage(e, "تعذّر التحويل")),
+      },
+    );
+  }
+
+  /** «تحويل التصميم إلى حقول» — replaces the fields with what the design places. */
+  function designToFields() {
+    if (!design.trim()) {
+      toast.error("اكتب تصميم الطباعة أولاً أو أدرج قالباً");
+      return;
+    }
+    toFields.mutate(
+      { html: design, fields: draft.fields },
+      {
+        onSuccess: async (res) => {
+          const lines = [
+            `سيصبح في النموذج ${res.fields.length} عنصراً (حقول وأقسام):`,
+            `• ${res.kept} موجود مسبقاً ويحتفظ بإجاباته`,
+            `• ${res.added} جديد`,
+          ];
+          if (res.dropped.length)
+            lines.push(
+              `• سيُزال ${res.dropped.length} غير موجود في التصميم: ${res.dropped.join("، ")} (إجاباته السابقة تبقى محفوظة)`,
+            );
+          if (res.unknownTypes.length)
+            lines.push(`• أنواع غير معروفة عوملت كنص قصير: ${res.unknownTypes.join("، ")}`);
+          const ok = await confirm({
+            title: "تحويل التصميم إلى حقول",
+            description: (
+              <span className="block space-y-1">
+                {lines.map((l) => (
+                  <span key={l} className="block">
+                    {l}
+                  </span>
+                ))}
+              </span>
+            ),
+            confirmLabel: "تطبيق",
+          });
+          if (!ok) return;
+          setDraft((d) => ({ ...d, fields: res.fields }));
+          setTab("fields");
+          toast.success("تم تحديث الحقول من التصميم — راجعها ثم احفظ النموذج");
+        },
+        onError: (e) => toast.error(errorMessage(e, "تعذّر التحويل")),
+      },
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -181,6 +273,13 @@ export function FormDesigner({
         description="الاسم والوصف، ثم الحقول، ثم تصميم الطباعة"
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setHelp(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+            >
+              <HelpCircle className="size-3.5" />
+              مساعدة
+            </button>
             <button
               onClick={onCancel}
               className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
@@ -232,6 +331,7 @@ export function FormDesigner({
           {[
             { key: "fields" as const, label: "الحقول", icon: LayoutList },
             { key: "print" as const, label: "تصميم الطباعة", icon: Code2 },
+            { key: "css" as const, label: "CSS", icon: Palette },
           ].map((t) => (
             <button
               key={t.key}
@@ -247,9 +347,65 @@ export function FormDesigner({
               {t.label}
             </button>
           ))}
+          <div className="ms-auto flex items-center gap-1.5 pb-1">
+            <button
+              onClick={() => void fieldsToDesign()}
+              disabled={toDesign.isPending}
+              className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary-soft/40 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary-soft disabled:opacity-50"
+              title="ينشئ تصميم طباعة جاهزاً من الحقول الحالية"
+            >
+              <Repeat className="size-3" />
+              تحويل الحقول إلى تصميم طباعة
+            </button>
+            <button
+              onClick={designToFields}
+              disabled={toFields.isPending}
+              className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-secondary disabled:opacity-50"
+              title="يقرأ الحقول من تصميم الطباعة ويحدّث قائمة الحقول"
+            >
+              <Repeat className="size-3" />
+              تحويل التصميم إلى حقول
+            </button>
+          </div>
         </div>
 
-        {tab === "fields" ? (
+        {tab === "css" ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={runPreview}
+                  disabled={preview.isPending}
+                  className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary-soft/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-50"
+                >
+                  <Eye className="size-3.5" />
+                  معاينة الطباعة
+                </button>
+                <span className="text-[11px] text-muted-foreground">
+                  يُطبَّق بعد التنسيق الأساسي، فيمكنه تغيير أي شيء فيه.
+                </span>
+              </div>
+              <Textarea
+                dir="ltr"
+                rows={18}
+                className="font-mono text-[11px]"
+                value={draft.printCss ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, printCss: e.target.value }))}
+                placeholder={
+                  ".ms-form h1 { color: #16A34A; }\n.ms-form table.fields th { width: 35%; }"
+                }
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                اكتب CSS فقط، بدون وسم <code dir="ltr">&lt;style&gt;</code>. الأصناف الجاهزة:{" "}
+                <code dir="ltr">.ms-form</code>، <code dir="ltr">.ms-head</code>،{" "}
+                <code dir="ltr">table.info</code>، <code dir="ltr">table.fields</code>،{" "}
+                <code dir="ltr">h2.section</code>، <code dir="ltr">table.grid</code>،{" "}
+                <code dir="ltr">.signatures</code>.
+              </p>
+            </div>
+            <PrintPreview html={preview.data?.html} />
+          </div>
+        ) : tab === "fields" ? (
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {/* The design ------------------------------------------------ */}
             <div className="space-y-2">
@@ -422,30 +578,37 @@ export function FormDesigner({
                 className="font-mono text-[11px]"
                 value={printHtml || draft.printTemplate}
                 onChange={(e) => setPrintHtml(e.target.value)}
-                placeholder="HTML + Jinja — المتغيرات: entry, template, fields, values, school"
+                placeholder='HTML + Jinja — مثال: {{ field("الوزن", "Number") }}'
               />
               <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                المتغيرات المتاحة: <code dir="ltr">entry</code> (النموذج المعبّأ)،{" "}
-                <code dir="ltr">template</code>، <code dir="ltr">fields</code> (قائمة الحقول)،{" "}
-                <code dir="ltr">values</code> (القيم بالمعرّف)، <code dir="ltr">school</code>.
+                ضع كل حقل هكذا:{" "}
+                <code dir="ltr">{'{{ field("اسم الحقل", "النوع", "خيار1|خيار2") }}'}</code> وكل قسم:{" "}
+                <code dir="ltr">{'{{ section("اسم القسم") }}'}</code>. التفاصيل في «مساعدة».
               </p>
             </div>
-            <div className="rounded-xl border border-border bg-white">
-              {preview.data?.html ? (
-                <iframe
-                  title="معاينة"
-                  className="h-[28rem] w-full rounded-xl"
-                  srcDoc={`<!doctype html><html dir="rtl"><head><meta charset="utf-8"></head><body>${preview.data.html}</body></html>`}
-                />
-              ) : (
-                <p className="p-6 text-center text-sm text-muted-foreground">
-                  اضغط «معاينة الطباعة» لعرض الشكل النهائي هنا.
-                </p>
-              )}
-            </div>
+            <PrintPreview html={preview.data?.html} />
           </div>
         )}
       </SectionCard>
+      <FormDesignHelp open={help} onOpenChange={setHelp} />
+    </div>
+  );
+}
+
+function PrintPreview({ html }: { html?: string | undefined }) {
+  return (
+    <div className="rounded-xl border border-border bg-white">
+      {html ? (
+        <iframe
+          title="معاينة"
+          className="h-[28rem] w-full rounded-xl"
+          srcDoc={`<!doctype html><html dir="rtl"><head><meta charset="utf-8"></head><body>${html}</body></html>`}
+        />
+      ) : (
+        <p className="p-6 text-center text-sm text-muted-foreground">
+          اضغط «معاينة الطباعة» لعرض الشكل النهائي هنا.
+        </p>
+      )}
     </div>
   );
 }

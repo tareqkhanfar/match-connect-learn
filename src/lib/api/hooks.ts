@@ -7863,6 +7863,10 @@ export interface FormTemplate {
   description: string;
   isActive: number;
   printTemplate: string;
+  /** The form's own print CSS, applied after the base style. */
+  printCss?: string;
+  /** How many students the form applies to. */
+  subjectsCount?: number;
   fields: FormField[];
 }
 
@@ -7873,6 +7877,8 @@ export interface FormTemplateRow {
   isActive: number;
   fields: number;
   entries: number;
+  /** Students the form applies to. */
+  subjects?: number;
   modified: string;
 }
 
@@ -7959,7 +7965,7 @@ export function useDuplicateFormTemplate() {
   });
 }
 
-export function useFormStudents(search: string) {
+export function useFormStudents(search: string, template?: string) {
   return useQuery<{
     students: Array<{
       id: string;
@@ -7968,9 +7974,12 @@ export function useFormStudents(search: string) {
       group: string | null;
       groupLabel: string;
     }>;
+    subjectsCount?: number;
   }>({
-    queryKey: ["form-students", search],
-    queryFn: () => apiGet("forms.students", { search, limit: 60 }),
+    // With a form: only the students it applies to.
+    queryKey: ["form-students", search, template ?? ""],
+    queryFn: () =>
+      apiGet("forms.students", { search, limit: 200, ...(template ? { template } : {}) }),
     staleTime: 60_000,
   });
 }
@@ -8024,9 +8033,78 @@ export async function printFormEntry(entry: string): Promise<void> {
   setTimeout(() => win.print(), 350);
 }
 
+/** The students a form applies to. */
+export function useFormSubjects(template?: string) {
+  return useQuery<{
+    template: string;
+    students: Array<{
+      id: string;
+      name: string;
+      group: string | null;
+      groupLabel: string;
+      addedOn: string;
+      entries: number;
+    }>;
+  }>({
+    queryKey: ["form-subjects", template],
+    queryFn: () => apiGet("forms.template_subjects", { template }),
+    enabled: Boolean(template),
+  });
+}
+
+export function useSetFormSubjects() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      template: string;
+      add?: string[];
+      remove?: string[];
+      add_group?: string;
+    }) =>
+      apiPost<{ added: number; removed: number; total: number; message_ar?: string }>(
+        "forms.set_template_subjects",
+        {
+          template: vars.template,
+          ...(vars.add ? { add: JSON.stringify(vars.add) } : {}),
+          ...(vars.remove ? { remove: JSON.stringify(vars.remove) } : {}),
+          ...(vars.add_group ? { add_group: vars.add_group } : {}),
+        },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["form-subjects"] });
+      void qc.invalidateQueries({ queryKey: ["form-students"] });
+      void qc.invalidateQueries({ queryKey: ["form-templates"] });
+    },
+  });
+}
+
+/** «تحويل الحقول إلى تصميم طباعة». */
+export function useDesignFromFields() {
+  return useMutation({
+    mutationFn: (vars: { fields: FormField[] }) =>
+      apiPost<{ html: string; css: string }>("forms.design_from_fields", {
+        fields: JSON.stringify(vars.fields),
+      }),
+  });
+}
+
+/** «تحويل التصميم إلى حقول». */
+export function useFieldsFromDesign() {
+  return useMutation({
+    mutationFn: (vars: { html: string; fields: FormField[] }) =>
+      apiPost<{
+        fields: FormField[];
+        kept: number;
+        added: number;
+        dropped: string[];
+        unknownTypes: string[];
+      }>("forms.fields_from_design", { html: vars.html, fields: JSON.stringify(vars.fields) }),
+  });
+}
+
 export function usePreviewFormPrint() {
   return useMutation({
-    mutationFn: (vars: { template: string; html: string }) =>
+    mutationFn: (vars: { template: string; html: string; css?: string }) =>
       apiPost<{ html: string }>("forms.preview_print", vars as unknown as Record<string, unknown>),
   });
 }

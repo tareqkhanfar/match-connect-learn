@@ -13,6 +13,7 @@ import {
   Settings2,
   Trash2,
   UserRound,
+  Users,
 } from "lucide-react";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/states";
@@ -23,6 +24,7 @@ import { useApp } from "@/lib/app-context";
 import { isBackOffice } from "@/lib/roles";
 import { errorMessage } from "@/lib/api/error-message";
 import { FormBody, FormDesigner } from "@/components/forms/form-designer";
+import { FormSubjects } from "@/components/forms/form-subjects";
 import {
   printFormEntry,
   useDeleteFormEntry,
@@ -77,8 +79,8 @@ function FormsPage() {
   const backOffice = isBackOffice(role);
   const confirm = useConfirm();
 
-  const [tab, setTab] = useState<"fill" | "records" | "manage">("fill");
-  const templates = useFormTemplates(category, tab === "manage");
+  const [tab, setTab] = useState<"fill" | "records" | "subjects" | "manage">("fill");
+  const templates = useFormTemplates(category, tab === "manage" || tab === "subjects");
 
   // Filling
   const [templateName, setTemplateName] = useState("");
@@ -91,7 +93,8 @@ function FormsPage() {
   const [entryName, setEntryName] = useState("");
 
   const template = useFormTemplate(templateName || undefined);
-  const studentList = useFormStudents(search);
+  // Only the students the chosen form applies to.
+  const studentList = useFormStudents(search, templateName || undefined);
   const entries = useFormEntries({ category });
   const saveEntry = useSaveFormEntry();
   const deleteEntry = useDeleteFormEntry();
@@ -191,8 +194,17 @@ function FormsPage() {
 
   const tabs = [
     ...(mayFill ? [{ key: "fill" as const, label: "تعبئة نموذج", icon: ClipboardList }] : []),
-    { key: "records" as const, label: `النماذج المعبّأة (${entries.data?.entries.length ?? 0})`, icon: Files },
-    ...(backOffice ? [{ key: "manage" as const, label: "إدارة النماذج", icon: Settings2 }] : []),
+    {
+      key: "records" as const,
+      label: `النماذج المعبّأة (${entries.data?.entries.length ?? 0})`,
+      icon: Files,
+    },
+    ...(backOffice
+      ? [
+          { key: "subjects" as const, label: "الطلاب الخاضعون", icon: Users },
+          { key: "manage" as const, label: "إدارة النماذج", icon: Settings2 },
+        ]
+      : []),
   ];
 
   return (
@@ -243,7 +255,10 @@ function FormsPage() {
       {/* --- Fill ------------------------------------------------------- */}
       {tab === "fill" && mayFill && (
         <div className="mt-5 space-y-4">
-          <SectionCard title="النموذج والطالب" description="اختر النموذج ثم الطالب، ثم عبّئ البيانات">
+          <SectionCard
+            title="النموذج والطالب"
+            description="اختر النموذج ثم الطالب، ثم عبّئ البيانات"
+          >
             <div className="grid gap-4 lg:grid-cols-2">
               <div>
                 <p className="mb-1.5 text-[11px] text-muted-foreground">النموذج</p>
@@ -261,6 +276,7 @@ function FormsPage() {
                           setTemplateName(t.name);
                           setEntryName("");
                           setValues({});
+                          setStudent(null);
                         }}
                         className={cn(
                           "rounded-xl border p-2.5 text-right transition-colors",
@@ -271,7 +287,7 @@ function FormsPage() {
                       >
                         <p className="truncate text-sm font-bold">{t.title}</p>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {t.fields} حقل · {t.entries} معبّأ
+                          {t.subjects ?? 0} طالب خاضع · {t.entries} معبّأ
                         </p>
                       </button>
                     ))}
@@ -281,7 +297,29 @@ function FormsPage() {
 
               <div>
                 <p className="mb-1.5 text-[11px] text-muted-foreground">الطالب</p>
-                {student ? (
+                {!templateName ? (
+                  <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    اختر النموذج أولاً — تظهر هنا الطلاب الخاضعون له فقط.
+                  </p>
+                ) : !student && studentList.data?.subjectsCount === 0 ? (
+                  <p className="rounded-lg border border-dashed border-warning/50 bg-warning/5 p-3 text-xs text-muted-foreground">
+                    لم يُحدَّد طلاب خاضعون لهذا النموذج بعد
+                    {backOffice ? (
+                      <>
+                        {" — "}
+                        <button
+                          onClick={() => setTab("subjects")}
+                          className="font-bold text-primary underline-offset-2 hover:underline"
+                        >
+                          حدّدهم من تبويب «الطلاب الخاضعون»
+                        </button>
+                        .
+                      </>
+                    ) : (
+                      " — راجع الإدارة لتحديدهم."
+                    )}
+                  </p>
+                ) : student ? (
                   <div className="flex items-center justify-between gap-2 rounded-xl border border-primary bg-primary-soft/40 p-2.5">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold">{student.name}</p>
@@ -321,9 +359,14 @@ function FormsPage() {
                           </span>
                         </button>
                       ))}
+                      {studentList.isLoading && (
+                        <p className="p-3 text-center text-xs text-muted-foreground">
+                          جارِ التحميل…
+                        </p>
+                      )}
                       {studentList.data?.students.length === 0 && (
                         <p className="p-3 text-center text-xs text-muted-foreground">
-                          لا توجد نتائج
+                          {search ? "لا توجد نتائج" : "لا يوجد من طلابك من يخضع لهذا النموذج"}
                         </p>
                       )}
                     </div>
@@ -389,7 +432,10 @@ function FormsPage() {
       {/* --- Filled records --------------------------------------------- */}
       {tab === "records" && (
         <div className="mt-5">
-          <SectionCard title="النماذج المعبّأة" description="افتح نموذجاً لعرضه أو تعديله أو طباعته">
+          <SectionCard
+            title="النماذج المعبّأة"
+            description="افتح نموذجاً لعرضه أو تعديله أو طباعته"
+          >
             {entries.isLoading ? (
               <p className="py-6 text-center text-sm text-muted-foreground">جارِ التحميل…</p>
             ) : (entries.data?.entries.length ?? 0) === 0 ? (
@@ -417,7 +463,9 @@ function FormsPage() {
                         <td className="py-2 pl-4">{e.templateTitle}</td>
                         <td className="py-2 pl-4">{e.studentName}</td>
                         <td className="py-2 pl-4">
-                          <Pill tone={e.status === "مكتمل" ? "success" : "warning"}>{e.status}</Pill>
+                          <Pill tone={e.status === "مكتمل" ? "success" : "warning"}>
+                            {e.status}
+                          </Pill>
                         </td>
                         <td className="whitespace-nowrap py-2 pl-4 text-xs text-muted-foreground">
                           {when(e.filledOn)}
@@ -432,7 +480,11 @@ function FormsPage() {
                               فتح
                             </button>
                             <button
-                              onClick={() => void printFormEntry(e.name).catch(() => toast.error("تعذّرت الطباعة"))}
+                              onClick={() =>
+                                void printFormEntry(e.name).catch(() =>
+                                  toast.error("تعذّرت الطباعة"),
+                                )
+                              }
                               className="rounded p-1 text-muted-foreground hover:bg-secondary"
                               title="طباعة"
                             >
@@ -449,8 +501,7 @@ function FormsPage() {
                                   if (!ok) return;
                                   deleteEntry.mutate(e.name, {
                                     onSuccess: () => toast.success("تم الحذف"),
-                                    onError: (err) =>
-                                      toast.error(errorMessage(err, "تعذّر الحذف")),
+                                    onError: (err) => toast.error(errorMessage(err, "تعذّر الحذف")),
                                   });
                                 }}
                                 className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -468,6 +519,13 @@ function FormsPage() {
               </div>
             )}
           </SectionCard>
+        </div>
+      )}
+
+      {/* --- Subject students ------------------------------------------ */}
+      {tab === "subjects" && backOffice && (
+        <div className="mt-5">
+          <FormSubjects templates={rows} />
         </div>
       )}
 
@@ -497,7 +555,8 @@ function FormsPage() {
                       )
                     }
                   />
-                  السماح للمعلمين بتعبئة نماذج {FORM_CATEGORIES[category]?.replace("نماذج ", "") ?? ""}
+                  السماح للمعلمين بتعبئة نماذج{" "}
+                  {FORM_CATEGORIES[category]?.replace("نماذج ", "") ?? ""}
                 </label>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   تصميم النماذج يبقى للإدارة في كل الأحوال. المعلم يرى النماذج المعبّأة لطلابه فقط.
@@ -556,7 +615,7 @@ function FormsPage() {
                         {!t.isActive && <Pill tone="muted">معطّل</Pill>}
                       </div>
                       <p className="mt-2 text-[11px] text-muted-foreground">
-                        {t.fields} حقل · {t.entries} نموذج معبّأ
+                        {t.fields} حقل · {t.subjects ?? 0} طالب خاضع · {t.entries} نموذج معبّأ
                       </p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <button

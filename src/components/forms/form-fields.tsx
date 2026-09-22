@@ -212,7 +212,10 @@ export function FormFieldInput({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length + 1} className="p-2 text-center text-muted-foreground">
+                  <td
+                    colSpan={columns.length + 1}
+                    className="p-2 text-center text-muted-foreground"
+                  >
                     لا توجد صفوف
                   </td>
                 </tr>
