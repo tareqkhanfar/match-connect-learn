@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { byRole, money, statusMeta } from "@/lib/roles";
+import { byRole, statusMeta } from "@/lib/roles";
 import {
   useAdmissionOptions,
   useGuardians,
@@ -180,20 +180,11 @@ function StudentsPage() {
       ),
     },
     { fieldname: "average", label: "المعدل", numeric: true },
-    // Fees are the office's and the family's; a teacher's list leaves them out.
+    // The payment status is the office's; a teacher's list leaves it out. The
+    // amounts themselves are on the student's statement, not in this list.
     ...(role === "teacher"
       ? []
       : ([
-          {
-            fieldname: "feeTotal",
-            label: "الرسوم",
-            numeric: true,
-            render: (s) => (
-              <span className="whitespace-nowrap text-muted-foreground">
-                {money(s.feePaid)} / {money(s.feeTotal)}
-              </span>
-            ),
-          },
           {
             fieldname: "status",
             label: "الحالة",

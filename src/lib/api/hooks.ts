@@ -7903,7 +7903,13 @@ export interface FormEntry extends Omit<FormEntryRow, "modified"> {
 
 export function useFormCategories() {
   return useQuery<{
-    categories: Array<{ key: string; label: string; forms: number; teachersMayFill: boolean }>;
+    categories: Array<{
+      key: string;
+      label: string;
+      forms: number;
+      teachersMayFill: boolean;
+      teachersMayDesign?: boolean;
+    }>;
     fieldTypes: Array<{ value: FormFieldType; label: string }>;
   }>({
     queryKey: ["form-categories"],
@@ -7917,6 +7923,8 @@ export function useFormTemplates(category: string, includeInactive = false) {
     category: string;
     label: string;
     teachersMayFill: boolean;
+    /** Teachers may add forms to this file and edit them. */
+    teachersMayDesign?: boolean;
     templates: FormTemplateRow[];
   }>({
     queryKey: ["form-templates", category, includeInactive],
@@ -8081,9 +8089,10 @@ export function useSetFormSubjects() {
 /** «تحويل الحقول إلى تصميم طباعة». */
 export function useDesignFromFields() {
   return useMutation({
-    mutationFn: (vars: { fields: FormField[] }) =>
+    mutationFn: (vars: { fields: FormField[]; category: string }) =>
       apiPost<{ html: string; css: string }>("forms.design_from_fields", {
         fields: JSON.stringify(vars.fields),
+        category: vars.category,
       }),
   });
 }
@@ -8091,14 +8100,18 @@ export function useDesignFromFields() {
 /** «تحويل التصميم إلى حقول». */
 export function useFieldsFromDesign() {
   return useMutation({
-    mutationFn: (vars: { html: string; fields: FormField[] }) =>
+    mutationFn: (vars: { html: string; fields: FormField[]; category: string }) =>
       apiPost<{
         fields: FormField[];
         kept: number;
         added: number;
         dropped: string[];
         unknownTypes: string[];
-      }>("forms.fields_from_design", { html: vars.html, fields: JSON.stringify(vars.fields) }),
+      }>("forms.fields_from_design", {
+        html: vars.html,
+        fields: JSON.stringify(vars.fields),
+        category: vars.category,
+      }),
   });
 }
 
@@ -8178,11 +8191,24 @@ export function useSaveWorkspaceLayout() {
 export function useSetFormCategorySettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { category: string; teachers_may_fill: boolean }) =>
-      apiPost<{ category: string; teachersMayFill: boolean }>("forms.set_category_settings", {
-        category: vars.category,
-        teachers_may_fill: vars.teachers_may_fill ? 1 : 0,
-      }),
+    // A setting left out is left as it is on the server.
+    mutationFn: (vars: {
+      category: string;
+      teachers_may_fill?: boolean;
+      teachers_may_design?: boolean;
+    }) =>
+      apiPost<{ category: string; teachersMayFill: boolean; teachersMayDesign: boolean }>(
+        "forms.set_category_settings",
+        {
+          category: vars.category,
+          ...(vars.teachers_may_fill !== undefined
+            ? { teachers_may_fill: vars.teachers_may_fill ? 1 : 0 }
+            : {}),
+          ...(vars.teachers_may_design !== undefined
+            ? { teachers_may_design: vars.teachers_may_design ? 1 : 0 }
+            : {}),
+        },
+      ),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["form-templates"] });
       void qc.invalidateQueries({ queryKey: ["form-categories"] });

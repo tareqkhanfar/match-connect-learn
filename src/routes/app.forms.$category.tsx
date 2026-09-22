@@ -104,6 +104,9 @@ function FormsPage() {
   // Filling is the administration's decision, per file.
   const teachersMayFill = templates.data?.teachersMayFill ?? true;
   const mayFill = backOffice || teachersMayFill;
+  // Adding and editing forms: the office always, teachers when it allows.
+  const teachersMayDesign = templates.data?.teachersMayDesign ?? false;
+  const mayDesign = backOffice || teachersMayDesign;
 
   // Managing
   const [editing, setEditing] = useState<FormTemplate | null>(null);
@@ -199,7 +202,7 @@ function FormsPage() {
       label: `النماذج المعبّأة (${entries.data?.entries.length ?? 0})`,
       icon: Files,
     },
-    ...(backOffice
+    ...(mayDesign
       ? [
           { key: "subjects" as const, label: "الطلاب الخاضعون", icon: Users },
           { key: "manage" as const, label: "إدارة النماذج", icon: Settings2 },
@@ -265,7 +268,7 @@ function FormsPage() {
                 {active.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
                     لا توجد نماذج مفعّلة في هذا القسم
-                    {backOffice ? " — أنشئ نموذجاً من «إدارة النماذج»." : " — راجع الإدارة."}
+                    {mayDesign ? " — أنشئ نموذجاً من «إدارة النماذج»." : " — راجع الإدارة."}
                   </p>
                 ) : (
                   <div className="grid gap-1.5 sm:grid-cols-2">
@@ -299,12 +302,12 @@ function FormsPage() {
                 <p className="mb-1.5 text-[11px] text-muted-foreground">الطالب</p>
                 {!templateName ? (
                   <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-                    اختر النموذج أولاً — تظهر هنا الطلاب الخاضعون له فقط.
+                    اختر النموذج أولاً — يظهر هنا الطلاب الخاضعون له فقط.
                   </p>
                 ) : !student && studentList.data?.subjectsCount === 0 ? (
                   <p className="rounded-lg border border-dashed border-warning/50 bg-warning/5 p-3 text-xs text-muted-foreground">
                     لم يُحدَّد طلاب خاضعون لهذا النموذج بعد
-                    {backOffice ? (
+                    {mayDesign ? (
                       <>
                         {" — "}
                         <button
@@ -523,16 +526,16 @@ function FormsPage() {
       )}
 
       {/* --- Subject students ------------------------------------------ */}
-      {tab === "subjects" && backOffice && (
+      {tab === "subjects" && mayDesign && (
         <div className="mt-5">
           <FormSubjects templates={rows} />
         </div>
       )}
 
       {/* --- Manage ------------------------------------------------------ */}
-      {tab === "manage" && backOffice && (
+      {tab === "manage" && mayDesign && (
         <div className="mt-5">
-          {!designing && (
+          {!designing && backOffice && (
             <div className="mb-4">
               <SectionCard title="إعدادات القسم" description="من يُسمح له بتعبئة نماذج هذا القسم">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -558,8 +561,32 @@ function FormsPage() {
                   السماح للمعلمين بتعبئة نماذج{" "}
                   {FORM_CATEGORIES[category]?.replace("نماذج ", "") ?? ""}
                 </label>
+                <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-[var(--primary)]"
+                    checked={teachersMayDesign}
+                    onChange={(e) =>
+                      setSettings.mutate(
+                        { category, teachers_may_design: e.target.checked },
+                        {
+                          onSuccess: (res) =>
+                            toast.success(
+                              res.teachersMayDesign
+                                ? "أصبح بإمكان المعلمين إضافة نماذج هذا القسم وتعديلها"
+                                : "إضافة نماذج هذا القسم وتعديلها صارت مقصورة على الإدارة",
+                            ),
+                          onError: (err) => toast.error(errorMessage(err, "تعذّر حفظ الإعداد")),
+                        },
+                      )
+                    }
+                  />
+                  السماح للمعلمين بإضافة النماذج وتعديلها
+                </label>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  تصميم النماذج يبقى للإدارة في كل الأحوال. المعلم يرى النماذج المعبّأة لطلابه فقط.
+                  عند التفعيل يظهر للمعلم تبويبا «إدارة النماذج» و«الطلاب الخاضعون»: ينشئ النماذج
+                  ويعدّلها ويحدّد الخاضعين لها من طلابه فقط. حذف النماذج يبقى للإدارة. المعلم يرى
+                  النماذج المعبّأة لطلابه فقط.
                 </p>
               </SectionCard>
             </div>
@@ -639,24 +666,26 @@ function FormsPage() {
                         >
                           نسخة
                         </button>
-                        <button
-                          onClick={async () => {
-                            const ok = await confirm({
-                              title: "حذف النموذج",
-                              description: `سيُحذف «${t.title}» نهائياً.`,
-                              confirmLabel: "حذف",
-                            });
-                            if (!ok) return;
-                            deleteTemplate.mutate(t.name, {
-                              onSuccess: () => toast.success("تم الحذف"),
-                              onError: (e) => toast.error(errorMessage(e, "تعذّر الحذف")),
-                            });
-                          }}
-                          className="ms-auto rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          title="حذف"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        {backOffice && (
+                          <button
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: "حذف النموذج",
+                                description: `سيُحذف «${t.title}» نهائياً.`,
+                                confirmLabel: "حذف",
+                              });
+                              if (!ok) return;
+                              deleteTemplate.mutate(t.name, {
+                                onSuccess: () => toast.success("تم الحذف"),
+                                onError: (e) => toast.error(errorMessage(e, "تعذّر الحذف")),
+                              });
+                            }}
+                            className="ms-auto rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            title="حذف"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}

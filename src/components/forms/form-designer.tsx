@@ -208,7 +208,7 @@ export function FormDesigner({
       return;
     }
     toDesign.mutate(
-      { fields: draft.fields },
+      { fields: draft.fields, category },
       {
         onSuccess: (res) => {
           setPrintHtml(res.html);
@@ -229,7 +229,7 @@ export function FormDesigner({
       return;
     }
     toFields.mutate(
-      { html: design, fields: draft.fields },
+      { html: design, fields: draft.fields, category },
       {
         onSuccess: async (res) => {
           const lines = [
