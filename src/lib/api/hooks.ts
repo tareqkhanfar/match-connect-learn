@@ -542,6 +542,10 @@ export interface CommunityPost {
   course_name: string | null;
   student: string | null;
   student_name: string | null;
+  /** The grade a «صف كامل» post is addressed to. */
+  program?: string | null;
+  /** The students a «طلاب محدّدون» post is addressed to. */
+  audience_students?: Array<{ student: string; student_name: string | null }>;
   author_name: string | null;
   posted_on: string;
   is_published: boolean;
@@ -618,6 +622,9 @@ export function useSavePost() {
       audience?: string;
       student_group?: string;
       student?: string;
+      program?: string;
+      /** «طلاب محدّدون»: the students addressed by name. */
+      students?: string[];
       is_published?: number;
       allow_comments?: number;
       pinned?: number;
@@ -2377,6 +2384,44 @@ export function useClassTermGrades(
   });
 }
 
+/** One subject in one section: every student's marks, component by component. */
+export interface SubjectOverview {
+  student_group: string;
+  course: string;
+  academic_year: string | null;
+  academic_term: string | null;
+  components: Array<{ name: string; max: number; weight: number }>;
+  rows: Array<{
+    student: string;
+    student_name: string;
+    entries: number;
+    marks: Record<string, { score: number; max: number; published: boolean }>;
+    final: number;
+    grade: string;
+    label: string;
+    emoji: string;
+    percentage: number;
+  }>;
+  stats: {
+    students: number;
+    graded: number;
+    unmarked: number;
+    average: number;
+    highest: number;
+    lowest: number;
+    passing: number;
+    at_risk: number;
+  };
+}
+
+export function useSubjectOverview(params: { student_group?: string; course?: string }) {
+  return useQuery<SubjectOverview>({
+    queryKey: ["subject-overview", params],
+    queryFn: () => apiGet<SubjectOverview>("gradebook.subject_overview", params),
+    enabled: Boolean(params.student_group && params.course),
+  });
+}
+
 export function useImportExamResults() {
   const qc = useQueryClient();
   return useMutation({
@@ -3479,6 +3524,9 @@ export function useActivityOptions(enabled = true) {
     programs: string[];
     groups: Array<{ id: string; name: string }>;
     supervisors: Array<{ id: string; name: string }>;
+    /** Who this user may open an activity to — a teacher, only their own
+     *  sections and grades. Absent on an older server: all three. */
+    audiences?: string[];
   }>({
     queryKey: ["activity-options"],
     queryFn: () => apiGet("activities.form_options"),
@@ -5365,6 +5413,10 @@ export type StudentDossier = {
       id: string;
       date: string;
       status: string;
+      /** The status in Arabic ("غائب بعذر"), from the server. */
+      status_label?: string;
+      /** Why an excused absence was excused, when a reason was recorded. */
+      reason?: string | null;
       group: string | null;
       lesson: string | null;
     }>;
@@ -5472,6 +5524,7 @@ export type StudentDossier = {
     percentage: number;
     passed: boolean;
   }>;
+  /** Null for a teacher: fees are between the office and the family. */
   billing: {
     billed: number;
     paid: number;
@@ -5487,7 +5540,7 @@ export type StudentDossier = {
       overdueDays: number;
       enrollment: string | null;
     }>;
-  };
+  } | null;
   services: {
     library: Array<{
       id: string;

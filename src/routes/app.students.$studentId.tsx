@@ -346,12 +346,16 @@ function StudentProfile() {
           tone="accent"
         />
         <KpiCard label="نقاط السلوك" value={behaviour.net} icon={Smile} tone="primary" />
-        <KpiCard
-          label="المتبقي عليه"
-          value={money(billing.outstanding)}
-          icon={CreditCard}
-          tone="warm"
-        />
+        {/* A teacher is not sent the family's money — the office and the
+            family are. The card, and the tab below, simply are not there. */}
+        {billing && (
+          <KpiCard
+            label="المتبقي عليه"
+            value={money(billing.outstanding)}
+            icon={CreditCard}
+            tone="warm"
+          />
+        )}
       </div>
 
       {openAlerts.length > 0 && (
@@ -387,9 +391,11 @@ function StudentProfile() {
             <TabsTrigger value="health" className="rounded-lg">
               الصحة
             </TabsTrigger>
-            <TabsTrigger value="billing" className="rounded-lg">
-              المالية
-            </TabsTrigger>
+            {billing && (
+              <TabsTrigger value="billing" className="rounded-lg">
+                المالية
+              </TabsTrigger>
+            )}
             <TabsTrigger value="services" className="rounded-lg">
               الخدمات
             </TabsTrigger>
@@ -484,7 +490,7 @@ function StudentProfile() {
                 <Empty title="لا توجد سجلات" />
               ) : (
                 <Table
-                  head={["التاريخ", "الحالة", "الشعبة"]}
+                  head={["التاريخ", "الحالة", "العذر", "الشعبة"]}
                   rows={attendance.recent.map((a) => [
                     d(a.date),
                     <Pill
@@ -496,8 +502,21 @@ function StudentProfile() {
                             : "warning"
                       }
                     >
-                      {a.status === "Present" ? "حاضر" : a.status === "Absent" ? "غائب" : a.status}
+                      {/* The server names every status in Arabic; the fallbacks
+                          cover an older server that did not. */}
+                      {a.status_label ??
+                        (
+                          {
+                            Present: "حاضر",
+                            Absent: "غائب",
+                            Excused: "غائب بعذر",
+                            Leave: "غائب بعذر",
+                            Late: "متأخر",
+                          } as Record<string, string>
+                        )[a.status] ??
+                        a.status}
                     </Pill>,
+                    a.reason ? <span className="text-xs">{a.reason}</span> : "—",
                     a.group ?? "—",
                   ])}
                 />
@@ -672,56 +691,58 @@ function StudentProfile() {
           </TabsContent>
 
           {/* --- Billing --- */}
-          <TabsContent value="billing" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <KpiCard
-                label="إجمالي المفوتر"
-                value={money(billing.billed)}
-                icon={CreditCard}
-                tone="info"
-              />
-              <KpiCard
-                label="المدفوع"
-                value={money(billing.paid)}
-                icon={CreditCard}
-                tone="accent"
-              />
-              <KpiCard
-                label="المتبقي"
-                value={money(billing.outstanding)}
-                icon={CreditCard}
-                tone="warm"
-              />
-            </div>
-            <SectionCard title="الفواتير">
-              {billing.invoices.length === 0 ? (
-                <Empty title="لا توجد فواتير" />
-              ) : (
-                <Table
-                  head={["الفاتورة", "التاريخ", "الاستحقاق", "الإجمالي", "المتبقي", "الحالة"]}
-                  rows={billing.invoices.map((inv) => [
-                    <span className="font-mono text-xs">{inv.id}</span>,
-                    d(inv.date),
-                    <span>
-                      {d(inv.dueDate)}
-                      {inv.overdueDays > 0 && (
-                        <Pill tone="danger">متأخر {inv.overdueDays} يوم</Pill>
-                      )}
-                    </span>,
-                    money(inv.total),
-                    money(inv.outstanding),
-                    inv.draft ? (
-                      <Pill tone="muted">مسودة</Pill>
-                    ) : (
-                      <Pill tone={inv.outstanding > 0 ? "warning" : "success"}>
-                        {inv.outstanding > 0 ? "غير مسدد" : "مسدد"}
-                      </Pill>
-                    ),
-                  ])}
+          {billing && (
+            <TabsContent value="billing" className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <KpiCard
+                  label="إجمالي المفوتر"
+                  value={money(billing.billed)}
+                  icon={CreditCard}
+                  tone="info"
                 />
-              )}
-            </SectionCard>
-          </TabsContent>
+                <KpiCard
+                  label="المدفوع"
+                  value={money(billing.paid)}
+                  icon={CreditCard}
+                  tone="accent"
+                />
+                <KpiCard
+                  label="المتبقي"
+                  value={money(billing.outstanding)}
+                  icon={CreditCard}
+                  tone="warm"
+                />
+              </div>
+              <SectionCard title="الفواتير">
+                {billing.invoices.length === 0 ? (
+                  <Empty title="لا توجد فواتير" />
+                ) : (
+                  <Table
+                    head={["الفاتورة", "التاريخ", "الاستحقاق", "الإجمالي", "المتبقي", "الحالة"]}
+                    rows={billing.invoices.map((inv) => [
+                      <span className="font-mono text-xs">{inv.id}</span>,
+                      d(inv.date),
+                      <span>
+                        {d(inv.dueDate)}
+                        {inv.overdueDays > 0 && (
+                          <Pill tone="danger">متأخر {inv.overdueDays} يوم</Pill>
+                        )}
+                      </span>,
+                      money(inv.total),
+                      money(inv.outstanding),
+                      inv.draft ? (
+                        <Pill tone="muted">مسودة</Pill>
+                      ) : (
+                        <Pill tone={inv.outstanding > 0 ? "warning" : "success"}>
+                          {inv.outstanding > 0 ? "غير مسدد" : "مسدد"}
+                        </Pill>
+                      ),
+                    ])}
+                  />
+                )}
+              </SectionCard>
+            </TabsContent>
+          )}
 
           {/* --- Services --- */}
           <TabsContent value="services" className="space-y-6">

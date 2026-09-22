@@ -180,27 +180,34 @@ function StudentsPage() {
       ),
     },
     { fieldname: "average", label: "المعدل", numeric: true },
-    {
-      fieldname: "feeTotal",
-      label: "الرسوم",
-      numeric: true,
-      render: (s) => (
-        <span className="whitespace-nowrap text-muted-foreground">
-          {money(s.feePaid)} / {money(s.feeTotal)}
-        </span>
-      ),
-    },
-    {
-      fieldname: "status",
-      label: "الحالة",
-      render: (s) => (
-        <Pill
-          tone={s.status === "paid" ? "success" : s.status === "partial" ? "warning" : "danger"}
-        >
-          {statusMeta[s.status]?.label ?? s.status}
-        </Pill>
-      ),
-    },
+    // Fees are the office's and the family's; a teacher's list leaves them out.
+    ...(role === "teacher"
+      ? []
+      : ([
+          {
+            fieldname: "feeTotal",
+            label: "الرسوم",
+            numeric: true,
+            render: (s) => (
+              <span className="whitespace-nowrap text-muted-foreground">
+                {money(s.feePaid)} / {money(s.feeTotal)}
+              </span>
+            ),
+          },
+          {
+            fieldname: "status",
+            label: "الحالة",
+            render: (s) => (
+              <Pill
+                tone={
+                  s.status === "paid" ? "success" : s.status === "partial" ? "warning" : "danger"
+                }
+              >
+                {statusMeta[s.status]?.label ?? s.status}
+              </Pill>
+            ),
+          },
+        ] as Column<StudentRow>[])),
   ];
 
   return (
@@ -301,17 +308,19 @@ function StudentsPage() {
               </SelectContent>
             </Select>
 
-            <Select value={status} onValueChange={resetPage(setStatus)}>
-              <SelectTrigger className="h-10 w-[140px] rounded-xl">
-                <SelectValue placeholder="حالة الرسوم" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الحالات</SelectItem>
-                <SelectItem value="paid">مدفوع</SelectItem>
-                <SelectItem value="partial">جزئي</SelectItem>
-                <SelectItem value="late">متأخر</SelectItem>
-              </SelectContent>
-            </Select>
+            {role !== "teacher" && (
+              <Select value={status} onValueChange={resetPage(setStatus)}>
+                <SelectTrigger className="h-10 w-[140px] rounded-xl">
+                  <SelectValue placeholder="حالة الرسوم" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الحالات</SelectItem>
+                  <SelectItem value="paid">مدفوع</SelectItem>
+                  <SelectItem value="partial">جزئي</SelectItem>
+                  <SelectItem value="late">متأخر</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </>
         }
       />

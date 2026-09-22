@@ -575,7 +575,17 @@ function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: 
     audience: post?.audience ?? "Class",
     student_group: post?.student_group ?? preselectedGroup ?? "",
     student: post?.student ?? "",
+    program: post?.program ?? "",
   });
+  // «طلاب محدّدون»: the students chosen by name, with their names for the chips.
+  const [chosen, setChosen] = useState<Array<{ id: string; name: string }>>(
+    (post?.audience_students ?? []).map((a) => ({
+      id: a.student,
+      name: a.student_name ?? a.student,
+    })),
+  );
+  const [pickGroup, setPickGroup] = useState(preselectedGroup ?? "");
+  const [pickSearch, setPickSearch] = useState("");
   const [body, setBody] = useState(post?.body ?? "");
   const [published, setPublished] = useState(post?.is_published ?? true);
   const [comments, setComments] = useState(post?.allow_comments ?? true);
@@ -583,13 +593,25 @@ function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: 
   const [photos, setPhotos] = useState(post?.photos ?? []);
   const [uploading, setUploading] = useState(0);
 
-  // Only fetched when a student has to be named, and scoped to the class so a
-  // teacher is offered the children they actually teach.
+  // Only fetched when students have to be named, and scoped to the section
+  // so a teacher is offered the children they actually teach. (The section is
+  // `student_group`: it used to be sent as `batch`, which is the section's
+  // letter, so the list never matched.)
+  const naming = form.audience === "Student" || form.audience === "Students";
+  const rosterGroup = form.audience === "Student" ? form.student_group : pickGroup;
   const students = useStudents(
-    form.audience === "Student" && form.student_group
-      ? { batch: form.student_group, page_size: 100 }
+    naming && (rosterGroup || pickSearch.trim().length >= 2)
+      ? {
+          ...(rosterGroup ? { student_group: rosterGroup } : {}),
+          ...(pickSearch.trim() ? { search: pickSearch.trim() } : {}),
+          page_size: 100,
+        }
       : { page_size: 1 },
   );
+  // The grades of the sections this user may post to.
+  const grades = Array.from(
+    new Set((classes.data ?? []).map((c) => c.program).filter((p): p is string => !!p)),
+  ).sort();
 
   async function pick(list: FileList | null) {
     if (!list?.length) return;
@@ -630,10 +652,19 @@ function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: 
       toast.error("اختر الطالب");
       return;
     }
+    if (form.audience === "Grade" && !form.program) {
+      toast.error("اختر الصف");
+      return;
+    }
+    if (form.audience === "Students" && chosen.length === 0) {
+      toast.error("اختر طالباً واحداً على الأقل");
+      return;
+    }
     try {
       const res = await save.mutateAsync({
         ...(post ? { post: post.id } : {}),
         ...form,
+        students: chosen.map((c) => c.id),
         body,
         is_published: published ? 1 : 0,
         allow_comments: comments ? 1 : 0,
@@ -692,7 +723,7 @@ function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: 
                     ...f,
                     audience: v,
                     student: "",
-                    student_group: v === "School" ? "" : f.student_group,
+                    student_group: v === "Class" || v === "Student" ? f.student_group : "",
                   }))
                 }
               >
@@ -706,12 +737,127 @@ function PostComposer({ post, onClose }: { post: CommunityPost | null; onClose: 
                     <SelectItem value="School">المدرسة كاملة</SelectItem>
                   )}
                   <SelectItem value="Class">شعبة محدّدة</SelectItem>
-                  <SelectItem value="Student">طالب محدّد</SelectItem>
+                  <SelectItem value="Grade">صف كامل</SelectItem>
+                  <SelectItem value="Students">طلاب محدّدون</SelectItem>
+                  <SelectItem value="Teachers">المعلمون فقط</SelectItem>
+                  {/* Kept for posts written to one student before the list
+                      of students existed. */}
+                  {post?.audience === "Student" && (
+                    <SelectItem value="Student">طالب محدّد</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
-            {form.audience !== "School" && (
+            {form.audience === "Grade" && (
+              <div className="space-y-1.5">
+                <Label>الصف</Label>
+                <Select
+                  value={form.program}
+                  onValueChange={(v) => setForm((f) => ({ ...f, program: v }))}
+                >
+                  <SelectTrigger className="h-10 rounded-xl">
+                    <SelectValue placeholder="اختر الصف" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grades.map((g) => (
+                      <SelectItem key={g} value={g}>
+                        {g}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  يظهر لكل طلاب هذا الصف وأولياء أمورهم في جميع شعبه.
+                </p>
+              </div>
+            )}
+
+            {form.audience === "Teachers" && (
+              <p className="self-end rounded-lg bg-secondary/60 p-2.5 text-[11px] text-muted-foreground">
+                يظهر للمعلمين والإدارة فقط، ولا يراه الطلاب ولا أولياء الأمور.
+              </p>
+            )}
+
+            {form.audience === "Students" && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label>الطلاب</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Select value={pickGroup} onValueChange={setPickGroup}>
+                    <SelectTrigger className="h-10 rounded-xl">
+                      <SelectValue placeholder="اختر شعبة لعرض طلابها" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(classes.data ?? []).map((c) => (
+                        <SelectItem key={c.name} value={c.name}>
+                          {c.student_group_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={pickSearch}
+                    onChange={(e) => setPickSearch(e.target.value)}
+                    placeholder="أو ابحث بالاسم…"
+                    className="h-10 rounded-xl"
+                  />
+                </div>
+                {chosen.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {chosen.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setChosen((all) => all.filter((x) => x.id !== c.id))}
+                        className="flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/15"
+                        title="إزالة"
+                      >
+                        {c.name}
+                        <span aria-hidden>×</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(pickGroup || pickSearch.trim().length >= 2) && (
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-border p-1">
+                    {students.isLoading ? (
+                      <p className="p-2 text-xs text-muted-foreground">جارٍ التحميل…</p>
+                    ) : (students.data?.items ?? []).length === 0 ? (
+                      <p className="p-2 text-xs text-muted-foreground">لا يوجد طلاب</p>
+                    ) : (
+                      (students.data?.items ?? []).map((s) => {
+                        const on = chosen.some((c) => c.id === s.id);
+                        return (
+                          <label
+                            key={s.id}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-secondary/60"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              onChange={() =>
+                                setChosen((all) =>
+                                  on
+                                    ? all.filter((c) => c.id !== s.id)
+                                    : [...all, { id: s.id, name: s.name }],
+                                )
+                              }
+                              className="size-4 accent-[var(--primary)]"
+                            />
+                            <span className="truncate">{s.name}</span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  يظهر للطلاب المختارين وأولياء أمورهم فقط ({chosen.length}).
+                </p>
+              </div>
+            )}
+
+            {(form.audience === "Class" || form.audience === "Student") && (
               <div className="space-y-1.5">
                 <Label>الشعبة</Label>
                 <Select

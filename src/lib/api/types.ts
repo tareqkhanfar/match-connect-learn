@@ -276,6 +276,9 @@ export interface ClassRow {
   homeroom?: string | null;
   instructors?: Array<{ id: string; name: string }>;
   subjects?: string[];
+  /** The subjects this section is actually taught — for a teacher, only the
+   *  ones they teach in it. */
+  taught_subjects?: string[];
 }
 
 export interface SubjectRow {

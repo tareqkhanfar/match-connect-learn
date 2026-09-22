@@ -37,6 +37,7 @@ import {
   useAcademicRecord,
   useClasses,
   useClassTermGrades,
+  useSubjectOverview,
   type SubjectGrade,
 } from "@/lib/api/hooks";
 import { downloadReportCard } from "@/lib/api/export";
@@ -89,7 +90,22 @@ function StaffRecordView() {
     if (!group && classesQuery.data?.length) setGroup(groupFromUrl ?? classesQuery.data[0]!.name);
   }, [classesQuery.data, group, groupFromUrl]);
 
-  const classGrades = useClassTermGrades(group ? { student_group: group } : {});
+  // The subjects of the chosen section — for a teacher, the ones they teach
+  // there. A teacher starts on their first; the office starts on the whole
+  // class and may narrow to a subject.
+  const taught = classesQuery.data?.find((c) => c.name === group)?.taught_subjects ?? [];
+  const [subject, setSubject] = useState("");
+  useEffect(() => {
+    setSubject(role === "teacher" ? (taught[0] ?? "") : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group, role, taught.join("|")]);
+
+  // A teacher reads their own subject, never a blend of everyone's: the
+  // whole-class average is built from other teachers' marks too.
+  const classGrades = useClassTermGrades(
+    group && role !== "teacher" ? { student_group: group } : {},
+  );
+  const overview = useSubjectOverview({ student_group: group, course: subject });
   const detail = useAcademicRecord(student || undefined);
 
   async function printReportCard(target: string) {
@@ -122,7 +138,7 @@ function StaffRecordView() {
         }
       />
 
-      <div className="card-surface mb-5 grid gap-3 p-4 md:grid-cols-2">
+      <div className="card-surface mb-5 grid gap-3 p-4 md:grid-cols-3">
         <div className="space-y-1.5">
           <Label className="text-xs">الشعبة</Label>
           <SearchableSelect
@@ -138,6 +154,18 @@ function StaffRecordView() {
               setStudent("");
             }}
             placeholder="اختر الشعبة"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">المادة</Label>
+          <SearchableSelect
+            options={[
+              ...(role === "teacher" ? [] : [{ value: "", label: "كل المواد (المعدل العام)" }]),
+              ...taught.map((c) => ({ value: c, label: c })),
+            ]}
+            value={subject}
+            onChange={setSubject}
+            placeholder={taught.length ? "اختر المادة" : "لا مواد لهذه الشعبة"}
           />
         </div>
         <div className="space-y-1.5">
@@ -191,6 +219,13 @@ function StaffRecordView() {
             </>
           )}
         </>
+      ) : subject ? (
+        <SubjectTable query={overview} subject={subject} onOpen={(id) => setStudent(id)} />
+      ) : role === "teacher" ? (
+        <EmptyBlock
+          title={group ? "لا تدرّس مادة في هذه الشعبة" : "اختر الشعبة"}
+          icon={<Layers className="size-6" />}
+        />
       ) : (
         <>
           <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -246,6 +281,190 @@ function StaffRecordView() {
           </SectionCard>
         </>
       )}
+    </>
+  );
+}
+
+/** Colour of one mark by how far it is from full marks. */
+function markTone(score: number, max: number) {
+  if (!max) return "text-muted-foreground";
+  const pct = (score / max) * 100;
+  if (pct >= 85) return "text-success font-bold";
+  if (pct >= 65) return "text-foreground";
+  if (pct >= 50) return "text-warning font-semibold";
+  return "text-destructive font-bold";
+}
+
+/**
+ * One subject in one section, as a mark sheet a teacher can read at a glance:
+ * a row per student, a column per assessment, the subject mark and grade at
+ * the end — with the class's figures above and the weak and the unmarked a
+ * click away.
+ */
+function SubjectTable({
+  query,
+  subject,
+  onOpen,
+}: {
+  query: ReturnType<typeof useSubjectOverview>;
+  subject: string;
+  onOpen: (student: string) => void;
+}) {
+  const [show, setShow] = useState<"all" | "risk" | "unmarked">("all");
+  const [sort, setSort] = useState<"roll" | "high" | "low">("roll");
+
+  if (query.error) return <ErrorState error={query.error} onRetry={() => query.refetch()} />;
+  if (query.isLoading || !query.data) return <TableSkeleton rows={8} />;
+
+  const { components, stats } = query.data;
+  let rows = query.data.rows;
+  if (show === "risk") rows = rows.filter((r) => r.entries > 0 && r.final < 50);
+  if (show === "unmarked") rows = rows.filter((r) => r.entries === 0);
+  if (sort !== "roll") {
+    rows = [...rows].sort((a, b) => (sort === "high" ? b.final - a.final : a.final - b.final));
+  }
+
+  const chip = (value: typeof show, label: string, count: number) => (
+    <button
+      type="button"
+      onClick={() => setShow(value)}
+      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+        show === value ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/70"
+      }`}
+    >
+      {label} <span className="num opacity-80">({count})</span>
+    </button>
+  );
+
+  return (
+    <>
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="معدل المادة" value={`${stats.average}%`} icon={TrendingUp} tone="info" />
+        <KpiCard
+          label="أعلى / أدنى"
+          value={`${stats.highest}% / ${stats.lowest}%`}
+          icon={Award}
+          tone="primary"
+        />
+        <KpiCard
+          label="ناجحون"
+          value={`${stats.passing} من ${stats.graded}`}
+          icon={Users}
+          tone="accent"
+        />
+        <KpiCard label="متعثرون" value={stats.at_risk} icon={AlertTriangle} tone="warm" />
+      </div>
+
+      <SectionCard
+        title={subject}
+        description={`${stats.students} طالباً — ${components.length} تقييم — اضغط على أي طالب لسجلّه الكامل`}
+        actions={
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            className="h-8 rounded-lg border border-border bg-card px-2 text-xs"
+          >
+            <option value="roll">بترتيب الشعبة</option>
+            <option value="high">الأعلى أولاً</option>
+            <option value="low">الأدنى أولاً</option>
+          </select>
+        }
+      >
+        <div className="mb-3 flex flex-wrap gap-2">
+          {chip("all", "الجميع", stats.students)}
+          {chip("risk", "المتعثرون", stats.at_risk)}
+          {chip("unmarked", "بلا علامات", stats.unmarked)}
+        </div>
+        {rows.length === 0 ? (
+          <EmptyBlock title="لا يوجد طلاب هنا" icon={<Users className="size-6" />} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground">
+                  <th className="p-2 text-right font-semibold">#</th>
+                  <th className="p-2 text-right font-semibold">الطالب</th>
+                  {components.map((c) => (
+                    <th key={c.name} className="whitespace-nowrap p-2 text-center font-semibold">
+                      {c.name}
+                      <span className="num block text-[10px] font-normal">من {c.max}</span>
+                    </th>
+                  ))}
+                  <th className="p-2 text-center font-semibold">النتيجة</th>
+                  <th className="p-2 text-center font-semibold">التقدير</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr
+                    key={r.student}
+                    onClick={() => onOpen(r.student)}
+                    className={`cursor-pointer border-b border-border transition-colors hover:bg-secondary/40 ${
+                      r.entries > 0 && r.final < 50 ? "bg-destructive/5" : ""
+                    }`}
+                  >
+                    <td className="num p-2 text-xs text-muted-foreground">{i + 1}</td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={r.student_name} className="size-7 rounded-lg text-[10px]" />
+                        <span className="truncate font-medium">{r.student_name}</span>
+                      </div>
+                    </td>
+                    {components.map((c) => {
+                      const m = r.marks[c.name];
+                      return (
+                        <td key={c.name} className="num p-2 text-center">
+                          {m ? (
+                            <span
+                              className={markTone(m.score, m.max)}
+                              title={m.published ? "منشورة" : "مسودة"}
+                            >
+                              {m.score}
+                              {!m.published && (
+                                <span className="text-[10px] text-muted-foreground"> •</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="p-2">
+                      {r.entries ? (
+                        <div className="flex min-w-[90px] items-center gap-2">
+                          <span className="num w-10 text-left text-xs font-bold">
+                            {Math.round(r.final)}%
+                          </span>
+                          <ProgressBar value={r.final} tone={progressTone(r.final)} />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">لم تُرصد</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-center">
+                      {r.entries ? (
+                        <GradeBadge
+                          percentage={r.final}
+                          grade={r.grade}
+                          emoji={r.emoji}
+                          label={r.label}
+                          size="sm"
+                        />
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              • علامة مسودة لم تُنشر للطلاب بعد.
+            </p>
+          </div>
+        )}
+      </SectionCard>
     </>
   );
 }

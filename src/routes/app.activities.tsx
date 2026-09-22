@@ -401,7 +401,13 @@ function ActivityCard({
             >
               المشاركون ({a.registered})
             </button>
-            {canManage && (
+            {/* The office manages every activity; a teacher, the ones they
+                run — the server refuses anyone else's. Deleting stays with
+                the office. */}
+            {(isBackOffice(role) ||
+              (canManage &&
+                !!session?.scope.instructor &&
+                a.supervisor === session.scope.instructor)) && (
               <>
                 <button
                   onClick={onEdit}
@@ -409,13 +415,15 @@ function ActivityCard({
                 >
                   تعديل
                 </button>
-                <button
-                  onClick={onDelete}
-                  aria-label="حذف"
-                  className="rounded-lg bg-secondary px-2.5 py-2 text-destructive hover:bg-destructive-soft"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
+                {isBackOffice(role) && (
+                  <button
+                    onClick={onDelete}
+                    aria-label="حذف"
+                    className="rounded-lg bg-secondary px-2.5 py-2 text-destructive hover:bg-destructive-soft"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
               </>
             )}
           </>
@@ -444,6 +452,7 @@ function ActivityDialog({
 }) {
   const options = useActivityOptions();
   const save = useSaveActivity();
+  const { role } = useApp();
 
   const [form, setForm] = useState({
     title: activity?.title ?? "",
@@ -457,7 +466,9 @@ function ActivityDialog({
     capacity: String(activity?.capacity ?? 0),
     fee: String(activity?.fee ?? 0),
     supervisor: activity?.supervisor ?? "",
-    target_audience: activity?.audience ?? "All",
+    // A teacher's activity is for their own classes; the office's defaults
+    // to the whole school.
+    target_audience: activity?.audience ?? (role === "teacher" ? "Student Group" : "All"),
     program: activity?.program ?? "",
     student_group: activity?.student_group ?? "",
     registration_deadline: activity?.registration_deadline ?? "",
@@ -620,7 +631,7 @@ function ActivityDialog({
                 { value: "All", label: "كل المدرسة" },
                 { value: "Program", label: "صف محدد" },
                 { value: "Student Group", label: "شعبة محددة" },
-              ]}
+              ].filter((o) => !options.data?.audiences || options.data.audiences.includes(o.value))}
               value={form.target_audience}
               onChange={(v) => set("target_audience", v)}
             />
