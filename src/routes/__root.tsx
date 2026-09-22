@@ -37,23 +37,58 @@ function NotFoundComponent() {
   );
 }
 
+/** A page's script from before the last deploy is gone from the server; the
+ * tab still asks for it by its old name. A fresh load fixes it. */
+const STALE_BUNDLE =
+  /dynamically imported module|Importing a module script failed|error loading dynamically|ChunkLoadError|Loading chunk|Unable to preload CSS/i;
+const RELOADED_KEY = "ms-stale-bundle-reload";
+
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const message = String(error?.message ?? error ?? "");
+  const stale = STALE_BUNDLE.test(message);
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
+  useEffect(() => {
+    if (!stale) return;
+    try {
+      // Once per minute at most, so a page that is truly broken does not loop.
+      const last = Number(sessionStorage.getItem(RELOADED_KEY) ?? 0);
+      if (Date.now() - last < 60_000) return;
+      sessionStorage.setItem(RELOADED_KEY, String(Date.now()));
+    } catch {
+      /* storage unavailable: reload anyway */
+    }
+    window.location.reload();
+  }, [stale]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">تعذّر تحميل الصفحة</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          حدث خطأ غير متوقع. يمكنك المحاولة مرة أخرى أو العودة للرئيسية.
+          {stale
+            ? "صدر تحديث جديد للنظام. أعد تحميل الصفحة لاستخدامه."
+            : "حدث خطأ غير متوقع. يمكنك المحاولة مرة أخرى أو العودة للرئيسية."}
         </p>
+        {message && !stale && (
+          // The reason, small, so a report from the school names the fault.
+          <p
+            dir="ltr"
+            className="mt-3 break-words rounded-lg bg-muted px-3 py-2 text-left font-mono text-[11px] text-muted-foreground"
+          >
+            {message.slice(0, 300)}
+          </p>
+        )}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
+              if (stale) {
+                window.location.reload();
+                return;
+              }
               router.invalidate();
               reset();
             }}
@@ -136,6 +171,24 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Vite reports a missing page script before React sees it; reload onto the
+  // new build instead of showing the error page.
+  useEffect(() => {
+    const onPreloadError = (event: Event) => {
+      try {
+        const last = Number(sessionStorage.getItem(RELOADED_KEY) ?? 0);
+        if (Date.now() - last < 60_000) return;
+        sessionStorage.setItem(RELOADED_KEY, String(Date.now()));
+      } catch {
+        /* storage unavailable: reload anyway */
+      }
+      event.preventDefault();
+      window.location.reload();
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
+    return () => window.removeEventListener("vite:preloadError", onPreloadError);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
