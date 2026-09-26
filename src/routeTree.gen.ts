@@ -68,6 +68,8 @@ import { Route as AppWorkspaceSetupRouteImport } from './routes/app.workspace-se
 import { Route as AppFormsCategoryRouteImport } from './routes/app.forms.$category'
 import { Route as AppGuardiansIndexRouteImport } from './routes/app.guardians.index'
 import { Route as AppGuardiansGuardianIdRouteImport } from './routes/app.guardians.$guardianId'
+import { Route as AppSecretariesIndexRouteImport } from './routes/app.secretaries.index'
+import { Route as AppSecretariesStaffIdRouteImport } from './routes/app.secretaries.$staffId'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
 import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
 import { Route as AppTeachersIndexRouteImport } from './routes/app.teachers.index'
@@ -368,6 +370,16 @@ const AppGuardiansGuardianIdRoute = AppGuardiansGuardianIdRouteImport.update({
   path: '/guardians/$guardianId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSecretariesIndexRoute = AppSecretariesIndexRouteImport.update({
+  id: '/secretaries/',
+  path: '/secretaries/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSecretariesStaffIdRoute = AppSecretariesStaffIdRouteImport.update({
+  id: '/secretaries/$staffId',
+  path: '/secretaries/$staffId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStudentsIndexRoute = AppStudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -448,9 +460,11 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
+  '/app/secretaries/$staffId': typeof AppSecretariesStaffIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
   '/app/guardians/': typeof AppGuardiansIndexRoute
+  '/app/secretaries/': typeof AppSecretariesIndexRoute
   '/app/students/': typeof AppStudentsIndexRoute
   '/app/teachers/': typeof AppTeachersIndexRoute
 }
@@ -512,9 +526,11 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
+  '/app/secretaries/$staffId': typeof AppSecretariesStaffIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
   '/app/guardians': typeof AppGuardiansIndexRoute
+  '/app/secretaries': typeof AppSecretariesIndexRoute
   '/app/students': typeof AppStudentsIndexRoute
   '/app/teachers': typeof AppTeachersIndexRoute
 }
@@ -578,9 +594,11 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
+  '/app/secretaries/$staffId': typeof AppSecretariesStaffIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
   '/app/guardians/': typeof AppGuardiansIndexRoute
+  '/app/secretaries/': typeof AppSecretariesIndexRoute
   '/app/students/': typeof AppStudentsIndexRoute
   '/app/teachers/': typeof AppTeachersIndexRoute
 }
@@ -645,9 +663,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/app/forms/$category'
     | '/app/guardians/$guardianId'
+    | '/app/secretaries/$staffId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
     | '/app/guardians/'
+    | '/app/secretaries/'
     | '/app/students/'
     | '/app/teachers/'
   fileRoutesByTo: FileRoutesByTo
@@ -709,9 +729,11 @@ export interface FileRouteTypes {
     | '/app'
     | '/app/forms/$category'
     | '/app/guardians/$guardianId'
+    | '/app/secretaries/$staffId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
     | '/app/guardians'
+    | '/app/secretaries'
     | '/app/students'
     | '/app/teachers'
   id:
@@ -774,9 +796,11 @@ export interface FileRouteTypes {
     | '/app/'
     | '/app/forms/$category'
     | '/app/guardians/$guardianId'
+    | '/app/secretaries/$staffId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
     | '/app/guardians/'
+    | '/app/secretaries/'
     | '/app/students/'
     | '/app/teachers/'
   fileRoutesById: FileRoutesById
@@ -1202,6 +1226,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGuardiansGuardianIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/secretaries/': {
+      id: '/app/secretaries/'
+      path: '/secretaries'
+      fullPath: '/app/secretaries/'
+      preLoaderRoute: typeof AppSecretariesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/secretaries/$staffId': {
+      id: '/app/secretaries/$staffId'
+      path: '/secretaries/$staffId'
+      fullPath: '/app/secretaries/$staffId'
+      preLoaderRoute: typeof AppSecretariesStaffIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/students/': {
       id: '/app/students/'
       path: '/students'
@@ -1289,9 +1327,11 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppFormsCategoryRoute: typeof AppFormsCategoryRoute
   AppGuardiansGuardianIdRoute: typeof AppGuardiansGuardianIdRoute
+  AppSecretariesStaffIdRoute: typeof AppSecretariesStaffIdRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
   AppTeachersInstructorIdRoute: typeof AppTeachersInstructorIdRoute
   AppGuardiansIndexRoute: typeof AppGuardiansIndexRoute
+  AppSecretariesIndexRoute: typeof AppSecretariesIndexRoute
   AppStudentsIndexRoute: typeof AppStudentsIndexRoute
   AppTeachersIndexRoute: typeof AppTeachersIndexRoute
 }
@@ -1352,9 +1392,11 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppFormsCategoryRoute: AppFormsCategoryRoute,
   AppGuardiansGuardianIdRoute: AppGuardiansGuardianIdRoute,
+  AppSecretariesStaffIdRoute: AppSecretariesStaffIdRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
   AppTeachersInstructorIdRoute: AppTeachersInstructorIdRoute,
   AppGuardiansIndexRoute: AppGuardiansIndexRoute,
+  AppSecretariesIndexRoute: AppSecretariesIndexRoute,
   AppStudentsIndexRoute: AppStudentsIndexRoute,
   AppTeachersIndexRoute: AppTeachersIndexRoute,
 }

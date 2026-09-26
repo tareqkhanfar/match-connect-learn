@@ -8515,6 +8515,7 @@ export function useSetFormCategorySettings() {
 export interface IssuedAccount {
   teacher: string;
   name: string;
+  hint?: string;
   user: string;
   username: string;
   password: string;
@@ -8522,11 +8523,27 @@ export interface IssuedAccount {
   note: string;
 }
 
-/** Creates or resets the chosen teachers' logins; the sheet comes back once. */
-export function useIssueTeacherAccounts() {
+export type AccountDoctype = "Instructor" | "Student" | "Guardian" | "MS Staff Member";
+
+/** Everyone of one kind the bulk tool may issue to, optionally one section. */
+export function useAccountCandidates(doctype: AccountDoctype, group?: string) {
+  return useQuery<{
+    people: Array<{ id: string; name: string; hint: string; hasAccount: boolean }>;
+    groups: Array<{ id: string; label: string }>;
+    noun: string;
+    nounPlural: string;
+  }>({
+    queryKey: ["account-candidates", doctype, group ?? ""],
+    queryFn: () =>
+      apiGet("credentials.account_candidates", { doctype, ...(group ? { group } : {}) }),
+  });
+}
+
+/** Creates or resets the chosen people's logins; the sheet comes back once. */
+export function useIssueAccounts() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { names: string[]; mode: "all" | "missing" }) =>
+    mutationFn: (vars: { doctype: AccountDoctype; names: string[]; mode: "all" | "missing" }) =>
       apiPost<{
         rows: IssuedAccount[];
         created: number;
@@ -8534,11 +8551,75 @@ export function useIssueTeacherAccounts() {
         skipped: number;
         file: string;
         filename: string;
-      }>("credentials.issue_teacher_accounts", {
+      }>("credentials.issue_accounts", {
+        doctype: vars.doctype,
         names: JSON.stringify(vars.names),
         mode: vars.mode,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["person-account"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["person-account"] });
+      void qc.invalidateQueries({ queryKey: ["account-candidates"] });
+      void qc.invalidateQueries({ queryKey: ["staff"] });
+    },
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * The office staff's files (secretaries)
+ * ---------------------------------------------------------------------- */
+
+export interface StaffMember {
+  id: string;
+  fullName: string;
+  jobTitle: string;
+  status: "Active" | "Inactive";
+  gender: string;
+  dateOfBirth: string;
+  nationalId: string;
+  phone: string;
+  email: string;
+  joiningDate: string;
+  address: string;
+  qualification: string;
+  notes: string;
+  image: string;
+  account: { user: string; username: string; enabled: boolean; lastLogin: string } | null;
+  modified: string;
+}
+
+export function useStaffList(search = "") {
+  return useQuery<{ staff: StaffMember[] }>({
+    queryKey: ["staff", "list", search],
+    queryFn: () => apiGet("staff.list_staff", search ? { search } : {}),
+  });
+}
+
+export function useStaffMember(name: string | undefined) {
+  return useQuery<{ staff: StaffMember }>({
+    queryKey: ["staff", "one", name],
+    queryFn: () => apiGet("staff.get_staff", { name: name! }),
+    enabled: !!name,
+  });
+}
+
+export function useSaveStaff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<StaffMember> & { createAccount?: number }) =>
+      apiPost<{
+        staff: StaffMember;
+        credentials: { username: string; password: string; user: string } | null;
+        message_ar?: string;
+      }>("staff.save_staff", { payload } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff"] }),
+  });
+}
+
+export function useDeleteStaff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => apiPost<{ message_ar?: string }>("staff.delete_staff", { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff"] }),
   });
 }
 

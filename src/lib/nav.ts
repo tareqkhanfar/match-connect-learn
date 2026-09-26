@@ -1,5 +1,6 @@
 import {
   AlarmClock,
+  UserCog,
   LifeBuoy,
   ShieldCheck,
   FileText,
@@ -106,6 +107,13 @@ export const navItems: NavItem[] = [
     to: "/app/teachers",
     icon: GraduationCap,
     roles: ["admin", "secretary"],
+    group: "السجلات",
+  },
+  {
+    label: "السكرتارية",
+    to: "/app/secretaries",
+    icon: UserCog,
+    roles: ["admin"],
     group: "السجلات",
   },
   {

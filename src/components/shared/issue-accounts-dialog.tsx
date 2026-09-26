@@ -11,7 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { Pill } from "@/components/shared/ui-kit";
 import { errorMessage } from "@/lib/api/error-message";
-import { useIssueTeacherAccounts, type IssuedAccount } from "@/lib/api/hooks";
+import {
+  useAccountCandidates,
+  useIssueAccounts,
+  type AccountDoctype,
+  type IssuedAccount,
+} from "@/lib/api/hooks";
 
 /** Saves the base64 sheet the server returned. */
 function saveSheet(base64: string, filename: string) {
@@ -39,7 +44,10 @@ const STATUS: Record<
 };
 
 /**
- * Logins for the teachers ticked on the list, handed over as an Excel sheet.
+ * Logins for teachers, students, parents or secretaries, handed over as an
+ * Excel sheet. The people come from the server with whether each already has
+ * a login, and students and parents can be narrowed to one section — slips
+ * go out class by class.
  *
  * The passwords exist in readable form only in the server's answer, so the
  * sheet is downloaded at once and kept on screen until the dialog closes — a
@@ -47,23 +55,33 @@ const STATUS: Record<
  * after that.
  */
 export function IssueAccountsDialog({
-  teachers,
-  initial,
+  doctype,
+  initial = [],
   onClose,
 }: {
-  /** Everyone who may be picked, in the list's order. */
-  teachers: Array<{ id: string; name: string }>;
+  doctype: AccountDoctype;
   /** Ticked on the table before the dialog opened. */
-  initial: string[];
+  initial?: string[];
   onClose: (done: boolean) => void;
 }) {
-  const issue = useIssueTeacherAccounts();
-  const [mode, setMode] = useState<"all" | "missing">("all");
+  const issue = useIssueAccounts();
+  const [group, setGroup] = useState("");
+  const candidates = useAccountCandidates(doctype, group || undefined);
+  const people = candidates.data?.people ?? [];
+  const noun = candidates.data?.noun ?? "";
+  const plural = candidates.data?.nounPlural ?? "";
+  const [mode, setMode] = useState<"all" | "missing">(doctype === "Instructor" ? "all" : "missing");
   const [picked, setPicked] = useState<Set<string>>(new Set(initial));
   const [q, setQ] = useState("");
+  const [onlyMissing, setOnlyMissing] = useState(false);
   const result = issue.data;
-  const names = teachers.filter((t) => picked.has(t.id)).map((t) => t.id);
-  const shown = teachers.filter((t) => !q.trim() || t.name.includes(q.trim()));
+  // Ticked people outside the current section stay ticked.
+  const names = [...picked];
+  const shown = people.filter(
+    (t) =>
+      (!q.trim() || t.name.includes(q.trim()) || t.hint.includes(q.trim())) &&
+      (!onlyMissing || !t.hasAccount),
+  );
   const allShown = shown.length > 0 && shown.every((t) => picked.has(t.id));
 
   function toggle(id: string) {
@@ -88,11 +106,11 @@ export function IssueAccountsDialog({
 
   async function run() {
     if (!names.length) {
-      toast.error("اختر معلماً واحداً على الأقل");
+      toast.error("اختر شخصاً واحداً على الأقل");
       return;
     }
     try {
-      const res = await issue.mutateAsync({ names, mode });
+      const res = await issue.mutateAsync({ doctype, names, mode });
       saveSheet(res.file, res.filename);
       const issued = res.created + res.reset;
       if (issued) toast.success(`تم إصدار ${issued} حساباً وتنزيل الملف`);
@@ -108,24 +126,43 @@ export function IssueAccountsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <KeyRound className="size-5 text-primary" />
-            إصدار حسابات المعلمين
+            إصدار حسابات {plural}
           </DialogTitle>
           <DialogDescription>
-            {names.length} معلماً محدداً — يُنزَّل ملف Excel فيه اسم المعلم واسم المستخدم وكلمة
-            المرور الجديدة.
+            {names.length} محدداً — يُنزَّل ملف Excel فيه اسم {noun} واسم المستخدم وكلمة المرور
+            الجديدة.
           </DialogDescription>
         </DialogHeader>
 
         {!result ? (
           <div className="space-y-3">
             <div className="rounded-xl border border-border">
+              {(candidates.data?.groups.length ?? 0) > 0 && (
+                <div className="flex items-center gap-2 border-b border-border p-2">
+                  <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                    الشعبة
+                  </span>
+                  <select
+                    value={group}
+                    onChange={(e) => setGroup(e.target.value)}
+                    className="h-8 flex-1 rounded-lg border border-border bg-card px-2 text-xs"
+                  >
+                    <option value="">كل الشعب</option>
+                    {candidates.data!.groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-2 border-b border-border p-2">
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="ابحث عن معلم…"
+                    placeholder="ابحث بالاسم…"
                     className="h-8 w-full rounded-lg bg-secondary/60 pr-8 text-xs outline-none"
                   />
                 </div>
@@ -137,6 +174,15 @@ export function IssueAccountsDialog({
                   {allShown ? "إلغاء تحديد الكل" : "تحديد الكل"}
                 </button>
               </div>
+              <label className="flex cursor-pointer items-center gap-2 border-b border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={onlyMissing}
+                  onChange={(e) => setOnlyMissing(e.target.checked)}
+                  className="size-3.5"
+                />
+                إظهار من ليس لهم حساب فقط
+              </label>
               <div className="max-h-48 overflow-y-auto p-1">
                 {shown.map((t) => (
                   <label
@@ -149,10 +195,25 @@ export function IssueAccountsDialog({
                       onChange={() => toggle(t.id)}
                       className="size-4 accent-[var(--primary)]"
                     />
-                    {t.name}
+                    <span className="min-w-0 flex-1 truncate">
+                      {t.name}
+                      {t.hint && (
+                        <span className="text-[10px] text-muted-foreground"> · {t.hint}</span>
+                      )}
+                    </span>
+                    {t.hasAccount ? (
+                      <span className="shrink-0 text-[10px] text-muted-foreground">لديه حساب</span>
+                    ) : (
+                      <span className="shrink-0 rounded bg-warning/15 px-1.5 text-[10px] font-semibold text-warning">
+                        بلا حساب
+                      </span>
+                    )}
                   </label>
                 ))}
-                {shown.length === 0 && (
+                {candidates.isLoading && (
+                  <p className="p-3 text-center text-xs text-muted-foreground">جارٍ التحميل…</p>
+                )}
+                {!candidates.isLoading && shown.length === 0 && (
                   <p className="p-3 text-center text-xs text-muted-foreground">لا نتائج</p>
                 )}
               </div>
@@ -186,8 +247,8 @@ export function IssueAccountsDialog({
             {mode === "all" && (
               <p className="flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-xs text-muted-foreground">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                سيحتاج المعلمون المحددون إلى كلمة المرور الجديدة للدخول، وسيُطلب منهم تغييرها عند
-                أول دخول. حسابات مدير النظام لا تُمَسّ.
+                ستتوقف كلمات المرور الحالية للمحددين ويحتاجون الجديدة للدخول، وسيُطلب منهم تغييرها
+                عند أول دخول. حسابات مدير النظام لا تُمَسّ.
               </p>
             )}
           </div>
@@ -202,7 +263,7 @@ export function IssueAccountsDialog({
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-secondary">
                   <tr className="text-right">
-                    <th className="p-2">المعلم</th>
+                    <th className="p-2">{noun}</th>
                     <th className="p-2">اسم المستخدم</th>
                     <th className="p-2">كلمة المرور</th>
                     <th className="p-2">الحالة</th>
@@ -213,6 +274,7 @@ export function IssueAccountsDialog({
                     <tr key={r.teacher} className="border-t border-border/60">
                       <td className="p-2">
                         {r.name}
+                        {r.hint && <p className="text-[10px] text-muted-foreground">{r.hint}</p>}
                         {r.note && <p className="text-[10px] text-muted-foreground">{r.note}</p>}
                       </td>
                       <td className="num p-2" dir="ltr">

@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Mail, Phone, Plus, Trash2, Users } from "lucide-react";
+import { KeyRound, Mail, Phone, Plus, Trash2, Users } from "lucide-react";
+import { IssueAccountsDialog } from "@/components/shared/issue-accounts-dialog";
 import { PageHeader, Pill } from "@/components/shared/ui-kit";
 import { DataTable, type Column } from "@/components/shared/data-table";
 import { useConfirm } from "@/components/shared/confirm";
@@ -62,6 +63,8 @@ function GuardiansPage() {
   const [pageSize, setPageSize] = useState(20);
   const [editing, setEditing] = useState<GuardianRow | null>(null);
   const [creating, setCreating] = useState(false);
+  // People ticked for «إصدار حسابات», with the table's way to untick them.
+  const [issuing, setIssuing] = useState<{ names: string[]; clear: () => void } | null>(null);
   const [linking, setLinking] = useState<GuardianRow | null>(null);
 
   const [filterValues, setFilterValues] = useState<FilterValues>({});
@@ -197,13 +200,22 @@ function GuardiansPage() {
         title="أولياء الأمور"
         subtitle="سجل أولياء الأمور، بيانات التواصل، والأبناء المرتبطين بكل منهم"
         actions={
-          <button
-            onClick={() => setCreating(true)}
-            className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
-          >
-            <Plus className="size-4" />
-            إضافة ولي أمر
-          </button>
+          <>
+            <button
+              onClick={() => setIssuing({ names: [], clear: () => undefined })}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold transition-colors hover:bg-secondary"
+            >
+              <KeyRound className="size-4" />
+              إصدار حسابات
+            </button>
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <Plus className="size-4" />
+              إضافة ولي أمر
+            </button>
+          </>
         }
       />
 
@@ -240,11 +252,30 @@ function GuardiansPage() {
         exportTitle="أولياء الأمور"
         bulkDoctype="Guardian"
         bulkActions={(selected, clear) => (
-          <BulkActions doctype="Guardian" selected={selected} onDone={clear} noun="ولي أمر" />
+          <>
+            <button
+              onClick={() => setIssuing({ names: selected, clear })}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3 text-xs font-bold text-primary-foreground"
+            >
+              <KeyRound className="size-4" />
+              إصدار حسابات
+            </button>
+            <BulkActions doctype="Guardian" selected={selected} onDone={clear} noun="ولي أمر" />
+          </>
         )}
         emptyTitle="لا يوجد أولياء أمور"
         emptyDescription="أضف ولي أمر واربطه بأبنائه."
       />
+      {issuing && (
+        <IssueAccountsDialog
+          doctype="Guardian"
+          initial={issuing.names}
+          onClose={(done) => {
+            if (done) issuing.clear();
+            setIssuing(null);
+          }}
+        />
+      )}
 
       {(creating || editing) && (
         <GuardianDialog

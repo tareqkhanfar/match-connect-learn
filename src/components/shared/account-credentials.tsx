@@ -31,7 +31,7 @@ export function AccountCredentials({
   name,
   canManage,
 }: {
-  doctype: "Student" | "Instructor" | "Guardian";
+  doctype: "Student" | "Instructor" | "Guardian" | "MS Staff Member";
   name: string;
   canManage: boolean;
 }) {

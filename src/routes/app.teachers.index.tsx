@@ -406,7 +406,7 @@ function TeachersPage() {
 
       {issuing && (
         <IssueAccountsDialog
-          teachers={teachers.map((t) => ({ id: t.id, name: t.instructor_name }))}
+          doctype="Instructor"
           initial={issuing.names}
           onClose={(done) => {
             if (done) issuing.clear();

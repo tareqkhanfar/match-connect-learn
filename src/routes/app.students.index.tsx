@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
-import { Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { KeyRound, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { IssueAccountsDialog } from "@/components/shared/issue-accounts-dialog";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, ProgressBar } from "@/components/shared/ui-kit";
@@ -24,7 +25,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { byRole, statusMeta } from "@/lib/roles";
+import { byRole, isBackOffice, statusMeta } from "@/lib/roles";
 import {
   useAdmissionOptions,
   useGuardians,
@@ -65,6 +66,8 @@ function useDebounced<T>(value: T, delay = 350) {
 
 function StudentsPage() {
   const { role } = useApp();
+  // People ticked for «إصدار حسابات», with the table's way to untick them.
+  const [issuing, setIssuing] = useState<{ names: string[]; clear: () => void } | null>(null);
   const [search, setSearch] = useState("");
   const [grade, setGrade] = useState("all");
   const [section, setSection] = useState("all");
@@ -216,7 +219,20 @@ function StudentsPage() {
       <PageHeader
         title={byRole(role, "إدارة الطلاب", { teacher: "طلابي" })}
         subtitle={`${query.data?.total ?? 0} طالباً في القائمة الحالية`}
-        actions={<AddStudentDialog />}
+        actions={
+          <>
+            {isBackOffice(role) && (
+              <button
+                onClick={() => setIssuing({ names: [], clear: () => undefined })}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold transition-colors hover:bg-secondary"
+              >
+                <KeyRound className="size-4" />
+                إصدار حسابات
+              </button>
+            )}
+            <AddStudentDialog />
+          </>
+        }
       />
 
       <DataTable
@@ -241,22 +257,33 @@ function StudentsPage() {
         exportTitle="قائمة الطلاب"
         bulkDoctype="Student"
         bulkActions={(selected, clear) => (
-          <BulkActions
-            doctype="Student"
-            selected={selected}
-            onDone={clear}
-            noun="طالباً"
-            fields={[
-              {
-                field: "enabled",
-                label: "الحالة",
-                options: [
-                  { value: 1, label: "تفعيل" },
-                  { value: 0, label: "تعطيل" },
-                ],
-              },
-            ]}
-          />
+          <>
+            {isBackOffice(role) && (
+              <button
+                onClick={() => setIssuing({ names: selected, clear })}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-3 text-xs font-bold text-primary-foreground"
+              >
+                <KeyRound className="size-4" />
+                إصدار حسابات
+              </button>
+            )}
+            <BulkActions
+              doctype="Student"
+              selected={selected}
+              onDone={clear}
+              noun="طالباً"
+              fields={[
+                {
+                  field: "enabled",
+                  label: "الحالة",
+                  options: [
+                    { value: 1, label: "تفعيل" },
+                    { value: 0, label: "تعطيل" },
+                  ],
+                },
+              ]}
+            />
+          </>
         )}
         emptyTitle="لا توجد نتائج"
         emptyDescription="لم نجد أي طالب يطابق معايير البحث. جرّب تعديل الفلاتر."
@@ -325,6 +352,16 @@ function StudentsPage() {
           </>
         }
       />
+      {issuing && (
+        <IssueAccountsDialog
+          doctype="Student"
+          initial={issuing.names}
+          onClose={(done) => {
+            if (done) issuing.clear();
+            setIssuing(null);
+          }}
+        />
+      )}
     </>
   );
 }
