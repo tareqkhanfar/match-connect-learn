@@ -49,6 +49,20 @@ import {
   type PrintRequestRow,
 } from "@/lib/api/hooks";
 
+/** «26/09/2026 · 05:07 م» — every recorded moment is shown with its time. */
+function dateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const d = new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return String(value);
+  const date = d.toLocaleDateString("en-GB");
+  const time = d.toLocaleTimeString("ar", {
+    hour: "2-digit",
+    minute: "2-digit",
+    numberingSystem: "latn",
+  });
+  return `${date} · ${time}`;
+}
+
 export const Route = createFileRoute("/app/print-requests")({
   validateSearch: groupSearch,
   head: () => ({
@@ -239,6 +253,21 @@ function RequestCard({ request: r, onEdit }: { request: PrintRequestRow; onEdit:
               </span>
             )}
             <span>· {r.requested_by_name}</span>
+          </p>
+          <p className="num mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+            <span>
+              <b className="font-semibold text-foreground/80">تاريخ الطلب:</b>{" "}
+              {dateTime(r.requested_on)}
+            </span>
+            {r.completed_on && (
+              <span>
+                <b className="font-semibold text-foreground/80">
+                  {r.status === "Rejected" ? "تاريخ الرفض:" : "تاريخ الإنجاز:"}
+                </b>{" "}
+                {dateTime(r.completed_on)}
+                {r.handled_by_name ? ` · ${r.handled_by_name}` : ""}
+              </span>
+            )}
           </p>
           {r.notes && <p className="mt-1 text-xs text-muted-foreground">{r.notes}</p>}
           {r.secretary_notes && (
