@@ -515,11 +515,14 @@ export function FormDesigner({
                   <p className="mb-1 text-[11px] text-muted-foreground">شكل الطباعة</p>
                   <select
                     value={draft.printTheme ?? "soft"}
-                    onChange={(e) => set("printTheme", e.target.value as "soft" | "classic")}
+                    onChange={(e) =>
+                      set("printTheme", e.target.value as "soft" | "classic" | "letter")
+                    }
                     className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
                   >
                     <option value="soft">بطاقات ملوّنة بإطار وزخرفة</option>
                     <option value="classic">بسيط بلا إطار</option>
+                    <option value="letter">خطاب رسمي (ترويسة المدرسة كصورة وإطار مزدوج)</option>
                   </select>
                 </div>
                 <div>

@@ -8015,7 +8015,7 @@ export interface FormTemplate {
   /** How many students the form applies to. */
   subjectsCount?: number;
   entryFor?: FormEntryFor;
-  printTheme?: "soft" | "classic";
+  printTheme?: "soft" | "classic" | "letter";
   printOrientation?: "Portrait" | "Landscape";
   printLogo?: string;
   printSchool?: string;
