@@ -40,6 +40,7 @@ import { Route as AppFinalsRouteImport } from './routes/app.finals'
 import { Route as AppFormsReportsRouteImport } from './routes/app.forms-reports'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
+import { Route as AppHelpRouteImport } from './routes/app.help'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppMailRouteImport } from './routes/app.mail'
 import { Route as AppPrintRequestsRouteImport } from './routes/app.print-requests'
@@ -225,6 +226,11 @@ const AppGradebookRoute = AppGradebookRouteImport.update({
 const AppHealthRoute = AppHealthRouteImport.update({
   id: '/health',
   path: '/health',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHelpRoute = AppHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLibraryRoute = AppLibraryRouteImport.update({
@@ -414,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
+  '/app/help': typeof AppHelpRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
@@ -477,6 +484,7 @@ export interface FileRoutesByTo {
   '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
+  '/app/help': typeof AppHelpRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
@@ -542,6 +550,7 @@ export interface FileRoutesById {
   '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
+  '/app/help': typeof AppHelpRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
@@ -608,6 +617,7 @@ export interface FileRouteTypes {
     | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
+    | '/app/help'
     | '/app/library'
     | '/app/mail'
     | '/app/print-requests'
@@ -671,6 +681,7 @@ export interface FileRouteTypes {
     | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
+    | '/app/help'
     | '/app/library'
     | '/app/mail'
     | '/app/print-requests'
@@ -735,6 +746,7 @@ export interface FileRouteTypes {
     | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
+    | '/app/help'
     | '/app/library'
     | '/app/mail'
     | '/app/print-requests'
@@ -994,6 +1006,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHealthRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/help': {
+      id: '/app/help'
+      path: '/help'
+      fullPath: '/app/help'
+      preLoaderRoute: typeof AppHelpRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/library': {
       id: '/app/library'
       path: '/library'
@@ -1242,6 +1261,7 @@ interface AppRouteChildren {
   AppFormsReportsRoute: typeof AppFormsReportsRoute
   AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
+  AppHelpRoute: typeof AppHelpRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppMailRoute: typeof AppMailRoute
   AppPrintRequestsRoute: typeof AppPrintRequestsRoute
@@ -1304,6 +1324,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFormsReportsRoute: AppFormsReportsRoute,
   AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
+  AppHelpRoute: AppHelpRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppMailRoute: AppMailRoute,
   AppPrintRequestsRoute: AppPrintRequestsRoute,

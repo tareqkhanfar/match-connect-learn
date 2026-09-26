@@ -1,5 +1,6 @@
 import {
   AlarmClock,
+  LifeBuoy,
   ShieldCheck,
   FileText,
   Layers,
@@ -457,6 +458,14 @@ export const navItems: NavItem[] = [
     icon: ShieldAlert,
     roles: ["admin", "secretary", "student", "parent"],
     group: "المتابعة اليومية",
+    groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
+  },
+  {
+    label: "المساعدة",
+    to: "/app/help",
+    icon: LifeBuoy,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "التواصل",
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {

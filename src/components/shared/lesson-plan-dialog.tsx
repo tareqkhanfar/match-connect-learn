@@ -7,6 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Pill } from "@/components/shared/ui-kit";
 import { RichText, sanitizeHtml } from "@/components/shared/rich-text";
 import { useConfirm } from "@/components/shared/confirm";
+import { Attachments } from "@/components/shared/attachments";
+import { PendingAttachments, uploadPending } from "@/components/shared/pending-attachments";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,8 @@ export function LessonPlanDialog({
     notes: "",
   });
   const [published, setPublished] = useState(true);
+  // Files picked before the plan's first save; uploaded once it has an id.
+  const [pending, setPending] = useState<File[]>([]);
   const [tab, setTab] = useState<"plan" | "log">("plan");
 
   // The dialog opens before the plan arrives, so the form is filled once it
@@ -82,6 +86,7 @@ export function LessonPlanDialog({
         ...form,
         is_published: published ? 1 : 0,
       });
+      if (pending.length && res.id) await uploadPending("MS Lesson Plan", res.id, pending);
       toast.success(res.message_ar || "تم حفظ التحضير");
       onClose();
     } catch (err) {
@@ -214,6 +219,23 @@ export function LessonPlanDialog({
               />
             </div>
 
+            {data?.plan?.id ? (
+              <Attachments
+                doctype="MS Lesson Plan"
+                name={data.plan.id}
+                title="ملفات مرفقة"
+                description="ورقة عمل، عرض تقديمي، صور… تظهر للطلاب مع التحضير عند نشره."
+                compact
+              />
+            ) : (
+              <PendingAttachments
+                files={pending}
+                onChange={setPending}
+                title="ملفات مرفقة"
+                description="ورقة عمل، عرض تقديمي، صور… تُرفع عند حفظ التحضير."
+              />
+            )}
+
             <div className="space-y-1.5">
               <Label>ملاحظات خاصة بك</Label>
               <Input
@@ -277,6 +299,7 @@ export function LessonPlanDialog({
                 </div>
               </div>
             )}
+            <Attachments doctype="MS Lesson Plan" name={data.plan.id} title="ملفات مرفقة" compact />
             {data.plan.prepared_on && (
               <p className="num text-[11px] text-muted-foreground">
                 حُضّرت في {data.plan.prepared_on.slice(0, 16)}

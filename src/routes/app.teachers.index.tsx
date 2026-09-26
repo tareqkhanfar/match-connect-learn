@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { GraduationCap, Mail, Phone, Plus, Search, Trash2 } from "lucide-react";
+import { GraduationCap, KeyRound, Mail, Phone, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
@@ -22,6 +22,7 @@ import {
 import type { TeacherRow } from "@/lib/api/types";
 import { useApp } from "@/lib/app-context";
 import { useConfirm } from "@/components/shared/confirm";
+import { IssueAccountsDialog } from "@/components/shared/issue-accounts-dialog";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,8 @@ function TeachersPage() {
   const deleteTeacher = useDeleteTeacher();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<TeacherRow | null>(null);
+  // Teachers ticked for «إصدار حسابات», with the table's way to untick them.
+  const [issuing, setIssuing] = useState<{ names: string[]; clear: () => void } | null>(null);
   const canManage = role === "admin" || role === "secretary";
   const [view, setView] = useViewMode("teachers");
 
@@ -216,6 +219,15 @@ function TeachersPage() {
             <ViewToggle mode={view} onChange={setView} />
             {canManage && (
               <button
+                onClick={() => setIssuing({ names: [], clear: () => undefined })}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-bold transition-colors hover:bg-secondary"
+              >
+                <KeyRound className="size-4" />
+                إصدار حسابات
+              </button>
+            )}
+            {canManage && (
+              <button
                 onClick={() => setCreating(true)}
                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft transition-all hover:-translate-y-0.5 active:translate-y-0"
               >
@@ -244,6 +256,20 @@ function TeachersPage() {
           onFiltersChange={setFilterValues}
           exportDataset="teachers"
           exportTitle="قائمة المعلمين"
+          {...(canManage
+            ? {
+                bulkDoctype: "Instructor",
+                bulkActions: (selected: string[], clear: () => void) => (
+                  <button
+                    onClick={() => setIssuing({ names: selected, clear })}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-brand-gradient px-4 text-xs font-bold text-primary-foreground"
+                  >
+                    <KeyRound className="size-4" />
+                    إصدار حسابات (Excel)
+                  </button>
+                ),
+              }
+            : {})}
           emptyTitle="لا يوجد معلمون"
           emptyDescription="لم نجد أي معلم يطابق البحث."
         />
@@ -378,6 +404,16 @@ function TeachersPage() {
         </div>
       )}
 
+      {issuing && (
+        <IssueAccountsDialog
+          teachers={teachers.map((t) => ({ id: t.id, name: t.instructor_name }))}
+          initial={issuing.names}
+          onClose={(done) => {
+            if (done) issuing.clear();
+            setIssuing(null);
+          }}
+        />
+      )}
       {(creating || editing) && (
         <TeacherDialog
           teacher={editing}

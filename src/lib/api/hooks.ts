@@ -3038,6 +3038,8 @@ export function useExamSchedule(
 export interface ExamFormOptions {
   groups: Array<{ id: string; name: string; program: string | null; students: number }>;
   courses: string[];
+  /** A teacher's subjects per section; null for the office, which sees all. */
+  coursesByGroup?: Record<string, string[]> | null;
   rooms: Array<{ id: string; name: string; capacity: number }>;
   types: Array<{ code: string; label: string; colour: string }>;
 }
@@ -8500,4 +8502,98 @@ export function useSetFormCategorySettings() {
       void qc.invalidateQueries({ queryKey: ["form-categories"] });
     },
   });
+}
+
+/* -------------------------------------------------------------------------
+ * Teacher logins, issued in bulk
+ * ---------------------------------------------------------------------- */
+
+export interface IssuedAccount {
+  teacher: string;
+  name: string;
+  user: string;
+  username: string;
+  password: string;
+  status: "created" | "reset" | "skipped";
+  note: string;
+}
+
+/** Creates or resets the chosen teachers' logins; the sheet comes back once. */
+export function useIssueTeacherAccounts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { names: string[]; mode: "all" | "missing" }) =>
+      apiPost<{
+        rows: IssuedAccount[];
+        created: number;
+        reset: number;
+        skipped: number;
+        file: string;
+        filename: string;
+      }>("credentials.issue_teacher_accounts", {
+        names: JSON.stringify(vars.names),
+        mode: vars.mode,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["person-account"] }),
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * The help centre
+ * ---------------------------------------------------------------------- */
+
+export type HelpAudience = "admin" | "secretary" | "teacher" | "student" | "parent";
+
+export interface HelpArticle {
+  name: string;
+  title: string;
+  kind: "Video" | "Question";
+  topic: string;
+  audience: HelpAudience[];
+  body: string;
+  videoFile: string;
+  videoUrl: string;
+  embedUrl: string;
+  isPublished: number;
+  sortOrder: number;
+  views: number;
+  modified: string;
+}
+
+export function useHelpArticles() {
+  return useQuery<{ articles: HelpArticle[]; canEdit: boolean; persona: string }>({
+    queryKey: ["help-articles"],
+    queryFn: () => apiGet("help_center.list_articles"),
+    staleTime: 60_000,
+  });
+}
+
+export function useSaveHelpArticle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<HelpArticle>) =>
+      apiPost<{ article: HelpArticle; message_ar?: string }>("help_center.save_article", {
+        payload,
+      } as unknown as Record<string, unknown>),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["help-articles"] }),
+  });
+}
+
+export function useDeleteHelpArticle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiPost<{ message_ar?: string }>("help_center.delete_article", { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["help-articles"] }),
+  });
+}
+
+export function markHelpViewed(name: string) {
+  void apiPost("help_center.mark_viewed", { name }).catch(() => undefined);
+}
+
+/** A help video file; returns its public URL. */
+export async function uploadHelpVideo(file: File): Promise<string> {
+  const res = await apiUpload<{ url: string }>("help_center.upload_video", file);
+  return res.url;
 }

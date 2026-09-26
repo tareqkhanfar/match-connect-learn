@@ -479,6 +479,12 @@ function ExamDialog({ exam, onClose }: { exam: ExamSitting | null; onClose: () =
 
   const room = options.data?.rooms.find((r) => r.id === form.room);
   const group = options.data?.groups.find((g) => g.id === form.student_group);
+  // A teacher is offered only the subjects they take in the chosen section —
+  // English for grade 11 on a grade 12 section is refused on save.
+  const groupCourses =
+    (form.student_group && options.data?.coursesByGroup?.[form.student_group]) ||
+    options.data?.courses ||
+    [];
   const overCapacity = room && group && room.capacity > 0 && group.students > room.capacity;
 
   return (
@@ -510,7 +516,12 @@ function ExamDialog({ exam, onClose }: { exam: ExamSitting | null; onClose: () =
                 hint: `${g.students} طالباً`,
               }))}
               value={form.student_group}
-              onChange={(v) => set("student_group", v)}
+              onChange={(v) => {
+                set("student_group", v);
+                const allowed = options.data?.coursesByGroup?.[v];
+                if (allowed && form.course && !allowed.includes(form.course)) set("course", "");
+                else if (allowed?.length === 1 && !form.course) set("course", allowed[0]!);
+              }}
               placeholder="اختر الشعبة"
             />
           </div>
@@ -518,7 +529,7 @@ function ExamDialog({ exam, onClose }: { exam: ExamSitting | null; onClose: () =
           <div className="space-y-1.5">
             <Label>المادة</Label>
             <SearchableSelect
-              options={(options.data?.courses ?? []).map((c) => ({ value: c, label: c }))}
+              options={groupCourses.map((c) => ({ value: c, label: c }))}
               value={form.course}
               onChange={(v) => set("course", v)}
               placeholder="اختر المادة"
