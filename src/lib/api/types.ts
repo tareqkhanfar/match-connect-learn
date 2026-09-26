@@ -308,6 +308,8 @@ export interface TeacherRow {
   classes_count: number;
   phone: string | null;
   email: string | null;
+  /** The login linked to this teacher; null when they have none yet. */
+  username?: string | null;
   joined?: string;
 }
 

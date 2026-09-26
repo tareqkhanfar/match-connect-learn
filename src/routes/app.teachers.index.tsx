@@ -114,6 +114,18 @@ function TeachersPage() {
         ),
     },
     { fieldname: "phone", label: "الهاتف", numeric: true, render: (t) => t.phone ?? "—" },
+    {
+      fieldname: "username",
+      label: "حساب الدخول",
+      render: (t) =>
+        t.username ? (
+          <span className="num font-mono text-xs" dir="ltr">
+            {t.username}
+          </span>
+        ) : (
+          <Pill tone="warning">بلا حساب</Pill>
+        ),
+    },
     { fieldname: "email", label: "البريد", hiddenByDefault: true, render: (t) => t.email ?? "—" },
     {
       fieldname: "status",
