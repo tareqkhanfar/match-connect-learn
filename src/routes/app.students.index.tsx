@@ -111,35 +111,45 @@ function StudentsPage() {
     {
       fieldname: "name",
       label: "الطالب",
-      render: (s) => (
-        <Link
-          to="/app/students/$studentId"
-          params={{ studentId: s.id }}
-          className="flex items-center gap-3"
-        >
-          <Avatar name={s.name} src={s.image} />
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 truncate font-semibold hover:text-primary">
-              <span className="truncate">{s.name}</span>
-              {/* A leaver stays in the directory, so the row has to say so —
+      render: (s) => {
+        const inner = (
+          <>
+            <Avatar name={s.name} src={s.image} />
+            <div className="min-w-0">
+              <p className="flex items-center gap-1.5 truncate font-semibold hover:text-primary">
+                <span className="truncate">{s.name}</span>
+                {/* A leaver stays in the directory, so the row has to say so —
                   otherwise their fees and marks read as a current student's. */}
-              {s.enrolmentStatus === "left" && (
-                <span
-                  className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground"
-                  title={
-                    s.leftOn
-                      ? `غادر في ${s.leftOn}${s.leftReason ? ` — ${s.leftReason}` : ""}`
-                      : "غير مقيّد حالياً"
-                  }
-                >
-                  منسحب
-                </span>
-              )}
-            </p>
-            <p className="num text-xs text-muted-foreground">{s.id}</p>
-          </div>
-        </Link>
-      ),
+                {s.enrolmentStatus === "left" && (
+                  <span
+                    className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground"
+                    title={
+                      s.leftOn
+                        ? `غادر في ${s.leftOn}${s.leftReason ? ` — ${s.leftReason}` : ""}`
+                        : "غير مقيّد حالياً"
+                    }
+                  >
+                    منسحب
+                  </span>
+                )}
+              </p>
+              <p className="num text-xs text-muted-foreground">{s.id}</p>
+            </div>
+          </>
+        );
+        // A student's file is for the office alone; a teacher sees the name.
+        return role === "teacher" ? (
+          <div className="flex items-center gap-3">{inner}</div>
+        ) : (
+          <Link
+            to="/app/students/$studentId"
+            params={{ studentId: s.id }}
+            className="flex items-center gap-3"
+          >
+            {inner}
+          </Link>
+        );
+      },
     },
     {
       fieldname: "grade",

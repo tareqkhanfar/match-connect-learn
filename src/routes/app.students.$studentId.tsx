@@ -187,10 +187,19 @@ function WeeklyGrid({
 function StudentProfile() {
   const { studentId } = Route.useParams();
   const { role } = useApp();
-  const { data, isLoading, error, refetch } = useStudentDossier(studentId);
+  const teacher = role === "teacher";
+  // A student's file is for the office alone; the server refuses it too.
+  const { data, isLoading, error, refetch } = useStudentDossier(teacher ? undefined : studentId);
   const [assessing, setAssessing] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  if (teacher)
+    return (
+      <EmptyBlock
+        title="ملف الطالب غير متاح"
+        description="ملف الطالب متاح لإدارة المدرسة والسكرتاريا فقط."
+      />
+    );
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <ErrorState error={error} onRetry={() => refetch()} />;
   if (!data) return <Empty title="لا توجد بيانات" />;
@@ -214,9 +223,8 @@ function StudentProfile() {
   } = data;
 
   const backOffice = isBackOffice(role);
-  // A teacher assesses; a family reads. The forms themselves decide what is
-  // published to whom, so the button is simply staff-only here.
-  const canAssess = backOffice || role === "teacher";
+  // The office assesses here; a family reads. Teachers never reach this page.
+  const canAssess = backOffice;
   const openAlerts = alerts.filter((a) => (a.status ?? "").toLowerCase() !== "resolved");
 
   return (
