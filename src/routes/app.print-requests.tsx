@@ -35,7 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useConfirm } from "@/components/shared/confirm";
-import { apiUpload, fileUrl } from "@/lib/api/client";
+import { apiUpload, methodUrl } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
 import { useApp } from "@/lib/app-context";
 import {
@@ -245,7 +245,12 @@ function RequestCard({ request: r, onEdit }: { request: PrintRequestRow; onEdit:
             {r.attachments.map((a: PrintAttachment) => (
               <li key={a.file_url}>
                 <a
-                  href={fileUrl(a.file_url)}
+                  // Through the queue's own check: the private file route refused
+                  // the office files a teacher uploaded.
+                  href={methodUrl("print_requests.download", {
+                    request: r.id,
+                    file_url: a.file_url,
+                  })}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 rounded-lg bg-secondary px-2 py-1 text-[11px] font-semibold hover:bg-primary-soft hover:text-primary"

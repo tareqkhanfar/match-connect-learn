@@ -216,6 +216,12 @@ export async function apiUpload<T>(
   return parseResponse<T>(res, method);
 }
 
+/** A GET endpoint as a plain link — for downloads the browser should open itself. */
+export function methodUrl(method: string, params: Record<string, string> = {}): string {
+  const qs = new URLSearchParams(params).toString();
+  return `${endpointUrl(method)}${qs ? `?${qs}` : ""}`;
+}
+
 /** Absolute URL for a stored file, so links work when the SPA is hosted apart. */
 export function fileUrl(url: string): string {
   if (!url) return "";

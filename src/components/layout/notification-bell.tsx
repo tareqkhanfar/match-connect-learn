@@ -9,6 +9,7 @@ import {
   MessageSquare,
   NotebookPen,
   Award,
+  Printer,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const ICON_BY_CATEGORY: Record<string, LucideIcon> = {
   grade: Award,
   attendance: ClipboardCheck,
   fee: Wallet,
+  print: Printer,
 };
 
 const TONE_CLASS: Record<string, string> = {
