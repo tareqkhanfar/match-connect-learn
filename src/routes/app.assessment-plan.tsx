@@ -8,10 +8,15 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  Copy,
+  FilePlus2,
+  LayoutTemplate,
   Layers,
+  Pencil,
   Plus,
   Save,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import { KpiCard, PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
@@ -19,6 +24,16 @@ import { useConfirm } from "@/components/shared/confirm";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useApp } from "@/lib/app-context";
 import { isBackOffice } from "@/lib/roles";
 import {
@@ -27,7 +42,14 @@ import {
   useSaveAssessmentPlan,
   useSaveQuarters,
   useSubjects,
+  useApplyPlanTemplate,
+  useDeletePlanTemplate,
+  usePlanTemplate,
+  usePlanTemplates,
+  useSavePlanTemplate,
   type PlanCategory,
+  type PlanTemplateSummary,
+  type Quarter,
 } from "@/lib/api/hooks";
 
 export const Route = createFileRoute("/app/assessment-plan")({
@@ -83,6 +105,32 @@ function AssessmentPlanPage() {
   // weights do not add up is worse than no plan at all.
   const [draft, setDraft] = useState<DraftCategory[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [tab, setTab] = useState<"plans" | "templates">("plans");
+  const confirm = useConfirm();
+  const templates = usePlanTemplates();
+  const canManageTemplates = templates.data?.canEdit ?? isBackOffice(role);
+  // «تحميل من نموذج»: the template is fetched, then poured into the editor —
+  // nothing is saved until the plan itself is saved.
+  const [loadingTemplate, setLoadingTemplate] = useState<string | null>(null);
+  const templateQuery = usePlanTemplate(loadingTemplate);
+  const [savingAsTemplate, setSavingAsTemplate] = useState(false);
+  const [applying, setApplying] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!loadingTemplate || !templateQuery.data) return;
+    const t = templateQuery.data;
+    if (t.applied.problems.length) {
+      toast.error("النموذج لا يناسب أرباع هذا الفصل", {
+        description: t.applied.problems.join("\n"),
+      });
+    } else {
+      setDraft(t.applied.categories.map(fromApplied));
+      toast.success(`تم تحميل «${t.name}» — راجع الخطة ثم احفظها`, {
+        description: t.applied.notes.join("\n") || undefined,
+      });
+    }
+    setLoadingTemplate(null);
+  }, [loadingTemplate, templateQuery.data]);
 
   useEffect(() => {
     if (!planQuery.data) return;
@@ -116,22 +164,6 @@ function AssessmentPlanPage() {
     }
     return map;
   }, [draft]);
-
-  function update(index: number, patch: Partial<DraftCategory>) {
-    setDraft((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
-  }
-
-  function addCategory(quarter: string) {
-    setDraft((prev) => [...prev, { quarter, name: "", type: "Exam", weight: "", children: [] }]);
-  }
-
-  function addAssessment(index: number) {
-    setDraft((prev) =>
-      prev.map((c, i) =>
-        i === index ? { ...c, children: [...c.children, { name: "", maxScore: "" }] } : c,
-      ),
-    );
-  }
 
   async function save() {
     if (!course) {
@@ -198,7 +230,40 @@ function AssessmentPlanPage() {
         <QuarterEditor canEdit={canEditQuarters} />
       </div>
 
-      {quarters.length === 0 ? (
+      {quarters.length > 0 && (
+        <div className="mt-6 inline-flex rounded-xl border border-border bg-secondary/40 p-1">
+          {(
+            [
+              ["plans", "خطط المواد", Layers],
+              ["templates", "نماذج الخطط", LayoutTemplate],
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                tab === key ? "bg-card shadow-soft" : "text-muted-foreground"
+              }`}
+            >
+              <Icon className="size-4" />
+              {label}
+              {key === "templates" && (templates.data?.templates.length ?? 0) > 0 && (
+                <span className="num rounded-full bg-primary-soft px-1.5 text-[11px] text-primary">
+                  {templates.data!.templates.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {quarters.length > 0 && tab === "templates" ? (
+        <TemplatesPanel
+          quarters={quarters}
+          canEdit={canManageTemplates}
+          onApply={(id) => setApplying(id)}
+        />
+      ) : quarters.length === 0 ? (
         <div className="mt-6">
           <EmptyBlock
             title="لم يتم تقسيم الفصل بعد"
@@ -208,17 +273,57 @@ function AssessmentPlanPage() {
         </div>
       ) : (
         <>
-          <div className="mt-6 max-w-md">
-            <Label>المادة</Label>
-            <div className="mt-1.5">
-              <SearchableSelect
-                options={(subjects.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
-                value={course}
-                onChange={setCourse}
-                placeholder="اختر المادة"
-                searchPlaceholder="ابحث عن مادة…"
-              />
+          <div className="mt-6 flex flex-wrap items-end gap-3">
+            <div className="w-full max-w-md">
+              <Label>المادة</Label>
+              <div className="mt-1.5">
+                <SearchableSelect
+                  options={(subjects.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                  value={course}
+                  onChange={setCourse}
+                  placeholder="اختر المادة"
+                  searchPlaceholder="ابحث عن مادة…"
+                />
+              </div>
             </div>
+            {course && (templates.data?.templates.length ?? 0) > 0 && (
+              <div className="w-full max-w-xs">
+                <Label>تحميل من نموذج</Label>
+                <div className="mt-1.5">
+                  <SearchableSelect
+                    options={(templates.data?.templates ?? []).map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                      hint: `${t.categories} تصنيف · ${t.assessments} امتحان`,
+                    }))}
+                    value={loadingTemplate ?? ""}
+                    onChange={async (v) => {
+                      if (!v) return;
+                      if (draft.length) {
+                        const ok = await confirm({
+                          title: "استبدال الخطة الحالية بالنموذج؟",
+                          description:
+                            "ستُملأ الخطة من النموذج في هذه الشاشة فقط — لا شيء يُحفظ حتى تضغط «حفظ الخطة».",
+                          confirmLabel: "تحميل النموذج",
+                        });
+                        if (!ok) return;
+                      }
+                      setLoadingTemplate(v);
+                    }}
+                    placeholder={templateQuery.isFetching ? "جارٍ التحميل…" : "اختر نموذجاً"}
+                  />
+                </div>
+              </div>
+            )}
+            {course && canManageTemplates && draft.length > 0 && (
+              <button
+                onClick={() => setSavingAsTemplate(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:bg-secondary"
+              >
+                <Copy className="size-4" />
+                حفظ كنموذج
+              </button>
+            )}
           </div>
 
           {!course ? (
@@ -235,61 +340,7 @@ function AssessmentPlanPage() {
             </div>
           ) : (
             <div className="mt-6 space-y-6">
-              {quarters.map((q) => {
-                const used = usedByQuarter[q.name] ?? 0;
-                const mine = draft
-                  .map((c, i) => ({ c, i }))
-                  .filter(({ c }) => c.quarter === q.name);
-                const balanced = Math.abs(used - q.totalMarks) < 0.01;
-
-                return (
-                  <SectionCard
-                    key={q.name}
-                    title={`${q.name} — ${q.totalMarks} علامة`}
-                    actions={
-                      <div className="flex items-center gap-2">
-                        <Pill tone={balanced ? "success" : mine.length ? "warning" : "muted"}>
-                          {used} من {q.totalMarks}
-                        </Pill>
-                        <button
-                          onClick={() => addCategory(q.name)}
-                          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
-                        >
-                          <Plus className="size-3.5" />
-                          تصنيف
-                        </button>
-                      </div>
-                    }
-                  >
-                    {mine.length === 0 ? (
-                      <p className="py-4 text-center text-xs text-muted-foreground">
-                        لا توجد تصنيفات في هذا الربع — أضف تصنيفاً مثل «امتحانات يومية».
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {mine.map(({ c, i }) => (
-                          <CategoryRow
-                            key={i}
-                            category={c}
-                            onChange={(patch) => update(i, patch)}
-                            onAddAssessment={() => addAssessment(i)}
-                            onRemove={() => setDraft((prev) => prev.filter((_, idx) => idx !== i))}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {!balanced && mine.length > 0 && (
-                      <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-700">
-                        <AlertTriangle className="size-3.5" />
-                        {used < q.totalMarks
-                          ? `ينقص ${Math.round((q.totalMarks - used) * 100) / 100} علامة لإكمال الربع`
-                          : `تجاوزت ${q.totalMarks} بمقدار ${Math.round((used - q.totalMarks) * 100) / 100}`}
-                      </p>
-                    )}
-                  </SectionCard>
-                );
-              })}
+              <PlanQuarters quarters={quarters} draft={draft} setDraft={setDraft} />
 
               {planQuery.data?.orphans && planQuery.data.orphans.length > 0 && (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
@@ -306,7 +357,638 @@ function AssessmentPlanPage() {
           )}
         </>
       )}
+
+      {savingAsTemplate && (
+        <TemplateMetaDialog
+          title="حفظ الخطة كنموذج"
+          description={`تُحفظ بنية خطة «${course}» (التصنيفات والامتحانات والعلامات) لاستخدامها مع مواد أخرى.`}
+          onClose={() => setSavingAsTemplate(false)}
+          quarters={quarters}
+          draft={draft}
+        />
+      )}
+      {applying !== undefined && (
+        <ApplyTemplateDialog
+          initialTemplate={applying}
+          templates={templates.data?.templates ?? []}
+          subjects={(subjects.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+          onClose={() => setApplying(undefined)}
+        />
+      )}
     </>
+  );
+}
+
+/** A category of the current term, back to a template row by quarter position. */
+function toTemplateRows(draft: DraftCategory[], quarters: Quarter[]) {
+  return draft.map((c) => ({
+    q: Math.max(
+      0,
+      quarters.findIndex((q) => q.name === c.quarter),
+    ),
+    name: c.name.trim(),
+    type: c.type,
+    weight: Number(c.weight) || 0,
+    children: c.children
+      .filter((ch) => ch.name.trim())
+      .map((ch) => ({ name: ch.name.trim(), maxScore: Number(ch.maxScore) || 0 })),
+  }));
+}
+
+function fromApplied(c: {
+  quarter: string;
+  name: string;
+  type: string;
+  weight: number;
+  children: Array<{ name: string; maxScore: number }>;
+}): DraftCategory {
+  return {
+    quarter: c.quarter,
+    name: c.name,
+    type: c.type || "Exam",
+    weight: String(c.weight),
+    children: c.children.map((ch) => ({ name: ch.name, maxScore: String(ch.maxScore) })),
+  };
+}
+
+function problemsToast(err: unknown, fallback: string) {
+  const message = (err as { messageAr?: string }).messageAr || fallback;
+  toast.error(message.split("\n")[0] ?? message, {
+    description: message.split("\n").slice(1).join("\n") || undefined,
+    duration: 8000,
+  });
+}
+
+/** The quarters of the term, each with its categories — shared by plans and templates. */
+function PlanQuarters({
+  quarters,
+  draft,
+  setDraft,
+}: {
+  quarters: Quarter[];
+  draft: DraftCategory[];
+  setDraft: React.Dispatch<React.SetStateAction<DraftCategory[]>>;
+}) {
+  const usedByQuarter = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of draft) map[c.quarter] = (map[c.quarter] ?? 0) + (Number(c.weight) || 0);
+    return map;
+  }, [draft]);
+  function update(index: number, patch: Partial<DraftCategory>) {
+    setDraft((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  }
+  function addCategory(quarter: string) {
+    setDraft((prev) => [...prev, { quarter, name: "", type: "Exam", weight: "", children: [] }]);
+  }
+  function addAssessment(index: number) {
+    setDraft((prev) =>
+      prev.map((c, i) =>
+        i === index ? { ...c, children: [...c.children, { name: "", maxScore: "" }] } : c,
+      ),
+    );
+  }
+  return (
+    <>
+      {quarters.map((q) => {
+        const used = usedByQuarter[q.name] ?? 0;
+        const mine = draft.map((c, i) => ({ c, i })).filter(({ c }) => c.quarter === q.name);
+        const balanced = Math.abs(used - q.totalMarks) < 0.01;
+        return (
+          <SectionCard
+            key={q.name}
+            title={`${q.name} — ${q.totalMarks} علامة`}
+            actions={
+              <div className="flex items-center gap-2">
+                <Pill tone={balanced ? "success" : mine.length ? "warning" : "muted"}>
+                  {used} من {q.totalMarks}
+                </Pill>
+                <button
+                  onClick={() => addCategory(q.name)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary"
+                >
+                  <Plus className="size-3.5" />
+                  تصنيف
+                </button>
+              </div>
+            }
+          >
+            {mine.length === 0 ? (
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                لا توجد تصنيفات في هذا الربع — أضف تصنيفاً مثل «امتحانات يومية».
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {mine.map(({ c, i }) => (
+                  <CategoryRow
+                    key={i}
+                    category={c}
+                    onChange={(patch) => update(i, patch)}
+                    onAddAssessment={() => addAssessment(i)}
+                    onRemove={() => setDraft((prev) => prev.filter((_, idx) => idx !== i))}
+                  />
+                ))}
+              </div>
+            )}
+            {!balanced && mine.length > 0 && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                <AlertTriangle className="size-3.5" />
+                {used < q.totalMarks
+                  ? `ينقص ${Math.round((q.totalMarks - used) * 100) / 100} علامة لإكمال الربع`
+                  : `تجاوزت ${q.totalMarks} بمقدار ${Math.round((used - q.totalMarks) * 100) / 100}`}
+              </p>
+            )}
+          </SectionCard>
+        );
+      })}
+    </>
+  );
+}
+
+/** Name a template and save the plan on screen as one. */
+function TemplateMetaDialog({
+  title,
+  description,
+  quarters,
+  draft,
+  onClose,
+}: {
+  title: string;
+  description: string;
+  quarters: Quarter[];
+  draft: DraftCategory[];
+  onClose: () => void;
+}) {
+  const save = useSavePlanTemplate();
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  async function submit() {
+    if (!name.trim()) {
+      toast.error("اسم النموذج مطلوب");
+      return;
+    }
+    try {
+      await save.mutateAsync({
+        name: name.trim(),
+        description: notes.trim(),
+        quarter_totals: quarters.map((q) => q.totalMarks),
+        categories: toTemplateRows(draft, quarters),
+      });
+      toast.success(`تم حفظ النموذج «${name.trim()}»`);
+      onClose();
+    } catch (err) {
+      problemsToast(err, "تعذّر حفظ النموذج");
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent dir="rtl" className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>اسم النموذج</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="مثال: مواد علمية — ثانوي"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>وصف (اختياري)</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="لأي مواد يصلح هذا النموذج"
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium hover:bg-secondary"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={submit}
+            disabled={save.isPending}
+            className="rounded-xl bg-brand-gradient px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
+          >
+            {save.isPending ? "جارٍ الحفظ…" : "حفظ النموذج"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The template library: build, edit, delete, and apply to subjects. */
+function TemplatesPanel({
+  quarters,
+  canEdit,
+  onApply,
+}: {
+  quarters: Quarter[];
+  canEdit: boolean;
+  onApply: (template: string) => void;
+}) {
+  const list = usePlanTemplates();
+  const remove = useDeletePlanTemplate();
+  const confirm = useConfirm();
+  // null = a new template; a string = editing that one.
+  const [editing, setEditing] = useState<string | null | undefined>(undefined);
+
+  async function drop(t: PlanTemplateSummary) {
+    const ok = await confirm({
+      title: `حذف النموذج «${t.name}»؟`,
+      description: "الخطط التي بُنيت منه تبقى كما هي.",
+      tone: "danger",
+      confirmLabel: "حذف",
+    });
+    if (!ok) return;
+    try {
+      await remove.mutateAsync(t.id);
+      toast.success("تم حذف النموذج");
+    } catch (err) {
+      problemsToast(err, "تعذّر الحذف");
+    }
+  }
+
+  if (editing !== undefined) {
+    return (
+      <TemplateEditor template={editing} quarters={quarters} onDone={() => setEditing(undefined)} />
+    );
+  }
+
+  const rows = list.data?.templates ?? [];
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          النموذج خطة جاهزة (تصنيفات وعلاماتها وامتحاناتها) تبنيها مرة واحدة، ثم تطبّقها على مادة أو
+          على عدة مواد دفعة واحدة. الأرباع تُطابَق بترتيبها، وإن اختلفت علامة الربع في الفصل تُحوَّل
+          الأوزان تلقائياً.
+        </p>
+        {canEdit && (
+          <div className="flex gap-2">
+            {rows.length > 0 && (
+              <button
+                onClick={() => onApply(rows[0]!.id)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium hover:bg-secondary"
+              >
+                <Wand2 className="size-4" />
+                تطبيق على مواد
+              </button>
+            )}
+            <button
+              onClick={() => setEditing(null)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground"
+            >
+              <FilePlus2 className="size-4" />
+              نموذج جديد
+            </button>
+          </div>
+        )}
+      </div>
+      {list.isLoading ? (
+        <TableSkeleton rows={3} />
+      ) : list.error ? (
+        <ErrorState error={list.error} onRetry={() => list.refetch()} />
+      ) : rows.length === 0 ? (
+        <EmptyBlock
+          title="لا توجد نماذج بعد"
+          description="أنشئ نموذجاً جديداً، أو افتح خطة مادة جاهزة واضغط «حفظ كنموذج»."
+          icon={<LayoutTemplate className="size-6" />}
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {rows.map((t) => (
+            <div key={t.id} className="card-surface flex flex-col p-5">
+              <div className="flex items-start gap-3">
+                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                  <LayoutTemplate className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold">{t.name}</p>
+                  {t.description && (
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <Pill tone="primary">{t.categories} تصنيف</Pill>
+                <Pill tone="info">{t.assessments} امتحان</Pill>
+                <Pill tone="muted">
+                  <span className="num">{t.quarterTotals.join(" / ")}</span>
+                </Pill>
+              </div>
+              {canEdit && (
+                <div className="mt-4 flex gap-2 border-t border-border pt-3">
+                  <button
+                    onClick={() => onApply(t.id)}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary hover:opacity-90"
+                  >
+                    <Wand2 className="size-3.5" />
+                    تطبيق على مواد
+                  </button>
+                  <button
+                    onClick={() => setEditing(t.id)}
+                    className="flex items-center gap-1 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold hover:bg-primary-soft hover:text-primary"
+                  >
+                    <Pencil className="size-3.5" />
+                    تعديل
+                  </button>
+                  <button
+                    onClick={() => drop(t)}
+                    aria-label="حذف"
+                    className="rounded-lg bg-secondary px-2 py-1.5 text-destructive hover:bg-destructive-soft"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Build or edit a template on the term's own quarters. */
+function TemplateEditor({
+  template,
+  quarters,
+  onDone,
+}: {
+  template: string | null;
+  quarters: Quarter[];
+  onDone: () => void;
+}) {
+  const existing = usePlanTemplate(template);
+  const save = useSavePlanTemplate();
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [draft, setDraft] = useState<DraftCategory[]>([]);
+  const [ready, setReady] = useState(template === null);
+
+  useEffect(() => {
+    if (!template || !existing.data || ready) return;
+    setName(existing.data.name);
+    setNotes(existing.data.description);
+    setDraft(existing.data.applied.categories.map(fromApplied));
+    setReady(true);
+  }, [template, existing.data, ready]);
+
+  async function submit() {
+    if (!name.trim()) {
+      toast.error("اسم النموذج مطلوب");
+      return;
+    }
+    try {
+      await save.mutateAsync({
+        ...(template ? { template } : {}),
+        name: name.trim(),
+        description: notes.trim(),
+        quarter_totals: quarters.map((q) => q.totalMarks),
+        categories: toTemplateRows(draft, quarters),
+      });
+      toast.success("تم حفظ النموذج");
+      onDone();
+    } catch (err) {
+      problemsToast(err, "تعذّر حفظ النموذج");
+    }
+  }
+
+  if (!ready) {
+    return (
+      <div className="mt-6">
+        {existing.error ? (
+          <ErrorState error={existing.error} onRetry={() => existing.refetch()} />
+        ) : (
+          <TableSkeleton rows={5} />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-6 space-y-6">
+      <SectionCard
+        title={template ? "تعديل النموذج" : "نموذج جديد"}
+        actions={
+          <div className="flex gap-2">
+            <button
+              onClick={onDone}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+            >
+              رجوع
+            </button>
+            <button
+              onClick={submit}
+              disabled={save.isPending}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-gradient px-3 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-60"
+            >
+              <Save className="size-3.5" />
+              {save.isPending ? "جارٍ الحفظ…" : "حفظ النموذج"}
+            </button>
+          </div>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>اسم النموذج</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="مثال: مواد علمية — ثانوي"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>وصف (اختياري)</Label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="لأي مواد يصلح هذا النموذج"
+            />
+          </div>
+        </div>
+        {existing.data?.applied.notes.length ? (
+          <p className="mt-3 text-xs text-amber-700">
+            {existing.data.applied.notes.join(" ")} احفظ النموذج ليُعتمد على أرباع هذا الفصل.
+          </p>
+        ) : null}
+      </SectionCard>
+      <PlanQuarters quarters={quarters} draft={draft} setDraft={setDraft} />
+    </div>
+  );
+}
+
+/** Apply one template to many subjects at once. */
+function ApplyTemplateDialog({
+  initialTemplate,
+  templates,
+  subjects,
+  onClose,
+}: {
+  initialTemplate: string | null;
+  templates: PlanTemplateSummary[];
+  subjects: Array<{ value: string; label: string }>;
+  onClose: () => void;
+}) {
+  const apply = useApplyPlanTemplate();
+  const [template, setTemplate] = useState(initialTemplate ?? templates[0]?.id ?? "");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
+  const [overwrite, setOverwrite] = useState(false);
+  const [results, setResults] = useState<Awaited<ReturnType<typeof apply.mutateAsync>> | null>(
+    null,
+  );
+  const shown = subjects.filter((s) => !query.trim() || s.label.includes(query.trim()));
+
+  async function submit() {
+    if (!template) {
+      toast.error("اختر النموذج");
+      return;
+    }
+    if (!picked.length) {
+      toast.error("اختر مادة واحدة على الأقل");
+      return;
+    }
+    try {
+      const res = await apply.mutateAsync({ template, courses: picked, overwrite });
+      setResults(res);
+      toast.success(`طُبّق النموذج على ${res.applied} مادة`);
+    } catch (err) {
+      problemsToast(err, "تعذّر تطبيق النموذج");
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent dir="rtl" className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>تطبيق نموذج على مواد</DialogTitle>
+          <DialogDescription>
+            تُكتب خطة كل مادة مختارة من النموذج لهذا الفصل. المادة التي لها خطة تُترك كما هي إلا إذا
+            اخترت الاستبدال.
+          </DialogDescription>
+        </DialogHeader>
+        {results ? (
+          <div className="max-h-80 space-y-1.5 overflow-y-auto">
+            {results.notes.length > 0 && (
+              <p className="text-xs text-amber-700">{results.notes.join(" ")}</p>
+            )}
+            {results.results.map((r) => (
+              <div
+                key={r.course}
+                className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <span className="font-medium">{r.course}</span>
+                <span
+                  className={`whitespace-pre-line text-left text-xs ${
+                    r.status === "applied"
+                      ? "text-success"
+                      : r.status === "skipped"
+                        ? "text-muted-foreground"
+                        : "text-destructive"
+                  }`}
+                >
+                  {r.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>النموذج</Label>
+              <SearchableSelect
+                options={templates.map((t) => ({ value: t.id, label: t.name }))}
+                value={template}
+                onChange={setTemplate}
+                placeholder="اختر النموذج"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>المواد ({picked.length})</Label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPicked((p) =>
+                      shown.every((s) => p.includes(s.value))
+                        ? p.filter((x) => !shown.some((s) => s.value === x))
+                        : Array.from(new Set([...p, ...shown.map((s) => s.value)])),
+                    )
+                  }
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {shown.length && shown.every((s) => picked.includes(s.value))
+                    ? "إلغاء تحديد الكل"
+                    : "تحديد الكل"}
+                </button>
+              </div>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="ابحث عن مادة…"
+                className="h-9"
+              />
+              <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+                {shown.map((s) => (
+                  <label
+                    key={s.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-secondary/60"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={picked.includes(s.value)}
+                      onChange={(e) =>
+                        setPicked((p) =>
+                          e.target.checked ? [...p, s.value] : p.filter((x) => x !== s.value),
+                        )
+                      }
+                    />
+                    {s.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+              <span className="text-sm">
+                استبدال الخطط الموجودة
+                <span className="block text-xs text-muted-foreground">
+                  احذر: المادة التي رُصدت عليها علامات قد تتأثر بتغيير أسماء امتحاناتها.
+                </span>
+              </span>
+              <Switch checked={overwrite} onCheckedChange={setOverwrite} />
+            </label>
+          </div>
+        )}
+        <DialogFooter className="gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium hover:bg-secondary"
+          >
+            {results ? "إغلاق" : "إلغاء"}
+          </button>
+          {!results && (
+            <button
+              onClick={submit}
+              disabled={apply.isPending}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-bold text-primary-foreground disabled:opacity-60"
+            >
+              <Check className="size-4" />
+              {apply.isPending ? "جارٍ التطبيق…" : `تطبيق على ${picked.length} مادة`}
+            </button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

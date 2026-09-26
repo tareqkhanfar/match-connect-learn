@@ -6181,6 +6181,110 @@ export function useSaveAssessmentPlan() {
   });
 }
 
+// --- Assessment plan templates ------------------------------------------
+
+/** A category in a template; `q` is the quarter's position (0 = first). */
+export type TemplateCategory = {
+  q: number;
+  name: string;
+  type: string;
+  weight: number;
+  children: Array<{ name: string; maxScore: number }>;
+};
+
+export type PlanTemplateSummary = {
+  id: string;
+  name: string;
+  description: string;
+  quarterTotals: number[];
+  categories: number;
+  assessments: number;
+  modified: string;
+  owner: string;
+};
+
+export function usePlanTemplates() {
+  return useQuery<{ templates: PlanTemplateSummary[]; canEdit: boolean }>({
+    queryKey: ["plan-templates"],
+    queryFn: () => apiGet("assessment_plan.list_plan_templates"),
+  });
+}
+
+/** A template as written (`rows`) and as it lands on this term (`applied`). */
+export function usePlanTemplate(template?: string | null) {
+  return useQuery<
+    PlanTemplateSummary & {
+      rows: TemplateCategory[];
+      applied: {
+        categories: Array<{
+          quarter: string;
+          name: string;
+          type: string;
+          weight: number;
+          children: Array<{ name: string; maxScore: number }>;
+        }>;
+        problems: string[];
+        notes: string[];
+      };
+    }
+  >({
+    queryKey: ["plan-template", template],
+    queryFn: () => apiGet("assessment_plan.get_plan_template", { template: template! }),
+    enabled: !!template,
+  });
+}
+
+export function useSavePlanTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      template?: string;
+      name: string;
+      description?: string;
+      quarter_totals: number[];
+      categories: TemplateCategory[];
+    }) =>
+      apiPost<PlanTemplateSummary>(
+        "assessment_plan.save_plan_template",
+        vars as unknown as Record<string, unknown>,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan-templates"] });
+      qc.invalidateQueries({ queryKey: ["plan-template"] });
+    },
+  });
+}
+
+export function useDeletePlanTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (template: string) =>
+      apiPost<{ id: string }>("assessment_plan.delete_plan_template", { template }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["plan-templates"] }),
+  });
+}
+
+export function useApplyPlanTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { template: string; courses: string[]; overwrite?: boolean }) =>
+      apiPost<{
+        results: Array<{
+          course: string;
+          status: "applied" | "skipped" | "failed";
+          message: string;
+        }>;
+        applied: number;
+        notes: string[];
+      }>("assessment_plan.apply_plan_template", {
+        template: vars.template,
+        courses: vars.courses,
+        overwrite: vars.overwrite ? 1 : 0,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["assessment-plan"] }),
+  });
+}
+
 export type GradeRule = {
   id: string;
   quarter: string | null;
