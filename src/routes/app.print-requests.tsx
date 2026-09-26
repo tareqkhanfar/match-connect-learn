@@ -190,16 +190,22 @@ function RequestCard({ request: r, onEdit }: { request: PrintRequestRow; onEdit:
   }
 
   async function drop() {
+    // The office deletes for everyone; a teacher withdraws their own request.
+    const office = r.can_handle;
     const ok = await confirm({
-      title: `سحب طلب «${r.title}»؟`,
-      description: "سيُحذف الطلب وملفاته نهائياً.",
+      title: office ? `حذف طلب «${r.title}» نهائياً؟` : `سحب طلب «${r.title}»؟`,
+      description: office
+        ? "سيُحذف الطلب وملفاته من النظام نهائياً، ولن يظهر للمعلم ولا للسكرتاريا ولا في تطبيق الموبايل. لا يمكن التراجع."
+        : "سيُحذف الطلب وملفاته نهائياً.",
+      tone: "danger",
+      confirmLabel: office ? "حذف نهائي" : "سحب الطلب",
     });
     if (!ok) return;
     try {
       const res = await remove.mutateAsync({ request: r.id });
-      toast.success(res.message_ar || "تم السحب");
+      toast.success(res.message_ar || (office ? "تم الحذف" : "تم السحب"));
     } catch (err) {
-      toast.error(errorMessage(err, "تعذّر السحب"));
+      toast.error(errorMessage(err, office ? "تعذّر الحذف" : "تعذّر السحب"));
     }
   }
 
@@ -290,9 +296,11 @@ function RequestCard({ request: r, onEdit }: { request: PrintRequestRow; onEdit:
             </button>
             <button
               onClick={() => void drop()}
-              className="rounded-lg border border-destructive/40 px-2 py-1 text-[11px] text-destructive hover:bg-destructive-soft"
+              aria-label={r.can_handle ? "حذف نهائي" : "سحب الطلب"}
+              className="inline-flex items-center gap-1 rounded-lg border border-destructive/40 px-2 py-1 text-[11px] font-semibold text-destructive hover:bg-destructive-soft"
             >
               <Trash2 className="size-3" />
+              {r.can_handle ? "حذف" : "سحب"}
             </button>
           </>
         )}

@@ -476,6 +476,10 @@ export function usePrintRequests(status?: string) {
   }>({
     queryKey: ["print-requests", status ?? "all"],
     queryFn: () => apiGet("print_requests.list_requests", status ? { status } : {}),
+    // A request the office deletes, or a new one a teacher sends, shows up on
+    // everyone's open queue without a reload.
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
