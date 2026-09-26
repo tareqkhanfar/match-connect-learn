@@ -214,7 +214,9 @@ function QuarterResultsPage() {
                           const sub = s.subjects[c];
                           return (
                             <td key={c} className="py-2.5 pl-4 tabular-nums">
-                              {sub ? `${sub.marks} / ${sub.totalMarks}` : "—"}
+                              {sub
+                                ? `${sub.certificateMarks ?? sub.marks} / ${sub.certificateTotal ?? sub.totalMarks}`
+                                : "—"}
                             </td>
                           );
                         })}

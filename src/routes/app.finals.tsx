@@ -160,7 +160,14 @@ function FinalsPage() {
                 {period.subjects.length === 0 ? (
                   <EmptyBlock title="لا توجد مواد في هذا الفصل" />
                 ) : (
-                  <FinalMarksTable subjects={period.subjects} />
+                  <FinalMarksTable
+                    subjects={period.subjects}
+                    {...(period.shows_overall && period.overall_out_of
+                      ? {
+                          total: { marks: period.overall_total ?? 0, outOf: period.overall_out_of },
+                        }
+                      : {})}
+                  />
                 )}
               </SectionCard>
             ))}
@@ -189,7 +196,21 @@ function Delta({ mine, average }: { mine: number; average: number | null | undef
   );
 }
 
-export function FinalMarksTable({ subjects }: { subjects: SubjectGrade[] }) {
+/** A subject as the certificate prints it: a whole mark out of its own maximum. */
+function certificate(s: SubjectGrade) {
+  const max = s.certificate_max || 100;
+  const mark = s.certificate_mark ?? Math.floor((s.final * max) / 100 + 0.5);
+  return { mark, max };
+}
+
+export function FinalMarksTable({
+  subjects,
+  total,
+}: {
+  subjects: SubjectGrade[];
+  /** The certificate total, when the viewer may see it. */
+  total?: { marks: number; outOf: number };
+}) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-right text-sm">
@@ -207,8 +228,16 @@ export function FinalMarksTable({ subjects }: { subjects: SubjectGrade[] }) {
             <tr key={s.course}>
               <td className="p-3 font-semibold">{s.course}</td>
               <td className="num p-3 font-bold">
-                {s.final}
-                <span className="text-xs font-normal text-muted-foreground"> / 100</span>
+                {certificate(s).mark}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {" "}
+                  / {certificate(s).max}
+                </span>
+                {certificate(s).max !== 100 && (
+                  <span className="ms-1.5 text-[11px] font-normal text-muted-foreground">
+                    ({s.final}%)
+                  </span>
+                )}
               </td>
               <td className="p-3">
                 <span className="flex items-center gap-1.5">
@@ -224,6 +253,16 @@ export function FinalMarksTable({ subjects }: { subjects: SubjectGrade[] }) {
               </td>
             </tr>
           ))}
+          {total && (
+            <tr className="bg-secondary/40 font-bold">
+              <td className="p-3">المجموع</td>
+              <td className="num p-3">
+                {total.marks}
+                <span className="text-xs font-normal text-muted-foreground"> / {total.outOf}</span>
+              </td>
+              <td className="p-3" colSpan={3} />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

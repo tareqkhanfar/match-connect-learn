@@ -99,7 +99,16 @@ function AssessmentPlanPage() {
   const planQuery = useAssessmentPlan(course || undefined);
   const savePlan = useSaveAssessmentPlan();
 
-  const quarters = quartersQuery.data?.quarters ?? [];
+  const quarters = useMemo(() => quartersQuery.data?.quarters ?? [], [quartersQuery.data]);
+  const termBase = quarters.reduce((a, q) => a + q.totalMarks, 0);
+  // What this subject is out of during the term, and on the certificate.
+  const [termTotal, setTermTotal] = useState(0);
+  const [certificateMax, setCertificateMax] = useState(100);
+  const subjectTotal = termTotal || termBase;
+  const subjectQuarters = useMemo(
+    () => scaleQuarters(quarters, subjectTotal),
+    [quarters, subjectTotal],
+  );
 
   // The plan is edited locally and sent in one go: a half-saved plan whose
   // weights do not add up is worse than no plan at all.
@@ -125,12 +134,14 @@ function AssessmentPlanPage() {
       });
     } else {
       setDraft(t.applied.categories.map(fromApplied));
+      setTermTotal(t.applied.termTotal || termBase);
+      setCertificateMax(t.applied.certificateMax || 100);
       toast.success(`تم تحميل «${t.name}» — راجع الخطة ثم احفظها`, {
         description: t.applied.notes.join("\n") || undefined,
       });
     }
     setLoadingTemplate(null);
-  }, [loadingTemplate, templateQuery.data]);
+  }, [loadingTemplate, templateQuery.data, termBase]);
 
   useEffect(() => {
     if (!planQuery.data) return;
@@ -140,6 +151,8 @@ function AssessmentPlanPage() {
     }
     for (const c of planQuery.data.unassigned) rows.push(toDraft(c, quarters[0]?.name ?? ""));
     setDraft(rows);
+    setTermTotal(planQuery.data.termTotal || planQuery.data.termBaseTotal || 0);
+    setCertificateMax(planQuery.data.certificateMax || 100);
     setLoaded(true);
   }, [planQuery.data]);
 
@@ -172,7 +185,7 @@ function AssessmentPlanPage() {
     }
     // Checked here as well as on the server so the teacher sees the shortfall
     // before a round trip, and on the exact quarter that is wrong.
-    for (const q of quarters) {
+    for (const q of subjectQuarters) {
       const used = usedByQuarter[q.name] ?? 0;
       const mine = draft.filter((c) => c.quarter === q.name);
       if (mine.length === 0) continue;
@@ -186,6 +199,8 @@ function AssessmentPlanPage() {
     try {
       const res = await savePlan.mutateAsync({
         course,
+        term_total: subjectTotal,
+        certificate_max: certificateMax,
         categories: draft.map((c) => ({
           quarter: c.quarter,
           name: c.name.trim(),
@@ -340,7 +355,21 @@ function AssessmentPlanPage() {
             </div>
           ) : (
             <div className="mt-6 space-y-6">
-              <PlanQuarters quarters={quarters} draft={draft} setDraft={setDraft} />
+              <ScaleCard
+                termTotal={subjectTotal}
+                termBase={termBase}
+                certificateMax={certificateMax}
+                onTermTotal={(next) => {
+                  if (next === subjectTotal) return;
+                  setDraft((d) => rescaleDraft(d, subjectTotal, next));
+                  if (draft.length) {
+                    toast.success(`حُوّلت علامات التصنيفات من ${subjectTotal} إلى ${next}`);
+                  }
+                  setTermTotal(next);
+                }}
+                onCertificateMax={setCertificateMax}
+              />
+              <PlanQuarters quarters={subjectQuarters} draft={draft} setDraft={setDraft} />
 
               {planQuery.data?.orphans && planQuery.data.orphans.length > 0 && (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
@@ -363,7 +392,8 @@ function AssessmentPlanPage() {
           title="حفظ الخطة كنموذج"
           description={`تُحفظ بنية خطة «${course}» (التصنيفات والامتحانات والعلامات) لاستخدامها مع مواد أخرى.`}
           onClose={() => setSavingAsTemplate(false)}
-          quarters={quarters}
+          quarters={subjectQuarters}
+          certificateMax={certificateMax}
           draft={draft}
         />
       )}
@@ -376,6 +406,101 @@ function AssessmentPlanPage() {
         />
       )}
     </>
+  );
+}
+
+/** The term's quarters as shares of a subject worth `total` (80/120 of 200 for 40/60). */
+function scaleQuarters(quarters: Quarter[], total: number): Quarter[] {
+  const base = quarters.reduce((a, q) => a + q.totalMarks, 0);
+  if (!total || !base || Math.abs(total - base) < 0.005) return quarters;
+  const out = quarters.map((q) => ({
+    ...q,
+    totalMarks: Math.round(((q.totalMarks * total) / base) * 100) / 100,
+  }));
+  const drift = Math.round((total - out.reduce((a, q) => a + q.totalMarks, 0)) * 100) / 100;
+  const last = out[out.length - 1];
+  if (last && drift) last.totalMarks = Math.round((last.totalMarks + drift) * 100) / 100;
+  return out;
+}
+
+/** Category marks carried from one subject total to another, in proportion. */
+function rescaleDraft(draft: DraftCategory[], from: number, to: number): DraftCategory[] {
+  if (!from || !to || from === to) return draft;
+  return draft.map((c) => ({
+    ...c,
+    weight:
+      c.weight === ""
+        ? c.weight
+        : String(Math.round(((Number(c.weight) || 0) * to * 100) / from) / 100),
+  }));
+}
+
+/** What the subject is out of: during the term, and on the certificate. */
+function ScaleCard({
+  termTotal,
+  termBase,
+  certificateMax,
+  onTermTotal,
+  onCertificateMax,
+}: {
+  termTotal: number;
+  termBase: number;
+  certificateMax: number;
+  onTermTotal: (v: number) => void;
+  onCertificateMax: (v: number) => void;
+}) {
+  const [term, setTerm] = useState(String(termTotal));
+  const [cert, setCert] = useState(String(certificateMax));
+  useEffect(() => setTerm(String(termTotal)), [termTotal]);
+  useEffect(() => setCert(String(certificateMax)), [certificateMax]);
+  function commitTerm() {
+    const v = Number(term);
+    if (v > 0) onTermTotal(v);
+    else setTerm(String(termTotal));
+  }
+  function commitCert() {
+    const v = Number(cert);
+    if (v > 0) onCertificateMax(v);
+    else setCert(String(certificateMax));
+  }
+  return (
+    <div className="card-surface grid gap-4 p-5 sm:grid-cols-2">
+      <div className="space-y-1.5">
+        <Label>مجموع علامات المادة خلال الفصل</Label>
+        <Input
+          type="number"
+          min={1}
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          onBlur={commitTerm}
+          onKeyDown={(e) => e.key === "Enter" && commitTerm()}
+          className="num h-10 w-40 text-center"
+          dir="ltr"
+        />
+        <p className="text-xs text-muted-foreground">
+          الأرباع حصص منه بنفس نسب الفصل
+          {termTotal !== termBase ? ` (الفصل مقسّم على ${termBase})` : ""}. تغييره يحوّل علامات
+          التصنيفات بالنسبة نفسها.
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <Label>علامة المادة على الشهادة</Label>
+        <Input
+          type="number"
+          min={1}
+          value={cert}
+          onChange={(e) => setCert(e.target.value)}
+          onBlur={commitCert}
+          onKeyDown={(e) => e.key === "Enter" && commitCert()}
+          className="num h-10 w-40 text-center"
+          dir="ltr"
+        />
+        <p className="text-xs text-muted-foreground">
+          تُطبع المادة على الشهادة من هذه العلامة (مقرّبة لأقرب علامة كاملة)، وتؤثر في المعدل العام
+          بقدرها: مادة من 200 وزنها ضعف مادة من 100.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -509,12 +634,14 @@ function TemplateMetaDialog({
   title,
   description,
   quarters,
+  certificateMax,
   draft,
   onClose,
 }: {
   title: string;
   description: string;
   quarters: Quarter[];
+  certificateMax: number;
   draft: DraftCategory[];
   onClose: () => void;
 }) {
@@ -531,6 +658,7 @@ function TemplateMetaDialog({
         name: name.trim(),
         description: notes.trim(),
         quarter_totals: quarters.map((q) => q.totalMarks),
+        certificate_max: certificateMax,
         categories: toTemplateRows(draft, quarters),
       });
       toast.success(`تم حفظ النموذج «${name.trim()}»`);
@@ -685,6 +813,11 @@ function TemplatesPanel({
                 <Pill tone="muted">
                   <span className="num">{t.quarterTotals.join(" / ")}</span>
                 </Pill>
+                {(t.certificateMax ?? 100) !== 100 || (t.termTotal ?? 100) !== 100 ? (
+                  <Pill tone="warning">
+                    على الشهادة من <span className="num">{t.certificateMax ?? 100}</span>
+                  </Pill>
+                ) : null}
               </div>
               {canEdit && (
                 <div className="mt-4 flex gap-2 border-t border-border pt-3">
@@ -735,14 +868,23 @@ function TemplateEditor({
   const [notes, setNotes] = useState("");
   const [draft, setDraft] = useState<DraftCategory[]>([]);
   const [ready, setReady] = useState(template === null);
+  const termBase = quarters.reduce((a, q) => a + q.totalMarks, 0);
+  const [termTotal, setTermTotal] = useState(termBase);
+  const [certificateMax, setCertificateMax] = useState(100);
+  const subjectQuarters = useMemo(
+    () => scaleQuarters(quarters, termTotal || termBase),
+    [quarters, termTotal, termBase],
+  );
 
   useEffect(() => {
     if (!template || !existing.data || ready) return;
     setName(existing.data.name);
     setNotes(existing.data.description);
     setDraft(existing.data.applied.categories.map(fromApplied));
+    setTermTotal(existing.data.applied.termTotal || termBase);
+    setCertificateMax(existing.data.applied.certificateMax || 100);
     setReady(true);
-  }, [template, existing.data, ready]);
+  }, [template, existing.data, ready, termBase]);
 
   async function submit() {
     if (!name.trim()) {
@@ -754,8 +896,9 @@ function TemplateEditor({
         ...(template ? { template } : {}),
         name: name.trim(),
         description: notes.trim(),
-        quarter_totals: quarters.map((q) => q.totalMarks),
-        categories: toTemplateRows(draft, quarters),
+        quarter_totals: subjectQuarters.map((q) => q.totalMarks),
+        certificate_max: certificateMax,
+        categories: toTemplateRows(draft, subjectQuarters),
       });
       toast.success("تم حفظ النموذج");
       onDone();
@@ -822,7 +965,17 @@ function TemplateEditor({
           </p>
         ) : null}
       </SectionCard>
-      <PlanQuarters quarters={quarters} draft={draft} setDraft={setDraft} />
+      <ScaleCard
+        termTotal={termTotal || termBase}
+        termBase={termBase}
+        certificateMax={certificateMax}
+        onTermTotal={(next) => {
+          setDraft((d) => rescaleDraft(d, termTotal || termBase, next));
+          setTermTotal(next);
+        }}
+        onCertificateMax={setCertificateMax}
+      />
+      <PlanQuarters quarters={subjectQuarters} draft={draft} setDraft={setDraft} />
     </div>
   );
 }

@@ -2280,6 +2280,10 @@ export interface SubjectGrade extends GradeBand {
   bonus: number;
   final: number;
   covered: number;
+  /** What the subject prints as on the certificate (100, 150, 200…), and the
+   *  whole mark it earns there. */
+  certificate_max?: number;
+  certificate_mark?: number;
   components: Array<
     GradeBand & {
       id: string;
@@ -2315,6 +2319,9 @@ export interface TermGrades {
   overall: number;
   overall_grade: GradeBand & { percentage: number };
   subject_count: number;
+  /** The certificate total: whole marks over the subjects' certificate maxima. */
+  overall_total?: number;
+  overall_out_of?: number;
 }
 
 export function useTermGrades(
@@ -2339,6 +2346,8 @@ export interface AcademicRecord {
     /** Null when the viewer may not see a total for this period. */
     overall: number | null;
     overall_grade: (GradeBand & { percentage: number }) | null;
+    overall_total?: number | null;
+    overall_out_of?: number | null;
     published: boolean;
     shows_overall: boolean;
   }>;
@@ -6143,6 +6152,12 @@ export function useAssessmentPlan(course?: string, academicTerm?: string) {
     academicTerm: string | null;
     scheme: string | null;
     schemeName: string | null;
+    /** What the subject is marked out of this term (its quarters are shares of it). */
+    termTotal: number;
+    /** The term's own quarter total, before scaling to the subject. */
+    termBaseTotal: number;
+    /** What the subject prints as on the certificate. */
+    certificateMax: number;
     quarters: PlanQuarter[];
     unassigned: PlanCategory[];
     orphans: PlanAssessment[];
@@ -6165,6 +6180,8 @@ export function useSaveAssessmentPlan() {
       course: string;
       academic_term?: string;
       scheme_name?: string;
+      term_total?: number;
+      certificate_max?: number;
       categories: Array<{
         quarter: string;
         name: string;
@@ -6197,6 +6214,8 @@ export type PlanTemplateSummary = {
   name: string;
   description: string;
   quarterTotals: number[];
+  termTotal?: number;
+  certificateMax?: number;
   categories: number;
   assessments: number;
   modified: string;
@@ -6225,6 +6244,8 @@ export function usePlanTemplate(template?: string | null) {
         }>;
         problems: string[];
         notes: string[];
+        termTotal: number;
+        certificateMax: number;
       };
     }
   >({
@@ -6242,6 +6263,7 @@ export function useSavePlanTemplate() {
       name: string;
       description?: string;
       quarter_totals: number[];
+      certificate_max?: number;
       categories: TemplateCategory[];
     }) =>
       apiPost<PlanTemplateSummary>(
@@ -6390,7 +6412,17 @@ export function useQuarterResults(studentGroup?: string, quarter?: string, cours
     students: Array<{
       student: string;
       studentName: string;
-      subjects: Record<string, { marks: number; totalMarks: number; percent: number }>;
+      subjects: Record<
+        string,
+        {
+          marks: number;
+          totalMarks: number;
+          percent: number;
+          /** The same quarter on the subject's certificate scale, as printed. */
+          certificateMarks?: number;
+          certificateTotal?: number;
+        }
+      >;
       total: number;
       outOf: number;
       average: number;
