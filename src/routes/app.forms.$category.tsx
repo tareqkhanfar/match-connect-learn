@@ -126,6 +126,8 @@ function FormsPage() {
   // Adding and editing forms: the office always, teachers when it allows.
   const teachersMayDesign = templates.data?.teachersMayDesign ?? false;
   const mayDesign = backOffice || teachersMayDesign;
+  // School letters are filled for any student, picked when filling.
+  const openToAll = templates.data?.openToAll ?? false;
 
   // Managing
   const [editing, setEditing] = useState<FormTemplate | null>(null);
@@ -239,7 +241,9 @@ function FormsPage() {
     },
     ...(mayDesign
       ? [
-          { key: "subjects" as const, label: "الطلاب الخاضعون", icon: Users },
+          ...(openToAll
+            ? []
+            : [{ key: "subjects" as const, label: "الطلاب الخاضعون", icon: Users }]),
           { key: "manage" as const, label: "إدارة النماذج", icon: Settings2 },
         ]
       : []),
@@ -330,7 +334,9 @@ function FormsPage() {
                             ? "لشعبة كاملة"
                             : t.entryFor === "General"
                               ? "نموذج عام"
-                              : `${t.subjects ?? 0} طالب خاضع`}{" "}
+                              : openToAll
+                                ? "لأي طالب"
+                                : `${t.subjects ?? 0} طالب خاضع`}{" "}
                           · {t.entries} معبّأ
                         </p>
                       </button>
@@ -397,7 +403,9 @@ function FormsPage() {
                   )
                 ) : !templateName ? (
                   <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-                    اختر النموذج أولاً — يظهر هنا الطلاب الخاضعون له فقط.
+                    {openToAll
+                      ? "اختر النموذج أولاً، ثم اختر الطالب."
+                      : "اختر النموذج أولاً — يظهر هنا الطلاب الخاضعون له فقط."}
                   </p>
                 ) : !student && studentList.data?.subjectsCount === 0 ? (
                   <p className="rounded-lg border border-dashed border-warning/50 bg-warning/5 p-3 text-xs text-muted-foreground">
@@ -646,7 +654,7 @@ function FormsPage() {
       )}
 
       {/* --- Subject students ------------------------------------------ */}
-      {tab === "subjects" && mayDesign && (
+      {tab === "subjects" && mayDesign && !openToAll && (
         <div className="mt-5">
           <FormSubjects templates={rows} />
         </div>
@@ -767,7 +775,9 @@ function FormsPage() {
                           ? "لشعبة"
                           : t.entryFor === "General"
                             ? "عام"
-                            : `${t.subjects ?? 0} طالب خاضع`}{" "}
+                            : openToAll
+                              ? "لأي طالب"
+                              : `${t.subjects ?? 0} طالب خاضع`}{" "}
                         · {t.entries} نموذج معبّأ
                       </p>
                       <div className="mt-2 flex items-center gap-1.5">

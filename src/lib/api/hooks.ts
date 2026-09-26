@@ -8086,6 +8086,8 @@ export function useFormTemplates(category: string, includeInactive = false) {
     teachersMayFill: boolean;
     /** Teachers may add forms to this file and edit them. */
     teachersMayDesign?: boolean;
+    /** Filled for any student, picked when filling — no list of subjects. */
+    openToAll?: boolean;
     templates: FormTemplateRow[];
   }>({
     queryKey: ["form-templates", category, includeInactive],
@@ -8144,6 +8146,7 @@ export function useFormStudents(search: string, template?: string, group?: strin
       groupLabel: string;
     }>;
     subjectsCount?: number;
+    openToAll?: boolean;
   }>({
     // With a form: only the students it applies to. With a section: its pupils.
     queryKey: ["form-students", search, template ?? "", group ?? ""],
