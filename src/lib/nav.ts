@@ -41,6 +41,7 @@ import {
   BookMarked,
   ClipboardList,
   UserPlus,
+  FileChartColumn,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./roles";
@@ -415,6 +416,22 @@ export const navItems: NavItem[] = [
     label: "نماذج النطق واللغة",
     to: "/app/forms/speech_language",
     icon: Speech,
+    roles: ["admin", "secretary", "teacher"],
+    group: "النماذج المتخصصة",
+  },
+  // The school's own forms — permission slips, minutes, requests — built
+  // and filled exactly like the specialist files.
+  {
+    label: "النماذج المدرسية",
+    to: "/app/forms/school",
+    icon: School,
+    roles: ["admin", "secretary", "teacher"],
+    group: "النماذج المتخصصة",
+  },
+  {
+    label: "تقارير النماذج",
+    to: "/app/forms-reports",
+    icon: FileChartColumn,
     roles: ["admin", "secretary", "teacher"],
     group: "النماذج المتخصصة",
   },

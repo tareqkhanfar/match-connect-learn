@@ -8164,6 +8164,97 @@ export function useDeleteFormEntry() {
 }
 
 /** The filled form as printable HTML, opened in a print window. */
+export interface FormReportFilters {
+  template: string;
+  date_from?: string;
+  date_to?: string;
+  status?: string;
+  student_group?: string;
+  program?: string;
+  academic_term?: string;
+  filled_by?: string;
+  search?: string;
+  field?: string;
+  value?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export interface FormFieldSummary {
+  fieldname: string;
+  label: string;
+  fieldtype: FormFieldType;
+  answered: number;
+  total: number;
+  distribution?: Array<{ value: string; count: number }>;
+  average?: number | null;
+  stats?: { average: number; min: number; max: number; sum: number };
+}
+
+export interface FormReport {
+  template: {
+    name: string;
+    title: string;
+    category: string;
+    categoryLabel: string;
+    entryFor: FormEntryFor;
+    fields: FormField[];
+  };
+  kpis: {
+    entries: number;
+    completed: number;
+    drafts: number;
+    students: number;
+    groups: number;
+    fillers: number;
+    first: string;
+    last: string;
+  };
+  byMonth: Array<{ month: string; count: number }>;
+  byGroup: Array<{ group: string; label: string; count: number }>;
+  byFiller: Array<{ user: string; name: string; count: number }>;
+  fields: FormFieldSummary[];
+  entries: Array<{
+    name: string;
+    student: string | null;
+    studentName: string;
+    group: string;
+    groupLabel: string;
+    status: string;
+    filledBy: string;
+    filledByName: string;
+    filledOn: string;
+    academicTerm: string;
+    values: Record<string, string>;
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+  filterOptions: {
+    groups: Array<{ value: string; label: string }>;
+    programs: string[];
+    fillers: Array<{ value: string; label: string }>;
+    terms: string[];
+    statuses: string[];
+  };
+}
+
+/** One form's filled copies: counts, answers, and the copies themselves. */
+export function useFormReport(filters: FormReportFilters | null) {
+  return useQuery<FormReport>({
+    queryKey: ["form-report", filters],
+    queryFn: () =>
+      apiGet(
+        "forms.template_report",
+        Object.fromEntries(
+          Object.entries(filters ?? {}).filter(([, v]) => v !== undefined && v !== ""),
+        ) as Record<string, string>,
+      ),
+    enabled: !!filters?.template,
+    placeholderData: (prev) => prev,
+  });
+}
+
 export async function printFormEntry(entry: string): Promise<void> {
   const res = await apiGet<{ html: string; title: string }>("forms.print_entry", { entry });
   printHtml(res.html, res.title);

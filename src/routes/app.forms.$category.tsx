@@ -43,13 +43,14 @@ import {
 } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
 
-/** The five specialist files. The route is one screen, the category its subject. */
+/** The specialist files, and the school's own forms. The route is one screen, the category its subject. */
 export const FORM_CATEGORIES: Record<string, string> = {
   nursing: "نماذج التمريض",
   counselling: "نماذج الإرشاد",
   special_needs: "نماذج الاحتياجات الخاصة",
   learning_difficulties: "نماذج صعوبات التعلم",
   speech_language: "نماذج النطق واللغة",
+  school: "النماذج المدرسية",
 };
 
 export const Route = createFileRoute("/app/forms/$category")({

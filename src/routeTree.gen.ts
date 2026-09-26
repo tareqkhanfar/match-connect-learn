@@ -37,6 +37,7 @@ import { Route as AppExamsRouteImport } from './routes/app.exams'
 import { Route as AppFeesRouteImport } from './routes/app.fees'
 import { Route as AppFilesRouteImport } from './routes/app.files'
 import { Route as AppFinalsRouteImport } from './routes/app.finals'
+import { Route as AppFormsReportsRouteImport } from './routes/app.forms-reports'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
@@ -209,6 +210,11 @@ const AppFilesRoute = AppFilesRouteImport.update({
 const AppFinalsRoute = AppFinalsRouteImport.update({
   id: '/finals',
   path: '/finals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFormsReportsRoute = AppFormsReportsRouteImport.update({
+  id: '/forms-reports',
+  path: '/forms-reports',
   getParentRoute: () => AppRoute,
 } as any)
 const AppGradebookRoute = AppGradebookRouteImport.update({
@@ -405,6 +411,7 @@ export interface FileRoutesByFullPath {
   '/app/fees': typeof AppFeesRoute
   '/app/files': typeof AppFilesRoute
   '/app/finals': typeof AppFinalsRoute
+  '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
@@ -467,6 +474,7 @@ export interface FileRoutesByTo {
   '/app/fees': typeof AppFeesRoute
   '/app/files': typeof AppFilesRoute
   '/app/finals': typeof AppFinalsRoute
+  '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
@@ -531,6 +539,7 @@ export interface FileRoutesById {
   '/app/fees': typeof AppFeesRoute
   '/app/files': typeof AppFilesRoute
   '/app/finals': typeof AppFinalsRoute
+  '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
   '/app/library': typeof AppLibraryRoute
@@ -596,6 +605,7 @@ export interface FileRouteTypes {
     | '/app/fees'
     | '/app/files'
     | '/app/finals'
+    | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
@@ -658,6 +668,7 @@ export interface FileRouteTypes {
     | '/app/fees'
     | '/app/files'
     | '/app/finals'
+    | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
@@ -721,6 +732,7 @@ export interface FileRouteTypes {
     | '/app/fees'
     | '/app/files'
     | '/app/finals'
+    | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
     | '/app/library'
@@ -959,6 +971,13 @@ declare module '@tanstack/react-router' {
       path: '/finals'
       fullPath: '/app/finals'
       preLoaderRoute: typeof AppFinalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/forms-reports': {
+      id: '/app/forms-reports'
+      path: '/forms-reports'
+      fullPath: '/app/forms-reports'
+      preLoaderRoute: typeof AppFormsReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/gradebook': {
@@ -1220,6 +1239,7 @@ interface AppRouteChildren {
   AppFeesRoute: typeof AppFeesRoute
   AppFilesRoute: typeof AppFilesRoute
   AppFinalsRoute: typeof AppFinalsRoute
+  AppFormsReportsRoute: typeof AppFormsReportsRoute
   AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
   AppLibraryRoute: typeof AppLibraryRoute
@@ -1281,6 +1301,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFeesRoute: AppFeesRoute,
   AppFilesRoute: AppFilesRoute,
   AppFinalsRoute: AppFinalsRoute,
+  AppFormsReportsRoute: AppFormsReportsRoute,
   AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
   AppLibraryRoute: AppLibraryRoute,
