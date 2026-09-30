@@ -1,5 +1,6 @@
 import {
   AlarmClock,
+  LogOut,
   UserCog,
   LifeBuoy,
   ShieldCheck,
@@ -91,6 +92,13 @@ export const navItems: NavItem[] = [
     label: "التسجيل الدراسي",
     to: "/app/enrollment",
     icon: BookOpenCheck,
+    roles: ["admin", "secretary"],
+    group: "القبول والتسجيل",
+  },
+  {
+    label: "الطلاب المنقولون",
+    to: "/app/transfers",
+    icon: LogOut,
     roles: ["admin", "secretary"],
     group: "القبول والتسجيل",
   },

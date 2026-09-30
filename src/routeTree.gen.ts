@@ -62,6 +62,7 @@ import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppTimetableBuilderRouteImport } from './routes/app.timetable-builder'
 import { Route as AppTimetableGridRouteImport } from './routes/app.timetable-grid'
 import { Route as AppTimetableTeacherRouteImport } from './routes/app.timetable-teacher'
+import { Route as AppTransfersRouteImport } from './routes/app.transfers'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
 import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
 import { Route as AppWorkspaceSetupRouteImport } from './routes/app.workspace-setup'
@@ -340,6 +341,11 @@ const AppTimetableTeacherRoute = AppTimetableTeacherRouteImport.update({
   path: '/timetable-teacher',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTransfersRoute = AppTransfersRouteImport.update({
+  id: '/transfers',
+  path: '/transfers',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTransportRoute = AppTransportRouteImport.update({
   id: '/transport',
   path: '/transport',
@@ -454,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/timetable-teacher': typeof AppTimetableTeacherRoute
+  '/app/transfers': typeof AppTransfersRoute
   '/app/transport': typeof AppTransportRoute
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/workspace-setup': typeof AppWorkspaceSetupRoute
@@ -520,6 +527,7 @@ export interface FileRoutesByTo {
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/timetable-teacher': typeof AppTimetableTeacherRoute
+  '/app/transfers': typeof AppTransfersRoute
   '/app/transport': typeof AppTransportRoute
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/workspace-setup': typeof AppWorkspaceSetupRoute
@@ -588,6 +596,7 @@ export interface FileRoutesById {
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
   '/app/timetable-teacher': typeof AppTimetableTeacherRoute
+  '/app/transfers': typeof AppTransfersRoute
   '/app/transport': typeof AppTransportRoute
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/workspace-setup': typeof AppWorkspaceSetupRoute
@@ -657,6 +666,7 @@ export interface FileRouteTypes {
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/timetable-teacher'
+    | '/app/transfers'
     | '/app/transport'
     | '/app/workspace'
     | '/app/workspace-setup'
@@ -723,6 +733,7 @@ export interface FileRouteTypes {
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/timetable-teacher'
+    | '/app/transfers'
     | '/app/transport'
     | '/app/workspace'
     | '/app/workspace-setup'
@@ -790,6 +801,7 @@ export interface FileRouteTypes {
     | '/app/timetable-builder'
     | '/app/timetable-grid'
     | '/app/timetable-teacher'
+    | '/app/transfers'
     | '/app/transport'
     | '/app/workspace'
     | '/app/workspace-setup'
@@ -1184,6 +1196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTimetableTeacherRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/transfers': {
+      id: '/app/transfers'
+      path: '/transfers'
+      fullPath: '/app/transfers'
+      preLoaderRoute: typeof AppTransfersRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/transport': {
       id: '/app/transport'
       path: '/transport'
@@ -1321,6 +1340,7 @@ interface AppRouteChildren {
   AppTimetableBuilderRoute: typeof AppTimetableBuilderRoute
   AppTimetableGridRoute: typeof AppTimetableGridRoute
   AppTimetableTeacherRoute: typeof AppTimetableTeacherRoute
+  AppTransfersRoute: typeof AppTransfersRoute
   AppTransportRoute: typeof AppTransportRoute
   AppWorkspaceRoute: typeof AppWorkspaceRoute
   AppWorkspaceSetupRoute: typeof AppWorkspaceSetupRoute
@@ -1386,6 +1406,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTimetableBuilderRoute: AppTimetableBuilderRoute,
   AppTimetableGridRoute: AppTimetableGridRoute,
   AppTimetableTeacherRoute: AppTimetableTeacherRoute,
+  AppTransfersRoute: AppTransfersRoute,
   AppTransportRoute: AppTransportRoute,
   AppWorkspaceRoute: AppWorkspaceRoute,
   AppWorkspaceSetupRoute: AppWorkspaceSetupRoute,

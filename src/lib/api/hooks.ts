@@ -8682,3 +8682,166 @@ export async function uploadHelpVideo(file: File): Promise<string> {
   const res = await apiUpload<{ url: string }>("help_center.upload_video", file);
   return res.url;
 }
+
+/* -------------------------------------------------------------------------
+ * Students transferred to another school
+ * ---------------------------------------------------------------------- */
+
+export type TransferStatus = "Draft" | "Completed" | "Cancelled";
+
+export interface TransferRow {
+  id: string;
+  student: string;
+  studentName: string;
+  status: TransferStatus;
+  statusLabel: string;
+  statusTone: string;
+  toSchool: string;
+  transferDate: string;
+  reason: string;
+  completedOn: string;
+  modified: string;
+}
+
+export interface TransferGuardian {
+  guardian: string;
+  name: string;
+  relation: string;
+  user: string | null;
+  hasOtherChildren: boolean;
+  enabled: boolean;
+}
+
+export interface TransferDetail extends TransferRow {
+  certificate: Record<string, string>;
+  effects: Record<string, number>;
+  applied: {
+    users?: Array<{ user: string; note: string }>;
+    guardiansKept?: Array<{ name: string; why: string }>;
+    sections?: unknown[];
+    transport?: unknown[];
+  };
+  guardians: TransferGuardian[];
+  warnings: Array<{ code: string; text: string }>;
+}
+
+export interface TransferPrefill {
+  student: string;
+  studentName: string;
+  certificate: Record<string, string>;
+  guardians: TransferGuardian[];
+  warnings: Array<{ code: string; text: string }>;
+  enabled: boolean;
+}
+
+export interface TransferOptions {
+  fields: Array<{
+    fieldname: string;
+    label: string;
+    fieldtype: string;
+    options: string[];
+    default: string;
+    width: string;
+    description: string;
+  }>;
+  effects: Array<{ key: string; label: string; hint: string; default: boolean }>;
+}
+
+export function useTransferOptions() {
+  return useQuery<TransferOptions>({
+    queryKey: ["transfer-options"],
+    queryFn: () => apiGet("transfers.options"),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useTransfers(status: string, search: string) {
+  return useQuery<{ transfers: TransferRow[]; counts: Record<string, number> }>({
+    queryKey: ["transfers", status, search],
+    queryFn: () =>
+      apiGet("transfers.list_transfers", {
+        ...(status ? { status } : {}),
+        ...(search ? { search } : {}),
+      }),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useTransfer(id: string | undefined) {
+  return useQuery<TransferDetail>({
+    queryKey: ["transfer", id],
+    queryFn: () => apiGet("transfers.get_transfer", { transfer: id! }),
+    enabled: !!id,
+  });
+}
+
+/** The certificate filled from the pupil's record — asked once a pupil is chosen. */
+export function useTransferPrefill(student: string | undefined) {
+  return useQuery<TransferPrefill>({
+    queryKey: ["transfer-prefill", student],
+    queryFn: () => apiGet("transfers.prefill", { student: student! }),
+    enabled: !!student,
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  });
+}
+
+function invalidateTransfers(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["transfers"] });
+  void qc.invalidateQueries({ queryKey: ["transfer"] });
+  // A completed transfer changes who the school's pupils are.
+  void qc.invalidateQueries({ queryKey: ["students"] });
+  void qc.invalidateQueries({ queryKey: ["student"] });
+}
+
+export function useSaveTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      id?: string;
+      student?: string;
+      toSchool: string;
+      transferDate: string;
+      reason: string;
+      certificate: Record<string, string>;
+      effects: Record<string, number>;
+    }) =>
+      apiPost<TransferDetail>("transfers.save_transfer", { payload } as unknown as Record<
+        string,
+        unknown
+      >),
+    onSuccess: () => invalidateTransfers(qc),
+  });
+}
+
+export function useDeleteTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (transfer: string) => apiPost("transfers.delete_transfer", { transfer }),
+    onSuccess: () => invalidateTransfers(qc),
+  });
+}
+
+export function useCompleteTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (transfer: string) =>
+      apiPost<TransferDetail>("transfers.complete_transfer", { transfer }),
+    onSuccess: () => invalidateTransfers(qc),
+  });
+}
+
+export function useCancelTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (transfer: string) =>
+      apiPost<TransferDetail>("transfers.cancel_transfer", { transfer }),
+    onSuccess: () => invalidateTransfers(qc),
+  });
+}
+
+/** The transfer certificate as page HTML, for the preview and the printer. */
+export function getTransferPreview(transfer: string) {
+  return apiGet<{ html: string; title: string }>("transfers.preview", { transfer });
+}
