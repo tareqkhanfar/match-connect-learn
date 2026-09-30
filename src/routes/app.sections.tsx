@@ -78,6 +78,14 @@ function SectionColumn({
             {section.capacity ? ` / ${section.capacity}` : ""} طالب
             {section.batch ? ` · دفعة ${section.batch}` : ""}
           </p>
+          <p className="truncate text-[11px]">
+            <span className="text-muted-foreground">مربي الصف: </span>
+            {section.homeroom ? (
+              <span className="font-semibold">{section.homeroom.name}</span>
+            ) : (
+              <span className="font-semibold text-warning">غير محدد</span>
+            )}
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {full && <Pill tone="warning">مكتملة</Pill>}
@@ -503,6 +511,7 @@ function SectionsPage() {
           program={program}
           academicYear={year}
           batches={options.data?.batches ?? []}
+          instructors={options.data?.instructors ?? []}
           onClose={() => setEditing(null)}
         />
       )}
@@ -515,18 +524,21 @@ function SectionDialog({
   program,
   academicYear,
   batches,
+  instructors,
   onClose,
 }: {
   section: SectionInfo | null;
   program: string;
   academicYear: string;
   batches: string[];
+  instructors: Array<{ id: string; name: string }>;
   onClose: () => void;
 }) {
   const save = useSaveSection();
   const [name, setName] = useState(section?.name ?? "");
   const [batch, setBatch] = useState(section?.batch ?? "");
   const [capacity, setCapacity] = useState(String(section?.capacity ?? ""));
+  const [homeroom, setHomeroom] = useState(section?.homeroom?.id ?? "");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -539,6 +551,7 @@ function SectionDialog({
         ...(batch ? { batch } : {}),
         ...(year ? { academic_year: year } : {}),
         max_strength: Number(capacity) || 0,
+        homeroom_instructor: homeroom,
       });
       toast.success(res.message_ar || "تم الحفظ");
       onClose();
@@ -599,6 +612,29 @@ function SectionDialog({
               className="h-11 rounded-xl"
               dir="ltr"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>مربي الصف</Label>
+            <Select
+              value={homeroom || "none"}
+              onValueChange={(v) => setHomeroom(v === "none" ? "" : v)}
+            >
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="اختر المعلم" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— بدون —</SelectItem>
+                {instructors.map((i) => (
+                  <SelectItem key={i.id} value={i.id}>
+                    {i.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              معلم واحد للشعبة، وهو وحده يعبّئ حقول «مربي الصف» في نماذج التقييم.
+            </p>
           </div>
 
           <DialogFooter>

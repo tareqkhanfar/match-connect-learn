@@ -501,6 +501,15 @@ export const navItems: NavItem[] = [
     groupByRole: { student: "خدماتي", parent: "خدمات الأبناء" },
   },
   {
+    // The monthly / termly report per pupil: each subject's teacher rates
+    // their subject, the section's مربي الصف fills the homeroom lines.
+    label: "نماذج التقييم",
+    to: "/app/periodic-evaluations",
+    icon: ClipboardCheck,
+    roles: ["admin", "secretary", "teacher"],
+    group: "العلامات والتقييم",
+  },
+  {
     label: "شهادات الأرباع",
     to: "/app/quarter-results",
     icon: FileText,

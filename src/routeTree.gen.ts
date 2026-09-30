@@ -44,6 +44,7 @@ import { Route as AppHealthRouteImport } from './routes/app.health'
 import { Route as AppHelpRouteImport } from './routes/app.help'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppMailRouteImport } from './routes/app.mail'
+import { Route as AppPeriodicEvaluationsRouteImport } from './routes/app.periodic-evaluations'
 import { Route as AppPrintRequestsRouteImport } from './routes/app.print-requests'
 import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppPromotionRouteImport } from './routes/app.promotion'
@@ -252,6 +253,11 @@ const AppMailRoute = AppMailRouteImport.update({
   path: '/mail',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPeriodicEvaluationsRoute = AppPeriodicEvaluationsRouteImport.update({
+  id: '/periodic-evaluations',
+  path: '/periodic-evaluations',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPrintRequestsRoute = AppPrintRequestsRouteImport.update({
   id: '/print-requests',
   path: '/print-requests',
@@ -448,6 +454,7 @@ export interface FileRoutesByFullPath {
   '/app/help': typeof AppHelpRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
+  '/app/periodic-evaluations': typeof AppPeriodicEvaluationsRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
@@ -516,6 +523,7 @@ export interface FileRoutesByTo {
   '/app/help': typeof AppHelpRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
+  '/app/periodic-evaluations': typeof AppPeriodicEvaluationsRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
@@ -586,6 +594,7 @@ export interface FileRoutesById {
   '/app/help': typeof AppHelpRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
+  '/app/periodic-evaluations': typeof AppPeriodicEvaluationsRoute
   '/app/print-requests': typeof AppPrintRequestsRoute
   '/app/profile': typeof AppProfileRoute
   '/app/promotion': typeof AppPromotionRoute
@@ -657,6 +666,7 @@ export interface FileRouteTypes {
     | '/app/help'
     | '/app/library'
     | '/app/mail'
+    | '/app/periodic-evaluations'
     | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
@@ -725,6 +735,7 @@ export interface FileRouteTypes {
     | '/app/help'
     | '/app/library'
     | '/app/mail'
+    | '/app/periodic-evaluations'
     | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
@@ -794,6 +805,7 @@ export interface FileRouteTypes {
     | '/app/help'
     | '/app/library'
     | '/app/mail'
+    | '/app/periodic-evaluations'
     | '/app/print-requests'
     | '/app/profile'
     | '/app/promotion'
@@ -1082,6 +1094,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMailRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/periodic-evaluations': {
+      id: '/app/periodic-evaluations'
+      path: '/periodic-evaluations'
+      fullPath: '/app/periodic-evaluations'
+      preLoaderRoute: typeof AppPeriodicEvaluationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/print-requests': {
       id: '/app/print-requests'
       path: '/print-requests'
@@ -1341,6 +1360,7 @@ interface AppRouteChildren {
   AppHelpRoute: typeof AppHelpRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppMailRoute: typeof AppMailRoute
+  AppPeriodicEvaluationsRoute: typeof AppPeriodicEvaluationsRoute
   AppPrintRequestsRoute: typeof AppPrintRequestsRoute
   AppProfileRoute: typeof AppProfileRoute
   AppPromotionRoute: typeof AppPromotionRoute
@@ -1408,6 +1428,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppHelpRoute: AppHelpRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppMailRoute: AppMailRoute,
+  AppPeriodicEvaluationsRoute: AppPeriodicEvaluationsRoute,
   AppPrintRequestsRoute: AppPrintRequestsRoute,
   AppProfileRoute: AppProfileRoute,
   AppPromotionRoute: AppPromotionRoute,

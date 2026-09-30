@@ -5729,6 +5729,8 @@ export type SectionInfo = {
   capacity: number | null;
   count: number;
   spaceLeft: number | null;
+  /** مربي الصف — one per section, chosen by the office. */
+  homeroom: { id: string; name: string } | null;
   students: SectionStudent[];
 };
 
@@ -5758,6 +5760,7 @@ export function useSectionOptions() {
     academicYears: string[];
     academicTerms: string[];
     batches: string[];
+    instructors: Array<{ id: string; name: string }>;
   }>({
     queryKey: ["section-options"],
     queryFn: () => apiGet("sections.section_options"),
@@ -5774,6 +5777,8 @@ function useSectionMutation<V>(method: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["program-sections"] });
       qc.invalidateQueries({ queryKey: ["classes"] });
+      // A new مربي الصف changes who may fill a section's homeroom lines.
+      qc.invalidateQueries({ queryKey: ["pe-options"] });
     },
   });
 }
@@ -5809,6 +5814,8 @@ export const useSaveSection = () =>
     academic_year?: string;
     max_strength?: number;
     disabled?: number;
+    /** "" clears it. */
+    homeroom_instructor?: string;
   }>("sections.save_section");
 
 // --- Academic context: school identity, period, holidays --------------------
@@ -8960,4 +8967,217 @@ export const useRequestToApplication = () =>
 
 export function getAdmissionRequestPreview(request: string) {
   return apiGet<{ html: string; title: string }>("admission_requests.preview", { request });
+}
+
+// --- Periodic evaluations («نماذج التقييم») ----------------------------------
+
+export type PeScope = "subject" | "homeroom";
+export type PeType = "scale" | "text" | "number";
+export type PeValue = string | number;
+
+export interface PeCriterion {
+  key: string;
+  label: string;
+  /** subject: every subject's teacher; homeroom: the section's مربي الصف only. */
+  scope: PeScope;
+  type: PeType;
+  max?: number;
+}
+
+export interface PeScaleOption {
+  label: string;
+  tone: string;
+}
+
+export interface PeForm {
+  id: string;
+  title: string;
+  periodType: string;
+  academicYear: string | null;
+  isActive: boolean;
+  /** The one period teachers may fill now; "" = entry closed. */
+  openPeriod: string;
+  heading: string;
+  principalName: string;
+  printLogo: string;
+  periods: string[];
+  programs: string[];
+  scale: PeScaleOption[];
+  criteria: PeCriterion[];
+  notes: string;
+  entries?: number;
+}
+
+export interface PeTeacher {
+  id: string;
+  name: string;
+}
+
+export interface PeCourse {
+  id: string;
+  name: string;
+  teachers: PeTeacher[];
+}
+
+export interface PeSection {
+  id: string;
+  name: string;
+  program: string;
+  homeroom: PeTeacher | null;
+  /** For a teacher: whether they are this section's مربي الصف. */
+  isHomeroom: boolean;
+  courses: PeCourse[];
+}
+
+export interface PeOptions {
+  forms: PeForm[];
+  sections: PeSection[];
+  canManage: boolean;
+  presets: {
+    periods: Record<string, string[]>;
+    headings: Record<string, string>;
+    scale: PeScaleOption[];
+    criteria: Array<Omit<PeCriterion, "key">>;
+  };
+  programs: string[];
+  academicYear: string | null;
+}
+
+export interface PeStudent {
+  id: string;
+  name: string;
+  roll: number | null;
+}
+
+export interface PeSectionInfo {
+  id: string;
+  name: string;
+  program: string;
+  batch: string | null;
+  academicYear: string | null;
+  homeroom: PeTeacher | null;
+}
+
+export interface PeSheet {
+  form: PeForm;
+  period: string;
+  section: PeSectionInfo;
+  scope: PeScope;
+  course: string | null;
+  courseName: string;
+  criteria: PeCriterion[];
+  students: PeStudent[];
+  values: Record<string, Record<string, PeValue>>;
+  by: Record<string, { name: string; on: string }>;
+  editable: boolean;
+  reason: string;
+}
+
+export interface PeEntry {
+  values: Record<string, PeValue>;
+  by: string;
+  on: string;
+}
+
+export interface PeOverview {
+  form: PeForm;
+  period: string;
+  section: PeSectionInfo;
+  applies: boolean;
+  courses: PeCourse[];
+  students: PeStudent[];
+  /** student -> course id (or "homeroom") -> entry */
+  entries: Record<string, Record<string, PeEntry>>;
+}
+
+export function usePeOptions() {
+  return useQuery<PeOptions>({
+    queryKey: ["pe-options"],
+    queryFn: () => apiGet("periodic_evaluations.options"),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function usePeForms(enabled = true) {
+  return useQuery<{ forms: PeForm[] }>({
+    queryKey: ["pe-forms"],
+    queryFn: () => apiGet("periodic_evaluations.list_forms"),
+    enabled,
+  });
+}
+
+export interface PeSheetParams {
+  form?: string;
+  period?: string;
+  student_group?: string;
+  scope: PeScope;
+  course?: string;
+}
+
+export function usePeSheet(p: PeSheetParams) {
+  const ready = !!(p.form && p.period && p.student_group && (p.scope === "homeroom" || p.course));
+  return useQuery<PeSheet>({
+    queryKey: ["pe-sheet", p],
+    queryFn: () =>
+      apiGet("periodic_evaluations.sheet", {
+        ...p,
+        ...(p.scope === "homeroom" ? { course: undefined } : {}),
+      }),
+    enabled: ready,
+  });
+}
+
+export function usePeOverview(form?: string, period?: string, studentGroup?: string) {
+  return useQuery<PeOverview>({
+    queryKey: ["pe-overview", form, period, studentGroup],
+    queryFn: () =>
+      apiGet("periodic_evaluations.overview", { form, period, student_group: studentGroup }),
+    enabled: !!(form && period && studentGroup),
+  });
+}
+
+function usePeMutation<V>(method: string, body: (vars: V) => Record<string, unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: V) =>
+      apiPost<{ message_ar?: string }>(`periodic_evaluations.${method}`, body(vars)),
+    onSuccess: () => {
+      for (const key of ["pe-options", "pe-forms", "pe-sheet", "pe-overview"])
+        void qc.invalidateQueries({ queryKey: [key] });
+    },
+  });
+}
+
+export const useSavePeSheet = () =>
+  usePeMutation<PeSheetParams & { rows: Record<string, Record<string, PeValue | "">> }>(
+    "save_sheet",
+    (payload) => ({ payload: JSON.stringify(payload) }),
+  );
+
+export const useSavePeForm = () =>
+  usePeMutation<Partial<PeForm> & { title: string }>("save_form", (payload) => ({
+    payload: JSON.stringify(payload),
+  }));
+
+export const useSetPeOpenPeriod = () =>
+  usePeMutation<{ form: string; period: string }>("set_open_period", (v) => v);
+
+export const useDeletePeForm = () => usePeMutation<string>("delete_form", (form) => ({ form }));
+
+/** The chosen pupils' reports (the whole section when none), a page each. */
+export function getPeCards(
+  form: string,
+  period: string,
+  studentGroup: string,
+  students?: string[],
+) {
+  return apiGet<{ html: string; title: string; count: number }>(
+    "periodic_evaluations.print_cards",
+    {
+      form,
+      period,
+      student_group: studentGroup,
+      ...(students?.length ? { students: JSON.stringify(students) } : {}),
+    },
+  );
 }
