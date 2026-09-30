@@ -317,7 +317,7 @@ export function DataTable<T>({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => runExport("pdf")}>
                 <FileText className="ml-2 size-4" />
-                PDF للطباعة
+                طباعة (PDF)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -338,7 +338,13 @@ export function DataTable<T>({
           <EmptyBlock title={emptyTitle} description={emptyDescription} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
+            <table
+              className="w-full text-right text-sm"
+              // With an export dataset the table has its own (server-side, all
+              // rows); without one the page-wide tools cover what is shown.
+              {...(exportDataset ? { "data-tools": "own" } : {})}
+              {...(totalCount > rows.length ? { "data-paged": "1" } : {})}
+            >
               <thead className="bg-secondary/60 text-xs text-muted-foreground">
                 <tr>
                   {selectable && (

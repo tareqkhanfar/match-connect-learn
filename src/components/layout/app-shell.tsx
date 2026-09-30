@@ -3,6 +3,7 @@ import { LayoutGrid, Menu, Moon, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { MailBadge } from "./mail-badge";
 import { HelpBadge } from "./help-badge";
+import { TableToolsHost } from "@/components/shared/table-tools";
 import { HeaderStatus } from "./header-status";
 import { PeriodSwitcher } from "./period-switcher";
 import { SchoolBrand, HolidayBanner } from "./school-brand";
@@ -124,6 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {/* A rule may close a page to a student; say why rather than
                 showing an empty screen. */}
             <AccessGuard>{children}</AccessGuard>
+            <TableToolsHost />
             {/* An unacknowledged warning interrupts once, on arrival. */}
             <AlertPopup />
           </div>

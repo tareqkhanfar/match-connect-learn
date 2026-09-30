@@ -92,6 +92,56 @@ export async function downloadExport(
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Sends a table as the screen shows it — headings and rows — and saves the
+ * .xlsx the server lays out. Used by every table's toolbar, including the
+ * ones a screen draws itself that the server has no dataset for.
+ */
+export async function downloadTable(
+  title: string,
+  headers: string[],
+  rows: string[][],
+): Promise<void> {
+  const res = await fetch(endpoint("export_table"), {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Frappe-CSRF-Token":
+        (typeof window !== "undefined" &&
+          (window as unknown as { csrf_token?: string }).csrf_token) ||
+        "",
+    },
+    body: JSON.stringify({ title, headers: JSON.stringify(headers), rows: JSON.stringify(rows) }),
+  });
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!res.ok || contentType.includes("application/json")) {
+    let messageEn = `Export failed (${res.status})`;
+    let messageAr = "";
+    try {
+      const payload = await res.json();
+      const envelope = payload?.message;
+      messageEn = envelope?.message_en || payload?.exception || messageEn;
+      messageAr = envelope?.message_ar ?? "";
+    } catch {
+      /* keep the default message */
+    }
+    throw new ApiError(messageEn, res.status, messageAr);
+  }
+  const blob = await res.blob();
+  // Named here, not from the response: an Arabic name in a header reaches
+  // `fetch` as garbled bytes.
+  const filename = `${title.replace(/[\\/:*?"<>|]/g, " ").trim()}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 /** Pull the filename out of Content-Disposition, handling RFC 5987 encoding. */
 function filenameFrom(header: string | null): string | null {
   if (!header) return null;
