@@ -1,5 +1,6 @@
 import {
   AlarmClock,
+  FileCheck2,
   LogOut,
   UserCog,
   LifeBuoy,
@@ -81,6 +82,13 @@ export const navItems: NavItem[] = [
   },
 
   // Academic administration
+  {
+    label: "طلبات المتسع",
+    to: "/app/admission-requests",
+    icon: FileCheck2,
+    roles: ["admin", "secretary"],
+    group: "القبول والتسجيل",
+  },
   {
     label: "طلبات الالتحاق",
     to: "/app/admissions",

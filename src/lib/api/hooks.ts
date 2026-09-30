@@ -8845,3 +8845,119 @@ export function useCancelTransfer() {
 export function getTransferPreview(transfer: string) {
   return apiGet<{ html: string; title: string }>("transfers.preview", { transfer });
 }
+
+/* -------------------------------------------------------------------------
+ * Admission requests («طلب متسع») — before the application
+ * ---------------------------------------------------------------------- */
+
+export type AdmissionRequestStatus = "Draft" | "Confirmed" | "Transferred" | "Cancelled";
+
+export interface AdmissionRequestRow {
+  id: string;
+  name: string;
+  status: AdmissionRequestStatus;
+  statusLabel: string;
+  statusTone: string;
+  program: string;
+  academicYear: string;
+  idNumber: string;
+  guardianName: string;
+  guardianMobile: string;
+  application: string;
+  created: string;
+  modified: string;
+}
+
+export interface AdmissionRequestDetail extends AdmissionRequestRow {
+  firstName: string;
+  middleName: string;
+  grandfatherName: string;
+  lastName: string;
+  gender: string;
+  mobile: string;
+  email: string;
+  city: string;
+  previousSchool: string;
+  principal: string;
+  notes: string;
+  birthDate: string;
+  letterDate: string;
+  documents: string[];
+  confirmedOn: string;
+  transferredOn: string;
+}
+
+export interface AdmissionRequestOptions {
+  programs: string[];
+  academicYears: string[];
+  defaultAcademicYear: string;
+  genders: string[];
+  documents: string[];
+  requiredForApplication: string[];
+}
+
+export function useAdmissionRequestOptions() {
+  return useQuery<AdmissionRequestOptions>({
+    queryKey: ["admission-request-options"],
+    queryFn: () => apiGet("admission_requests.options"),
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useAdmissionRequests(status: string, search: string) {
+  return useQuery<{ requests: AdmissionRequestRow[]; counts: Record<string, number> }>({
+    queryKey: ["admission-requests", status, search],
+    queryFn: () =>
+      apiGet("admission_requests.list_requests", {
+        ...(status ? { status } : {}),
+        ...(search ? { search } : {}),
+      }),
+    placeholderData: (prev) => prev,
+  });
+}
+
+export function useAdmissionRequest(id: string | undefined) {
+  return useQuery<AdmissionRequestDetail>({
+    queryKey: ["admission-request", id],
+    queryFn: () => apiGet("admission_requests.get_request", { request: id! }),
+    enabled: !!id,
+  });
+}
+
+function useAdmissionRequestAction<V, R = AdmissionRequestDetail>(
+  method: string,
+  body: (vars: V) => Record<string, unknown>,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: V) => apiPost<R>(`admission_requests.${method}`, body(vars)),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admission-requests"] });
+      void qc.invalidateQueries({ queryKey: ["admission-request"] });
+      // A moved-on request is a new application.
+      void qc.invalidateQueries({ queryKey: ["applicants"] });
+    },
+  });
+}
+
+export const useSaveAdmissionRequest = () =>
+  useAdmissionRequestAction<Partial<AdmissionRequestDetail> & { firstName: string }>(
+    "save_request",
+    (payload) => ({ payload }),
+  );
+export const useConfirmAdmissionRequest = () =>
+  useAdmissionRequestAction<string>("confirm_request", (request) => ({ request }));
+export const useReopenAdmissionRequest = () =>
+  useAdmissionRequestAction<string>("reopen_request", (request) => ({ request }));
+export const useCancelAdmissionRequest = () =>
+  useAdmissionRequestAction<string>("cancel_request", (request) => ({ request }));
+export const useDeleteAdmissionRequest = () =>
+  useAdmissionRequestAction<string, { deleted: string }>("delete_request", (request) => ({
+    request,
+  }));
+export const useRequestToApplication = () =>
+  useAdmissionRequestAction<string>("to_application", (request) => ({ request }));
+
+export function getAdmissionRequestPreview(request: string) {
+  return apiGet<{ html: string; title: string }>("admission_requests.preview", { request });
+}
