@@ -173,12 +173,93 @@ export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html || "", SANITIZE_CONFIG);
 }
 
+// An address typed or pasted as text: http(s)://… or www.…, stopping before
+// trailing punctuation so «راجع الرابط https://x.ps/a.» links without the dot.
+const URL_PATTERN = /(?:https?:\/\/|www\.)[^\s<>"'«»]+[^\s<>"'«».,;:!?،؛)\]]/gi;
+
+function hrefOf(url: string): string {
+  return url.toLowerCase().startsWith("www.") ? `https://${url}` : url;
+}
+
+/**
+ * Turn addresses written as plain text into links, in HTML that has already
+ * been sanitised. People paste a link into a post and expect to click it;
+ * the editor stores it as text. Only text outside an existing link is
+ * touched, every link opens in a new tab, and only http(s) addresses are
+ * made — nothing here can introduce a script URL.
+ */
+export function linkifyHtml(html: string): string {
+  if (!html || typeof document === "undefined") return html;
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  while (walker.nextNode()) texts.push(walker.currentNode as Text);
+  for (const node of texts) {
+    if (node.parentElement?.closest("a")) continue;
+    const text = node.data;
+    const pattern = new RegExp(URL_PATTERN.source, "gi");
+    let match: RegExpExecArray | null;
+    let last = 0;
+    const out = document.createDocumentFragment();
+    while ((match = pattern.exec(text))) {
+      out.append(text.slice(last, match.index));
+      const a = document.createElement("a");
+      a.href = hrefOf(match[0]);
+      a.textContent = match[0];
+      a.dir = "ltr";
+      out.append(a);
+      last = match.index + match[0].length;
+    }
+    if (!last) continue;
+    out.append(text.slice(last));
+    node.replaceWith(out);
+  }
+  box.querySelectorAll("a[href]").forEach((a) => {
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
+    a.classList.add("ms-link");
+  });
+  return box.innerHTML;
+}
+
+/** Sanitised, with plain-text addresses made clickable — for showing a post. */
+export function displayHtml(html: string): string {
+  return linkifyHtml(sanitizeHtml(html));
+}
+
+/** Plain text (a comment, a message) with its addresses as links. */
+export function LinkifiedText({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  const pattern = new RegExp(URL_PATTERN.source, "gi");
+  let match: RegExpExecArray | null;
+  let last = 0;
+  while ((match = pattern.exec(text || ""))) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <a
+        key={match.index}
+        href={hrefOf(match[0])}
+        target="_blank"
+        rel="noopener noreferrer"
+        dir="ltr"
+        className="ms-link"
+      >
+        {match[0]}
+      </a>,
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < (text || "").length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
 /**
  * Read-only renderer. Submissions are written by students and read by
  * teachers, so the HTML is always sanitised before it reaches the DOM.
  */
 export function RichTextView({ html, className = "" }: { html: string; className?: string }) {
-  const clean = useMemo(() => sanitizeHtml(html), [html]);
+  const clean = useMemo(() => displayHtml(html), [html]);
   if (!clean.trim()) return <p className="text-sm text-muted-foreground">لا يوجد محتوى.</p>;
   return (
     <div

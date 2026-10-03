@@ -438,3 +438,11 @@ tbody tr:hover {
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse at 50% 40%, black 20%, transparent 78%);
 }
+
+/* Addresses in posts and comments made clickable (rich-text.tsx linkify). */
+a.ms-link {
+  color: var(--color-primary, var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}

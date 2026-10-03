@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
-import { CalendarDays, Printer, Radio } from "lucide-react";
+import { CalendarDays, NotebookPen, Printer, Radio } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { LessonPlanDialog, PlanMarker } from "@/components/shared/lesson-plan-dialog";
+import { WeeklyPlanDialog } from "@/components/timetable/weekly-plan-dialog";
 import {
   Select,
   SelectContent,
@@ -123,6 +124,9 @@ function TimetablePage() {
   // Which lesson's preparation is open. Every role can open one; what they
   // see inside is the server's decision, not this screen's.
   const [planFor, setPlanFor] = useState<string | null>(null);
+  // «طباعة الخطة الأسبوعية»: the office and teachers, for a section.
+  const [weeklyPlan, setWeeklyPlan] = useState(false);
+  const printsWeeklyPlan = picksClass || isTeacher;
   const showsClassPicker = (picksClass && mode === "class") || (isTeacher && teacherViewsClass);
 
   useEffect(() => {
@@ -266,6 +270,15 @@ function TimetablePage() {
                   ))}
                 </SelectContent>
               </Select>
+            )}
+            {printsWeeklyPlan && (classesQuery.data?.length ?? 0) > 0 && (
+              <button
+                onClick={() => setWeeklyPlan(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold hover:bg-secondary"
+              >
+                <NotebookPen className="size-4" />
+                <span className="hidden sm:inline">طباعة الخطة الأسبوعية</span>
+              </button>
             )}
             <button
               onClick={() => window.print()}
@@ -422,6 +435,14 @@ function TimetablePage() {
       )}
 
       {planFor && <LessonPlanDialog courseSchedule={planFor} onClose={() => setPlanFor(null)} />}
+      {weeklyPlan && (
+        <WeeklyPlanDialog
+          classes={classesQuery.data ?? []}
+          initialGroup={showsClassPicker ? groupId : ""}
+          initialWeek={timetableQuery.data?.week_start}
+          onClose={() => setWeeklyPlan(false)}
+        />
+      )}
     </>
   );
 }

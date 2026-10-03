@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { RichText, sanitizeHtml } from "@/components/shared/rich-text";
+import { displayHtml, LinkifiedText, RichText } from "@/components/shared/rich-text";
 import { useConfirm } from "@/components/shared/confirm";
 import { apiUpload, fileUrl } from "@/lib/api/client";
 import { errorMessage } from "@/lib/api/error-message";
@@ -276,7 +276,7 @@ function PostCard({
       {p.body && (
         <div
           className="prose prose-sm max-w-none px-3.5 pb-2 text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(p.body) }}
+          dangerouslySetInnerHTML={{ __html: displayHtml(p.body) }}
         />
       )}
 
@@ -538,7 +538,9 @@ function CommentRow({
         <span>{c.posted_on.slice(0, 16)}</span>
         {c.is_hidden && <Pill tone="danger">مخفي</Pill>}
       </p>
-      <p className="mt-1 whitespace-pre-wrap text-sm">{c.body}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm">
+        <LinkifiedText text={c.body} />
+      </p>
       <div className="mt-1.5 flex gap-2 text-[11px]">
         {onReply && (
           <button onClick={onReply} className="font-semibold text-primary hover:underline">
