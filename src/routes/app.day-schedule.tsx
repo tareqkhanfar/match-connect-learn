@@ -5,7 +5,9 @@ import {
   ArrowLeftRight,
   CalendarClock,
   DoorOpen,
+  LayoutGrid,
   RotateCcw,
+  ShieldCheck,
   UserCheck,
   Users,
   X,
@@ -14,6 +16,8 @@ import { KpiCard, PageHeader, Pill, SectionCard } from "@/components/shared/ui-k
 import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/states";
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
+import { CoverTableTab } from "@/components/day-schedule/cover-table-tab";
+import { DutyTab } from "@/components/day-schedule/duty-tab";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +56,7 @@ export const Route = createFileRoute("/app/day-schedule")({
 function DaySchedulePage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [group, setGroup] = useState("");
-  const [tab, setTab] = useState<"day" | "cover">("day");
+  const [tab, setTab] = useState<"day" | "cover" | "cover-table" | "duty">("day");
   const [acting, setActing] = useState<DayLesson | null>(null);
   const [swapping, setSwapping] = useState<DayLesson | null>(null);
 
@@ -93,6 +97,8 @@ function DaySchedulePage() {
             [
               ["day", "جدول اليوم", CalendarClock],
               ["cover", "تقرير المناوبات", Users],
+              ["cover-table", "جدول الإشغال", LayoutGrid],
+              ["duty", "جدول المناوبة", ShieldCheck],
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -133,7 +139,11 @@ function DaySchedulePage() {
         )}
       </div>
 
-      {tab === "cover" ? (
+      {tab === "cover-table" ? (
+        <CoverTableTab />
+      ) : tab === "duty" ? (
+        <DutyTab />
+      ) : tab === "cover" ? (
         <CoverTab />
       ) : (
         <>
