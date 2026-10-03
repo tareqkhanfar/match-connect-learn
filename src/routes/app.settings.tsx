@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { MailPolicySettings } from "@/components/shared/mail-policy-settings";
+import { PrintDesignsSection } from "@/components/settings/print-designs";
 import { useApp } from "@/lib/app-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -218,6 +219,13 @@ function SettingsPage() {
           <MailPolicySettings canEdit={role === "admin"} />
         </SectionCard>
       </div>
+
+      {/* How the system's printed pages look — the administration's alone. */}
+      {role === "admin" && (
+        <div className="mt-5">
+          <PrintDesignsSection />
+        </div>
+      )}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <SectionCard

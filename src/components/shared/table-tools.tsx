@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { toast } from "sonner";
 import { downloadTable } from "@/lib/api/export";
-import { printHtml } from "@/lib/api/hooks";
+import { fillTableFrame, getTableFrame } from "@/lib/api/print-designs";
 
 /**
  * Filters, Excel and printing for every table in the portal.
@@ -119,7 +119,27 @@ function esc(text: string) {
   );
 }
 
-/** The table as a clean printable page: its rows as shown, no controls. */
+/** Put a printable page in a window opened earlier, then print it — as `printHtml` does. */
+function printInto(win: Window, html: string, title: string): void {
+  win.document.open();
+  win.document.write(
+    `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title></head><body>${html}</body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  const go = () => setTimeout(() => win.print(), 150);
+  if (win.document.fonts?.ready) void win.document.fonts.ready.then(go);
+  else setTimeout(go, 400);
+}
+
+/**
+ * The table as a clean printable page: its rows as shown, no controls.
+ *
+ * It sits in the school's table print design (Settings › تصاميم الطباعة —
+ * letterhead, title, date, footer). The window opens at the click, before the
+ * design arrives, so no popup blocker takes the wait for a script's doing;
+ * without the design the page is the plain one tables always printed as.
+ */
 function printTable(table: HTMLTableElement): void {
   const g = readTable(table);
   const title = titleOf(table);
@@ -130,10 +150,28 @@ function printTable(table: HTMLTableElement): void {
     .map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`)
     .join("");
   const date = new Date().toLocaleDateString("ar-EG-u-nu-latn");
-  printHtml(
-    `${PRINT_STYLE}<h2>${esc(title)}</h2><p class="meta">${date} · ${g.rows.length} صف</p><table>${head}<tbody>${body}</tbody></table>`,
-    title,
+  const plain = `${PRINT_STYLE}<h2>${esc(title)}</h2><p class="meta">${date} · ${g.rows.length} صف</p><table>${head}<tbody>${body}</tbody></table>`;
+
+  const win = window.open("", "_blank", "width=900,height=1000");
+  if (!win) {
+    toast.error("نافذة الطباعة محجوبة — اسمح بالنوافذ المنبثقة");
+    return;
+  }
+  win.document.write(
+    '<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"></head><body style="font-family:system-ui,Tahoma,sans-serif;padding:24px;color:#555">جارٍ تجهيز الطباعة…</body></html>',
   );
+  void getTableFrame().then((frame) => {
+    if (win.closed) return;
+    const html = frame
+      ? fillTableFrame(frame, {
+          title: esc(title),
+          date: esc(date),
+          count: String(g.rows.length),
+          table: `<table class="tp-table">${head}<tbody>${body}</tbody></table>`,
+        })
+      : plain;
+    printInto(win, html, esc(title));
+  });
 }
 
 // -- the toolbar ------------------------------------------------------------
@@ -321,6 +359,9 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
         </button>
         <button
           onClick={() => printTable(table)}
+          // Fetched on the way to the click, so the print rarely waits for it.
+          onPointerEnter={() => void getTableFrame()}
+          onFocus={() => void getTableFrame()}
           title="طباعة الصفوف الظاهرة"
           className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 font-semibold hover:bg-secondary"
         >
