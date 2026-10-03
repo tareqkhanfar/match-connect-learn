@@ -2194,15 +2194,50 @@ export function useSaveGrid() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
-      apiPost<{ saved: number; updated: number; columns: number }>("gradebook.save_grid", {
-        payload,
-      }),
+      apiPost<{ saved: number; updated: number; cleared?: number; columns: number }>(
+        "gradebook.save_grid",
+        { payload },
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["entry-sheet"] });
       qc.invalidateQueries({ queryKey: ["class-term-grades"] });
     },
   });
 }
+
+/**
+ * The plan's leaves, from the mark sheet: add an assessment beside the ones a
+ * category already has, or change what one is out of. Categories and their
+ * weights are the plan editor's alone — the server refuses them here.
+ */
+function usePlanLeafMutation<V extends Record<string, unknown>>(method: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: V) => apiPost<Record<string, unknown>>(`gradebook.${method}`, vars),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entry-sheet"] });
+      qc.invalidateQueries({ queryKey: ["class-term-grades"] });
+      qc.invalidateQueries({ queryKey: ["assessment-plan"] });
+    },
+  });
+}
+
+export const useAddAssessment = () =>
+  usePlanLeafMutation<{
+    student_group: string;
+    course: string;
+    parent: string;
+    name: string;
+    max_score: number;
+  }>("add_assessment");
+
+export const useSetAssessmentMax = () =>
+  usePlanLeafMutation<{
+    student_group: string;
+    course: string;
+    component_name: string;
+    max_score: number;
+  }>("set_assessment_max");
 
 /** Move a whole column up or down — a decision about the paper, not a student. */
 export function useCurveColumn() {

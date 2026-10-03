@@ -14,7 +14,9 @@ import {
   EyeOff,
   Flame,
   Minus,
+  Plus,
   RotateCcw,
+  Ruler,
   Save,
   Search,
   Send,
@@ -44,6 +46,8 @@ import {
   useSaveGrid,
   useScheduleRelease,
   useSetAggregation,
+  useAddAssessment,
+  useSetAssessmentMax,
   type SchemeComponent,
 } from "@/lib/api/hooks";
 
@@ -160,6 +164,10 @@ export function MarkGrid({
   // marks does not always want them between the columns they are typing in.
   const [showTotals, setShowTotals] = useState(true);
   const [aggFor, setAggFor] = useState<string | null>(null);
+  // The plan's leaves, edited from the sheet: a new assessment under a
+  // category, or a new maximum for one assessment.
+  const [addUnder, setAddUnder] = useState<string | null>(null);
+  const [maxFor, setMaxFor] = useState<Column | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const term = sheet.data?.academic_term ?? undefined;
@@ -179,7 +187,7 @@ export function MarkGrid({
     [parents],
   );
 
-  const groups = useMemo(() => {
+  const allGroups = useMemo(() => {
     const out: Array<{ category: string; items: Column[] }> = [];
     components.forEach((c, index) => {
       // An assessment with a parent belongs under it. One without is scored
@@ -193,6 +201,46 @@ export function MarkGrid({
     });
     return out;
   }, [components]);
+
+  // A quarter can be folded away so a teacher marking the second quarter is
+  // not scrolling past the whole first one. Only the view changes: saving,
+  // checking and the subject's total still cover every column. Remembered
+  // per subject on this device.
+  const quarterNames = useMemo(
+    () => [...new Set(components.map((c) => c.quarter || ""))].filter(Boolean),
+    [components],
+  );
+  const hiddenKey = `marks-hidden-quarters:${course}`;
+  const [hiddenQuarters, setHiddenQuarters] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(hiddenKey) || "[]") as unknown;
+      setHiddenQuarters(Array.isArray(stored) ? stored.map(String) : []);
+    } catch {
+      setHiddenQuarters([]);
+    }
+  }, [hiddenKey]);
+
+  function toggleQuarter(quarter: string) {
+    const next = hiddenQuarters.includes(quarter)
+      ? hiddenQuarters.filter((q) => q !== quarter)
+      : [...hiddenQuarters, quarter];
+    if (quarterNames.every((q) => next.includes(q))) {
+      toast.info("يجب أن يبقى ربع واحد ظاهراً على الأقل");
+      return;
+    }
+    setHiddenQuarters(next);
+    try {
+      localStorage.setItem(hiddenKey, JSON.stringify(next));
+    } catch {
+      /* the choice just isn't remembered */
+    }
+  }
+
+  const groups = useMemo(
+    () => allGroups.filter((g) => !hiddenQuarters.includes(g.items[0]?.quarter || "")),
+    [allGroups, hiddenQuarters],
+  );
 
   // The quarter sits above the categories, not beside them. A plan carries
   // both — "الربع الأول" and "علامة اليومي" are different questions about the
@@ -222,7 +270,8 @@ export function MarkGrid({
   // rather than shown empty.
   const hasQuarters = quarters.some((q) => q.quarter);
 
-  const flat = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  // Every column, folded quarters included — what saving and totals work on.
+  const flat = useMemo(() => allGroups.flatMap((g) => g.items), [allGroups]);
 
   /**
    * The columns as the sheet draws them: every assessment, and after the last
@@ -410,7 +459,36 @@ export function MarkGrid({
           // An empty cell means "not marked yet", never zero.
           .filter((m) => m.score !== "")
           .map((m) => ({ student: m.student, score: Number(m.score) })),
-      }));
+        // A mark that was on record and has been emptied is removed. Leaving
+        // these out made «مسح العمود» save nothing and report «0 علامة».
+        clear: allRows
+          .filter(
+            (r) =>
+              edits[r.student]?.[c.component_name] === "" &&
+              saved[r.student]?.[c.component_name] !== undefined,
+          )
+          .map((r) => r.student),
+      }))
+      .filter((c) => c.marks.length || c.clear.length);
+
+    if (!columns.length) {
+      // Only empty cells that were empty already — nothing to write.
+      setEdits({});
+      toast.info("لا توجد علامات جديدة للحفظ");
+      return;
+    }
+
+    // Who is still without a mark in the columns just worked on. A warning,
+    // not a refusal: a pupil may have been absent, but a forgotten row is the
+    // common case and the teacher should hear about it now.
+    const missing = columns
+      .map((c) => ({
+        name: c.component_name,
+        students: allRows
+          .filter((r) => valueOf(r.student, c.component_name) === "")
+          .map((r) => r.student_name ?? r.student),
+      }))
+      .filter((m) => m.students.length);
 
     try {
       const res = await saveGrid.mutateAsync({
@@ -419,7 +497,27 @@ export function MarkGrid({
         ...(term ? { academic_term: term } : {}),
         columns,
       });
-      toast.success(`تم حفظ ${res.saved + res.updated} علامة`);
+      const cleared = res.cleared ?? 0;
+      const written = res.saved + res.updated;
+      toast.success(
+        cleared && !written
+          ? `تم مسح ${cleared} علامة`
+          : `تم حفظ ${written} علامة` + (cleared ? ` ومسح ${cleared}` : ""),
+      );
+      if (missing.length) {
+        toast.warning(
+          [
+            "تنبيه — طلاب بلا علامة:",
+            ...missing.map(
+              (m) =>
+                `• ${m.name}: ${m.students.length} طالباً (${m.students.slice(0, 4).join("، ")}${
+                  m.students.length > 4 ? "…" : ""
+                })`,
+            ),
+          ].join("\n"),
+          { duration: 12000 },
+        );
+      }
       setEdits({});
     } catch (err) {
       toast.error(errorMessage(err, "تعذّر حفظ العلامات"));
@@ -823,6 +921,30 @@ export function MarkGrid({
           </label>
         )}
 
+        {quarterNames.length > 1 && (
+          <span className="inline-flex h-9 items-center gap-1 rounded-xl border border-border bg-card px-1.5">
+            <span className="px-1 text-[11px] font-semibold text-muted-foreground">الأرباع:</span>
+            {quarterNames.map((q) => {
+              const shown = !hiddenQuarters.includes(q);
+              return (
+                <button
+                  key={q}
+                  onClick={() => toggleQuarter(q)}
+                  title={shown ? `إخفاء ${q}` : `إظهار ${q}`}
+                  className={`inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold transition-colors ${
+                    shown
+                      ? "bg-primary-soft text-primary"
+                      : "text-muted-foreground line-through hover:bg-secondary"
+                  }`}
+                >
+                  {shown ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
+                  {q}
+                </button>
+              );
+            })}
+          </span>
+        )}
+
         {/* Publication opens over the sheet rather than sitting above it: the
             grid needs its height, and releasing marks is an occasional act,
             not something a teacher keeps on screen while marking. */}
@@ -916,6 +1038,31 @@ export function MarkGrid({
             return { name: who.student_name ?? who.student, ...t };
           }}
           onClose={() => setAggFor(null)}
+        />
+      )}
+
+      {addUnder && parentOf(addUnder) && (
+        <AddAssessmentDialog
+          parent={parentOf(addUnder)!}
+          columns={flat.filter((c) => c.category === addUnder)}
+          taken={flat.map((c) => c.component_name).concat(parents.map((p) => p.component_name))}
+          group={group}
+          course={course}
+          onClose={() => setAddUnder(null)}
+        />
+      )}
+
+      {maxFor && (
+        <AssessmentMaxDialog
+          column={maxFor}
+          parent={parentOf(maxFor.category ?? "")}
+          highest={Math.max(
+            0,
+            ...allRows.map((r) => Number(valueOf(r.student, maxFor.component_name)) || 0),
+          )}
+          group={group}
+          course={course}
+          onClose={() => setMaxFor(null)}
         />
       )}
 
@@ -1042,6 +1189,16 @@ export function MarkGrid({
                               aria-label="آلية احتساب البند"
                             >
                               <ChevronDown className="size-3.5" />
+                            </button>
+                          )}
+                          {p && canEdit && (
+                            <button
+                              onClick={() => setAddUnder(g.category)}
+                              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-primary"
+                              title={`إضافة امتحان تحت «${g.category}»`}
+                              aria-label="إضافة امتحان"
+                            >
+                              <Plus className="size-3.5" />
                             </button>
                           )}
                         </span>
@@ -1190,6 +1347,16 @@ export function MarkGrid({
                       <ColumnMenu
                         component={c}
                         stat={s}
+                        // Only an assessment inside a category: a category's
+                        // own figure is its weight, which the sheet never edits.
+                        {...(c.category && parentOf(c.category)
+                          ? {
+                              onSetMax: () => {
+                                setMenuFor(null);
+                                setMaxFor(c);
+                              },
+                            }
+                          : {})}
                         onClose={() => setMenuFor(null)}
                         onFill={(v, onlyEmpty) => fillColumn(c.component_name, v, onlyEmpty)}
                         onCurve={(p) => runCurve(c.component_name, p)}
@@ -1984,6 +2151,205 @@ function AggregationDialog({
   );
 }
 
+/**
+ * A new assessment beside a category's existing ones — «امتحان 4» after the
+ * three already set. Its maximum starts at the last one's, which is what a
+ * teacher adding another of the same quiz expects.
+ */
+function AddAssessmentDialog({
+  parent,
+  columns,
+  taken,
+  group,
+  course,
+  onClose,
+}: {
+  parent: { component_name: string; weight: number; children_total: number };
+  columns: Column[];
+  taken: string[];
+  group: string;
+  course: string;
+  onClose: () => void;
+}) {
+  const add = useAddAssessment();
+  const last = columns[columns.length - 1];
+  const suggested = (() => {
+    // «امتحان 3» → «امتحان 4»; anything else gets a number added.
+    const m = last?.component_name.match(/^(.*?)(\d+)\s*$/);
+    const base = m
+      ? `${m[1]}${Number(m[2]) + 1}`
+      : `${last?.component_name ?? "امتحان"} ${columns.length + 1}`;
+    return taken.includes(base) ? "" : base;
+  })();
+  const [name, setName] = useState(suggested);
+  const [max, setMax] = useState(String(last?.max_score ?? 10));
+  const clash = taken.includes(name.trim());
+
+  async function submit() {
+    try {
+      await add.mutateAsync({
+        student_group: group,
+        course,
+        parent: parent.component_name,
+        name: name.trim(),
+        max_score: Number(max),
+      });
+      toast.success(
+        `أُضيف «${name.trim()}» تحت «${parent.component_name}» — يظهر لكل شعب هذه المادة`,
+      );
+      onClose();
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّرت الإضافة"));
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent dir="rtl" className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>إضافة امتحان تحت «{parent.component_name}»</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <p className="rounded-xl bg-secondary/60 p-3 text-xs leading-6 text-muted-foreground">
+            وزن البند يبقى كما هو ({parent.weight}%) — يتوزّع على امتحاناته حسب علامة كل منها. يظهر
+            الامتحان الجديد لكل شعب هذه المادة التي تتبع الخطة نفسها.
+          </p>
+          <div className="space-y-1.5">
+            <Label>اسم الامتحان</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-xl"
+              autoFocus
+            />
+            {clash && <p className="text-[11px] text-destructive">الاسم موجود في الخطة.</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label>العلامة العظمى</Label>
+            <Input
+              type="number"
+              min={0.5}
+              step={0.5}
+              value={max}
+              onChange={(e) => setMax(e.target.value)}
+              className="num w-32 rounded-xl"
+              dir="ltr"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              مجموع امتحانات البند يصبح {parent.children_total + (Number(max) || 0)} بدل{" "}
+              {parent.children_total}.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-secondary"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={submit}
+            disabled={!name.trim() || clash || !(Number(max) > 0) || add.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-50"
+          >
+            {add.isPending ? "جارٍ الإضافة…" : "إضافة"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** What one assessment inside a category is out of — its share of the category. */
+function AssessmentMaxDialog({
+  column,
+  parent,
+  highest,
+  group,
+  course,
+  onClose,
+}: {
+  column: Column;
+  parent: { component_name: string; weight: number; children_total: number } | undefined;
+  highest: number;
+  group: string;
+  course: string;
+  onClose: () => void;
+}) {
+  const setMax = useSetAssessmentMax();
+  const [max, setMaxValue] = useState(String(column.max_score));
+  const value = Number(max);
+  const tooLow = value > 0 && value < highest;
+
+  async function submit() {
+    try {
+      await setMax.mutateAsync({
+        student_group: group,
+        course,
+        component_name: column.component_name,
+        max_score: value,
+      });
+      toast.success(`أصبح «${column.component_name}» من ${value} بدل ${column.max_score}`);
+      onClose();
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر التعديل"));
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent dir="rtl" className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>العلامة العظمى لـ«{column.component_name}»</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          {parent && (
+            <p className="rounded-xl bg-secondary/60 p-3 text-xs leading-6 text-muted-foreground">
+              وزن «{parent.component_name}» ثابت ({parent.weight}%) ولا يُعدَّل من هنا. تغيير علامة
+              هذا الامتحان يغيّر حصته من البند: مجموع الامتحانات يصبح{" "}
+              {parent.children_total - column.max_score + (value || 0)} بدل {parent.children_total}.
+            </p>
+          )}
+          <div className="space-y-1.5">
+            <Label>من</Label>
+            <Input
+              type="number"
+              min={0.5}
+              step={0.5}
+              value={max}
+              onChange={(e) => setMaxValue(e.target.value)}
+              className="num w-32 rounded-xl"
+              dir="ltr"
+              autoFocus
+            />
+            {tooLow && (
+              <p className="text-[11px] text-destructive">
+                أعلى علامة مُدخلة في هذا العمود {highest} — لا يمكن أن تكون العظمى أقل منها.
+              </p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            className="h-10 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-secondary"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={submit}
+            disabled={!(value > 0) || tooLow || value === column.max_score || setMax.isPending}
+            className="h-10 rounded-xl bg-brand-gradient px-5 text-sm font-bold text-primary-foreground disabled:opacity-50"
+          >
+            {setMax.isPending ? "جارٍ الحفظ…" : "حفظ"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ColumnMenu({
   component,
   stat,
@@ -1994,6 +2360,7 @@ function ColumnMenu({
   onPublish,
   onSchedule,
   onScheduleExam,
+  onSetMax,
   examDate,
 }: {
   component: SchemeComponent;
@@ -2005,6 +2372,7 @@ function ColumnMenu({
   onPublish: (publish: boolean) => void;
   onSchedule: () => void;
   onScheduleExam: () => void;
+  onSetMax?: () => void;
   examDate?: string | undefined;
 }) {
   const [fill, setFill] = useState("");
@@ -2079,6 +2447,14 @@ function ColumnMenu({
         </span>
 
         <MenuRow icon={Wand2} label="مسح العمود" onClick={() => onFill("", false)} />
+        {onSetMax && (
+          <MenuRow
+            icon={Ruler}
+            label={`تعديل العلامة العظمى (من ${component.max_score})`}
+            onClick={onSetMax}
+            tone="primary"
+          />
+        )}
         <MenuRow icon={TrendingUp} label="رفع العلامات (+1)" onClick={() => onCurve(1)} />
         <MenuRow icon={TrendingDown} label="خفض العلامات (−1)" onClick={() => onCurve(-1)} />
         <MenuRow

@@ -19,6 +19,7 @@ import { KpiCard, PageHeader, Pill, ProgressBar, SectionCard } from "@/component
 import { StudentEvaluationDialog } from "@/components/shared/student-evaluation";
 import { StudentPhoto } from "@/components/shared/student-photo";
 import { useApp } from "@/lib/app-context";
+import { StudentDocumentsTab } from "@/components/students/student-documents";
 import { isBackOffice, money } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardSkeleton, EmptyBlock, ErrorState } from "@/components/shared/states";
@@ -416,6 +417,11 @@ function StudentProfile() {
             <TabsTrigger value="documents" className="rounded-lg">
               المستندات
             </TabsTrigger>
+            {backOffice && (
+              <TabsTrigger value="forms" className="rounded-lg">
+                النماذج
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* --- Academics --- */}
@@ -939,6 +945,12 @@ function StudentProfile() {
               </SectionCard>
             )}
           </TabsContent>
+          {backOffice && (
+            <TabsContent value="forms" className="space-y-6">
+              <StudentDocumentsTab student={profile.id} />
+            </TabsContent>
+          )}
+
           <TabsContent value="documents" className="space-y-6">
             <AccountCredentials doctype="Student" name={profile.id} canManage={backOffice} />
             <Attachments
