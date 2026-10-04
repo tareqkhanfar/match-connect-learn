@@ -50,6 +50,7 @@ import {
   useSubjects,
   type ClassLog,
 } from "@/lib/api/hooks";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/class-log")({
   validateSearch: groupSearch,
@@ -66,6 +67,7 @@ function ClassLogPage() {
   const { group: groupFromUrl } = Route.useSearch();
 
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroup);
   const [date, setDate] = useState(today());
   const [editing, setEditing] = useState<ClassLog | null>(null);
   const [creating, setCreating] = useState<{ slot?: string; course?: string } | null>(null);

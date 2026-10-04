@@ -274,6 +274,8 @@ export interface ClassRow {
   students: number;
   capacity?: number;
   homeroom?: string | null;
+  /** The section's مربي الصف (Student Group.ms_homeroom_instructor), when set. */
+  homeroomId?: string | null;
   instructors?: Array<{ id: string; name: string }>;
   subjects?: string[];
   /** The subjects this section is actually taught — for a teacher, only the

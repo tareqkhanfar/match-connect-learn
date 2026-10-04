@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Check, ChevronLeft, Search, Users, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useMyAudiences, useRecipientSearch } from "@/lib/api/hooks";
+import { useAudiencePreview, useMyAudiences, useRecipientSearch } from "@/lib/api/hooks";
 
 export interface AudienceChoice {
   /** Set when writing to a whole audience. */
   audience?: string | undefined;
   audienceLabel?: string | undefined;
   groups: string[];
+  /** People of the audience the sender left out — never anyone outside it. */
+  exclude?: string[] | undefined;
   /** Set when naming individuals instead. */
   users: string[];
 }
@@ -37,6 +39,8 @@ export function AudiencePicker({
   );
   const [q, setQ] = useState("");
   const search = useRecipientSearch(q);
+  const preview = useAudiencePreview(value.audience, value.groups);
+  const [find, setFind] = useState("");
 
   const audiences = meta.data?.audiences ?? [];
   const groups = meta.data?.groups ?? [];
@@ -58,7 +62,17 @@ export function AudiencePicker({
     const next = value.groups.includes(id)
       ? value.groups.filter((g) => g !== id)
       : [...value.groups, id];
-    onChange({ ...value, groups: next });
+    onChange({ ...value, groups: next, exclude: [] });
+  }
+
+  const excluded = new Set(value.exclude ?? []);
+  function toggleRecipient(user: string) {
+    onChange({
+      ...value,
+      exclude: excluded.has(user)
+        ? (value.exclude ?? []).filter((u) => u !== user)
+        : [...(value.exclude ?? []), user],
+    });
   }
 
   return (
@@ -102,6 +116,7 @@ export function AudiencePicker({
                           audience: on ? undefined : a.key,
                           audienceLabel: on ? undefined : a.label,
                           groups: [],
+                          exclude: [],
                           users: [],
                         })
                       }
@@ -155,6 +170,95 @@ export function AudiencePicker({
                   ? "لم تحدّد صفاً — سيصل الجميع ضمن هذا الجمهور."
                   : `${value.groups.length} صفاً محدّداً.`}
               </p>
+            </div>
+          )}
+
+          {/* Who this actually reaches — every name ticked; untick to leave
+              someone out of this message. */}
+          {chosen && (
+            <div className="mt-2 rounded-lg border border-border p-2">
+              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] font-bold">
+                  المستلمون{" "}
+                  {preview.data && (
+                    <span className="num font-normal text-muted-foreground">
+                      ({preview.data.total - excluded.size} من {preview.data.total})
+                    </span>
+                  )}
+                </p>
+                <div className="flex gap-2 text-[11px]">
+                  <button
+                    onClick={() => onChange({ ...value, exclude: [] })}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    تحديد الكل
+                  </button>
+                  <button
+                    onClick={() =>
+                      onChange({
+                        ...value,
+                        exclude: (preview.data?.recipients ?? []).map((r) => r.user),
+                      })
+                    }
+                    className="font-semibold text-muted-foreground hover:underline"
+                  >
+                    إلغاء الكل
+                  </button>
+                </div>
+              </div>
+              {(preview.data?.total ?? 0) > 8 && (
+                <Input
+                  value={find}
+                  onChange={(e) => setFind(e.target.value)}
+                  placeholder="ابحث في المستلمين…"
+                  className="mb-1.5 h-8 rounded-lg text-xs"
+                />
+              )}
+              {preview.isLoading ? (
+                <p className="py-3 text-center text-[11px] text-muted-foreground">جارٍ التحميل…</p>
+              ) : !preview.data?.total ? (
+                <p className="py-3 text-center text-[11px] text-muted-foreground">
+                  لا يوجد مستلمون في هذا الجمهور.
+                </p>
+              ) : (
+                <ul className="max-h-56 space-y-0.5 overflow-y-auto">
+                  {preview.data.recipients
+                    .filter((r) => !find.trim() || r.name.includes(find.trim()))
+                    .map((r) => {
+                      const on = !excluded.has(r.user);
+                      return (
+                        <li key={r.user}>
+                          <button
+                            onClick={() => toggleRecipient(r.user)}
+                            className={`flex w-full items-center gap-2 rounded-lg p-1.5 text-right transition-colors ${
+                              on ? "hover:bg-secondary" : "opacity-60 hover:bg-secondary"
+                            }`}
+                          >
+                            <span
+                              className={`grid size-4 shrink-0 place-items-center rounded border ${
+                                on
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border"
+                              }`}
+                            >
+                              {on && <Check className="size-3" />}
+                            </span>
+                            <span
+                              className={`min-w-0 flex-1 truncate text-xs font-semibold ${on ? "" : "line-through"}`}
+                            >
+                              {r.name}
+                            </span>
+                            {r.role && (
+                              <span className="shrink-0 text-[10px] text-muted-foreground">
+                                {r.role}
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
             </div>
           )}
         </div>

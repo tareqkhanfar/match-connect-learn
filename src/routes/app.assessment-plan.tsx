@@ -51,6 +51,7 @@ import {
   type PlanTemplateSummary,
   type Quarter,
 } from "@/lib/api/hooks";
+import { GroupFilterChip } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/assessment-plan")({
   validateSearch: groupSearch,
@@ -289,6 +290,7 @@ function AssessmentPlanPage() {
       ) : (
         <>
           <div className="mt-6 flex flex-wrap items-end gap-3">
+            <GroupFilterChip group={groupFromUrl} />
             <div className="w-full max-w-md">
               <Label>المادة</Label>
               <div className="mt-1.5">

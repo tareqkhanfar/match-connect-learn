@@ -223,8 +223,7 @@ function StaffAttendanceView() {
   // `?? []` builds a new array every render, so every memo downstream
   // recomputed on each one. Memoised so the identity is stable.
   const rows = useMemo(() => sheetQuery.data?.students ?? [], [sheetQuery.data]);
-  const savedReason = (student: string) =>
-    rows.find((r) => r.student === student)?.reason ?? "";
+  const savedReason = (student: string) => rows.find((r) => r.student === student)?.reason ?? "";
   const reasonOf = (student: string) => reasons[student] ?? savedReason(student);
   const isExcused = (status: Status) => status === "Excused" || status === "Leave";
   const marks = useMemo(() => {
@@ -453,6 +452,12 @@ function StaffAttendanceView() {
           />
         ) : groupsQuery.isLoading || sheetQuery.isLoading ? (
           <TableSkeleton rows={8} />
+        ) : (groupsQuery.data?.length ?? 0) === 0 ? (
+          <EmptyBlock
+            title="لا توجد شعب تأخذ حضورها"
+            description="إن جعلت المدرسة الحضور لمربي الصف فقط، تظهر هنا الشعبة التي أنت مربيها وحدها."
+            icon={<ClipboardCheck className="size-6" />}
+          />
         ) : rows.length === 0 ? (
           <EmptyBlock
             title="لا يوجد طلاب في هذه الشعبة"

@@ -19,25 +19,12 @@ import { EmptyBlock, ErrorState, TableSkeleton } from "@/components/shared/state
 import { SearchableSelect } from "@/components/shared/searchable-select";
 import { useConfirm } from "@/components/shared/confirm";
 import { ExamBoard } from "@/components/shared/exam-board";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useApp } from "@/lib/app-context";
 import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole, isBackOffice } from "@/lib/roles";
-import {
-  useDeleteExam,
-  useExamFormOptions,
-  useExamSchedule,
-  useSaveExam,
-  type ExamSitting,
-} from "@/lib/api/hooks";
+import { useDeleteExam, useExamSchedule, useSaveExam, type ExamSitting } from "@/lib/api/hooks";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
+import { ExamDialog } from "@/components/exams/exam-dialog";
 
 export const Route = createFileRoute("/app/exams")({
   validateSearch: groupSearch,
@@ -85,6 +72,7 @@ function ExamsPage() {
   // everything — which is the difference between arriving and arriving here.
   const { group: groupFromUrl } = Route.useSearch();
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroup);
   const [editing, setEditing] = useState<ExamSitting | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -422,6 +410,7 @@ function ExamsPage() {
       {(creating || editing) && (
         <ExamDialog
           exam={editing}
+          defaultGroup={group || undefined}
           onClose={() => {
             setCreating(false);
             setEditing(null);
@@ -429,202 +418,5 @@ function ExamsPage() {
         />
       )}
     </>
-  );
-}
-
-function ExamDialog({ exam, onClose }: { exam: ExamSitting | null; onClose: () => void }) {
-  const options = useExamFormOptions();
-  const save = useSaveExam();
-
-  const [form, setForm] = useState({
-    title: exam?.title ?? "",
-    student_group: exam?.student_group ?? "",
-    course: exam?.course ?? "",
-    exam_type: exam?.exam_type ?? "Final",
-    schedule_date: exam?.date ?? "",
-    from_time: exam?.from_time?.slice(0, 5) ?? "09:00",
-    to_time: exam?.to_time?.slice(0, 5) ?? "10:30",
-    room: exam?.room ?? "",
-    max: String(exam?.max ?? 100),
-  });
-
-  function set(key: keyof typeof form, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
-
-  async function submit() {
-    if (!form.student_group || !form.course || !form.schedule_date) {
-      toast.error("الشعبة والمادة وتاريخ الامتحان مطلوبة");
-      return;
-    }
-    try {
-      await save.mutateAsync({
-        ...(exam ? { id: exam.id } : {}),
-        title: form.title,
-        student_group: form.student_group,
-        course: form.course,
-        exam_type: form.exam_type,
-        schedule_date: form.schedule_date,
-        from_time: `${form.from_time}:00`,
-        to_time: `${form.to_time}:00`,
-        ...(form.room ? { room: form.room } : {}),
-        max: Number(form.max) || 100,
-      });
-      toast.success(exam ? "تم تحديث الامتحان" : "تمت جدولة الامتحان");
-      onClose();
-    } catch (err) {
-      toast.error((err as { messageAr?: string }).messageAr || "تعذّر حفظ الامتحان");
-    }
-  }
-
-  const room = options.data?.rooms.find((r) => r.id === form.room);
-  const group = options.data?.groups.find((g) => g.id === form.student_group);
-  // A teacher is offered only the subjects they take in the chosen section —
-  // English for grade 11 on a grade 12 section is refused on save.
-  const groupCourses =
-    (form.student_group && options.data?.coursesByGroup?.[form.student_group]) ||
-    options.data?.courses ||
-    [];
-  const overCapacity = room && group && room.capacity > 0 && group.students > room.capacity;
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent dir="rtl">
-        <DialogHeader>
-          <DialogTitle className="text-right">
-            {exam ? "تعديل موعد الامتحان" : "جدولة امتحان"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>عنوان الامتحان (اختياري)</Label>
-            <Input
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder="يُشتق من المادة والشعبة إن تُرك فارغاً"
-              className="rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>الشعبة</Label>
-            <SearchableSelect
-              options={(options.data?.groups ?? []).map((g) => ({
-                value: g.id,
-                label: g.name,
-                hint: `${g.students} طالباً`,
-              }))}
-              value={form.student_group}
-              onChange={(v) => {
-                set("student_group", v);
-                const allowed = options.data?.coursesByGroup?.[v];
-                if (allowed && form.course && !allowed.includes(form.course)) set("course", "");
-                else if (allowed?.length === 1 && !form.course) set("course", allowed[0]!);
-              }}
-              placeholder="اختر الشعبة"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>المادة</Label>
-            <SearchableSelect
-              options={groupCourses.map((c) => ({ value: c, label: c }))}
-              value={form.course}
-              onChange={(v) => set("course", v)}
-              placeholder="اختر المادة"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>نوع الامتحان</Label>
-            <SearchableSelect
-              options={(options.data?.types ?? []).map((t) => ({ value: t.code, label: t.label }))}
-              value={form.exam_type}
-              onChange={(v) => set("exam_type", v)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>التاريخ</Label>
-            <Input
-              type="date"
-              value={form.schedule_date}
-              onChange={(e) => set("schedule_date", e.target.value)}
-              className="num rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>من الساعة</Label>
-            <Input
-              type="time"
-              value={form.from_time}
-              onChange={(e) => set("from_time", e.target.value)}
-              className="num rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>إلى الساعة</Label>
-            <Input
-              type="time"
-              value={form.to_time}
-              onChange={(e) => set("to_time", e.target.value)}
-              className="num rounded-xl"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>القاعة</Label>
-            <SearchableSelect
-              options={(options.data?.rooms ?? []).map((r) => ({
-                value: r.id,
-                label: r.name,
-                ...(r.capacity ? { hint: `تتسع ${r.capacity}` } : {}),
-              }))}
-              value={form.room}
-              onChange={(v) => set("room", v)}
-              placeholder="اختر القاعة"
-              clearable
-              clearLabel="بدون قاعة"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>الدرجة العظمى</Label>
-            <Input
-              type="number"
-              min={1}
-              value={form.max}
-              onChange={(e) => set("max", e.target.value)}
-              className="num rounded-xl"
-            />
-          </div>
-
-          {overCapacity && (
-            <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning-foreground sm:col-span-2">
-              عدد طلاب الشعبة ({group!.students}) أكبر من سعة القاعة ({room!.capacity}).
-            </p>
-          )}
-        </div>
-
-        <DialogFooter className="gap-2 sm:justify-start">
-          <button
-            onClick={submit}
-            disabled={save.isPending}
-            className="h-11 rounded-xl bg-brand-gradient px-6 text-sm font-bold text-primary-foreground disabled:opacity-60"
-          >
-            {save.isPending ? "جارٍ الحفظ…" : exam ? "حفظ التعديلات" : "جدولة"}
-          </button>
-          <button
-            onClick={onClose}
-            className="h-11 rounded-xl border border-border px-5 text-sm font-semibold"
-          >
-            إلغاء
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

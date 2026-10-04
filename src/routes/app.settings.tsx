@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MessagesSquare, Save, School, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, MessagesSquare, Save, School, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { errorMessage } from "@/lib/api/error-message";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { MailPolicySettings } from "@/components/shared/mail-policy-settings";
 import { PrintDesignsSection } from "@/components/settings/print-designs";
@@ -277,6 +278,34 @@ function SettingsPage() {
                     (err as Error).message ||
                     "تعذّر تحديث السياسة";
                   toast.error(message);
+                }
+              }}
+            />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="الحضور والغياب"
+          description="من يأخذ الحضور"
+          actions={<ClipboardCheck className="size-4 text-muted-foreground" />}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">الحضور لمربي الصف فقط</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                عند التفعيل لا يأخذ الحضور من المعلمين إلا مربي الصف، ولشعبته فقط، إضافةً إلى
+                الإدارة والسكرتارية. عند الإيقاف يأخذه كل معلم للشعب التي يدرّسها.
+              </p>
+            </div>
+            <Switch
+              checked={data.policies?.attendance_homeroom_only ?? false}
+              disabled={saveSettings.isPending}
+              onCheckedChange={async (on) => {
+                try {
+                  await saveSettings.mutateAsync({ attendance_homeroom_only: on ? 1 : 0 });
+                  toast.success(on ? "أصبح الحضور لمربي الصف فقط" : "أصبح الحضور لكل معلم في شعبه");
+                } catch (err) {
+                  toast.error(errorMessage(err, "تعذّر تحديث الإعداد"));
                 }
               }}
             />

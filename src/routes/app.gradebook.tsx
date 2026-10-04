@@ -50,6 +50,7 @@ import {
   useImportAssignmentsCombined,
   useMarkChangeLog,
 } from "@/lib/api/hooks";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/gradebook")({
   head: () => ({
@@ -80,6 +81,7 @@ function GradebookPage() {
   // The term-workflow page links straight to a class/subject.
   const { group: groupFromUrl, course: courseFromUrl } = Route.useSearch();
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroup);
   // Subjects follow the chosen class: a teacher is offered what they teach in
   // it, not every subject of the grade.
   const subjectsQuery = useSubjects(group ? { student_group: group } : {});

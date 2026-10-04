@@ -43,6 +43,7 @@ import {
   useWithdrawActivity,
   type ActivityRow,
 } from "@/lib/api/hooks";
+import { GroupFilterChip } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/activities")({
   validateSearch: groupSearch,
@@ -79,6 +80,8 @@ function ActivitiesPage() {
   const [viewing, setViewing] = useState<ActivityRow | null>(null);
 
   const query = useActivities({
+    // Opened from a section: its activities (and the school-wide ones).
+    ...(groupFromUrl ? { student_group: groupFromUrl } : {}),
     ...(type ? { activity_type: type } : {}),
     ...(search ? { search } : {}),
     page_size: 50,
@@ -167,6 +170,11 @@ function ActivitiesPage() {
         )}
       </div>
 
+      {groupFromUrl && (
+        <div className="mt-5">
+          <GroupFilterChip group={groupFromUrl} />
+        </div>
+      )}
       <div className="card-surface my-5 grid gap-3 p-4 md:grid-cols-2">
         <Input
           value={search}

@@ -1,9 +1,10 @@
-import { FileSpreadsheet, Printer, Search, X } from "lucide-react";
+import { Check, FileSpreadsheet, Filter, Printer, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { toast } from "sonner";
 import { downloadTable } from "@/lib/api/export";
 import { fillTableFrame, getTableFrame } from "@/lib/api/print-designs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 /**
  * Filters, Excel and printing for every table in the portal.
@@ -186,8 +187,10 @@ const fold = (text: string) =>
 
 function TableToolbar({ table }: { table: HTMLTableElement }) {
   const [q, setQ] = useState("");
-  const [col, setCol] = useState(-1);
-  const [val, setVal] = useState("");
+  // Column → the values kept. Several values of one column are «any of
+  // these»; several columns must all match.
+  const [filters, setFilters] = useState<Record<number, string[]>>({});
+  const [openCol, setOpenCol] = useState<number | null>(null);
   const [shown, setShown] = useState(0);
   const [total, setTotal] = useState(0);
   const [version, setVersion] = useState(0);
@@ -227,10 +230,16 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
     return readTable(table, false);
   }, [table, version]);
 
-  const options = useMemo(() => {
-    if (!simple || col < 0) return [];
-    return [...new Set(all.rows.map((r) => r[col] ?? "").filter(Boolean))].slice(0, 200).sort();
-  }, [all, simple, col]);
+  const optionsOf = useCallback(
+    (col: number) =>
+      [...new Set(all.rows.map((r) => r[col] ?? "").filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, "ar"))
+        .slice(0, 300),
+    [all],
+  );
+  const active = Object.entries(filters)
+    .map(([c, vals]) => [Number(c), vals] as const)
+    .filter(([c]) => c >= 0 && c < all.headers.length);
 
   // Apply: hide what does not match, show what does.
   useEffect(() => {
@@ -240,13 +249,16 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
       const cells = all.rows[i] ?? [];
       const text = fold(cells.join(" "));
       const ok =
-        (!needle || text.includes(needle)) && (col < 0 || !val || (cells[col] ?? "") === val);
+        (!needle || text.includes(needle)) &&
+        active.every(([c, vals]) => !vals.length || vals.includes(cells[c] ?? ""));
       if (row.hidden === ok) row.hidden = !ok;
       if (ok) count++;
     });
     setShown(count);
     setTotal(all.elements.length);
-  }, [q, col, val, all]);
+    // `active` is rebuilt every render; `filters` is what it is made from.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, filters, all]);
 
   // A filter left on when the table is gone must not hide rows of the next one.
   useEffect(
@@ -277,7 +289,7 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
     }
   }, [table]);
 
-  const filtering = q !== "" || val !== "";
+  const filtering = q !== "" || active.some(([, vals]) => vals.length > 0);
   return (
     <div
       data-table-tools
@@ -295,37 +307,68 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
 
       {simple && all.headers.length > 1 && (
         <>
+          {active.map(([c, vals]) => (
+            <Popover key={c} open={openCol === c} onOpenChange={(o) => setOpenCol(o ? c : null)}>
+              <PopoverTrigger asChild>
+                <button
+                  className={`inline-flex h-8 max-w-[220px] items-center gap-1 rounded-lg border px-2 font-semibold ${
+                    vals.length
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <Filter className="size-3 shrink-0" />
+                  <span className="truncate">
+                    {all.headers[c] || "—"}:{" "}
+                    {vals.length === 0
+                      ? "الكل"
+                      : vals.length === 1
+                        ? vals[0]
+                        : `${vals.length} قيم`}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="إزالة الفلتر"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFilters(({ [c]: _drop, ...rest }) => rest);
+                    }}
+                    className="rounded p-0.5 hover:bg-primary/20"
+                  >
+                    <X className="size-3" />
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 p-0" dir="rtl">
+                <ValuePicker
+                  options={optionsOf(c)}
+                  selected={vals}
+                  onChange={(next) => setFilters((f) => ({ ...f, [c]: next }))}
+                />
+              </PopoverContent>
+            </Popover>
+          ))}
           <select
-            value={col}
+            value=""
             onChange={(e) => {
-              setCol(Number(e.target.value));
-              setVal("");
+              const c = Number(e.target.value);
+              if (c < 0 || Number.isNaN(c)) return;
+              setFilters((f) => ({ ...f, [c]: f[c] ?? [] }));
+              setOpenCol(c);
             }}
-            className="h-8 max-w-[150px] rounded-lg border border-border bg-card px-2 text-xs"
+            className="h-8 max-w-[160px] rounded-lg border border-border bg-card px-2 text-xs"
             aria-label="فلترة حسب عمود"
           >
-            <option value={-1}>كل الأعمدة</option>
-            {all.headers.map((h, i) => (
-              <option key={i} value={i} disabled={!h}>
-                {h || "—"}
-              </option>
-            ))}
-          </select>
-          {col >= 0 && (
-            <select
-              value={val}
-              onChange={(e) => setVal(e.target.value)}
-              className="h-8 max-w-[170px] rounded-lg border border-border bg-card px-2 text-xs"
-              aria-label="القيمة"
-            >
-              <option value="">الكل</option>
-              {options.map((o) => (
-                <option key={o} value={o}>
-                  {o}
+            <option value="">+ فلترة حسب عمود</option>
+            {all.headers.map((h, i) =>
+              h && !(i in filters) ? (
+                <option key={i} value={i}>
+                  {h}
                 </option>
-              ))}
-            </select>
-          )}
+              ) : null,
+            )}
+          </select>
         </>
       )}
 
@@ -333,8 +376,7 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
         <button
           onClick={() => {
             setQ("");
-            setCol(-1);
-            setVal("");
+            setFilters({});
           }}
           className="inline-flex h-8 items-center gap-1 rounded-lg px-2 font-semibold text-primary hover:bg-primary/10"
         >
@@ -369,6 +411,73 @@ function TableToolbar({ table }: { table: HTMLTableElement }) {
           طباعة
         </button>
       </span>
+    </div>
+  );
+}
+
+/** The values of one column as tick boxes — any number of them kept. */
+function ValuePicker({
+  options,
+  selected,
+  onChange,
+}: {
+  options: string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [find, setFind] = useState("");
+  const needle = fold(find.trim());
+  const shown = needle ? options.filter((o) => fold(o).includes(needle)) : options;
+  const toggle = (o: string) =>
+    onChange(selected.includes(o) ? selected.filter((x) => x !== o) : [...selected, o]);
+  return (
+    <div className="text-xs">
+      <div className="border-b border-border p-2">
+        <input
+          value={find}
+          onChange={(e) => setFind(e.target.value)}
+          placeholder="ابحث في القيم…"
+          autoFocus
+          className="h-8 w-full rounded-lg border border-border bg-card px-2 outline-none focus:border-primary"
+        />
+        <div className="mt-1.5 flex gap-3">
+          <button
+            onClick={() => onChange([...new Set([...selected, ...shown])])}
+            className="font-semibold text-primary hover:underline"
+          >
+            تحديد الكل
+          </button>
+          <button
+            onClick={() => onChange([])}
+            className="font-semibold text-muted-foreground hover:underline"
+          >
+            إلغاء التحديد
+          </button>
+        </div>
+      </div>
+      <ul className="max-h-64 overflow-y-auto p-1">
+        {shown.map((o) => {
+          const on = selected.includes(o);
+          return (
+            <li key={o}>
+              <button
+                onClick={() => toggle(o)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start hover:bg-secondary"
+              >
+                <span
+                  className={`grid size-4 shrink-0 place-items-center rounded border ${
+                    on ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                  }`}
+                >
+                  {on && <Check className="size-3" />}
+                </span>
+                <span className="truncate">{o}</span>
+              </button>
+            </li>
+          );
+        })}
+        {!shown.length && <li className="px-2 py-3 text-center text-muted-foreground">لا قيم</li>}
+      </ul>
     </div>
   );
 }

@@ -45,6 +45,7 @@ import {
   type BehaviourRow,
 } from "@/lib/api/hooks";
 import { byRole, isBackOffice } from "@/lib/roles";
+import { GroupFilterChip } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/behaviour")({
   validateSearch: groupSearch,
@@ -354,6 +355,7 @@ function BehaviourPage() {
             emptyTitle="لا توجد سجلات سلوكية"
             toolbar={
               <>
+                <GroupFilterChip group={groupFromUrl} />
                 <Select
                   value={type}
                   onValueChange={(v) => {

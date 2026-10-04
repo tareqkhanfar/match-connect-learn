@@ -18,6 +18,7 @@ import { useViewedStudent } from "@/lib/use-viewed-student";
 import { byRole } from "@/lib/roles";
 import { useClasses, useTeachers, useTimetable } from "@/lib/api/hooks";
 import type { ScheduleSlot, TimetablePeriod } from "@/lib/api/types";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/timetable")({
   validateSearch: groupSearch,
@@ -112,6 +113,7 @@ function TimetablePage() {
   // Opened from a class: start on it instead of on the first in the list.
   const { group: groupFromUrl } = Route.useSearch();
   const [groupId, setGroupId] = useState<string>(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroupId);
 
   // A teacher may still look at a whole class, but only by asking for it.
   const [teacherViewsClass, setTeacherViewsClass] = useState(false);

@@ -40,6 +40,7 @@ import {
   type EvaluationScaleOption,
 } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/evaluations")({
   validateSearch: groupSearch,
@@ -51,6 +52,7 @@ function EvaluationsPage() {
   const [tab, setTab] = useState<"fill" | "forms">("fill");
   const [formId, setFormId] = useState<string>("");
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroup);
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 

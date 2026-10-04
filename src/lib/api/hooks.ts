@@ -392,6 +392,23 @@ export function useMyAudiences() {
   });
 }
 
+/** The people an audience reaches for this sender — what sending would expand it to. */
+export function useAudiencePreview(audience: string | undefined, groups: string[]) {
+  return useQuery<{
+    recipients: Array<{ user: string; name: string; role: string }>;
+    total: number;
+  }>({
+    queryKey: ["audience-preview", audience, groups],
+    queryFn: () =>
+      apiGet("mail_policy.preview_audience", {
+        audience,
+        ...(groups.length ? { groups: JSON.stringify(groups) } : {}),
+      }),
+    enabled: !!audience,
+    staleTime: 60_000,
+  });
+}
+
 export function useMailPolicy() {
   return useQuery<{
     roles: Array<{ key: string; label: string; allowed: string[] }>;
@@ -1000,6 +1017,8 @@ export interface StudentListParams {
   payment_status?: string | undefined;
   /** "active" (default), "left", or "all". */
   enrolment_status?: string | undefined;
+  /** 1: only pupils in no section this year. */
+  no_section?: number | undefined;
   page?: number | undefined;
   page_size?: number | undefined;
   [key: string]: unknown;
@@ -1572,7 +1591,7 @@ export interface SchoolSettings {
     }>;
   };
   roles: Array<{ persona: string; role: string; label: string; users: number }>;
-  policies: { student_open_messaging: boolean };
+  policies: { student_open_messaging: boolean; attendance_homeroom_only?: boolean };
   counts: Record<string, number>;
 }
 
@@ -1947,7 +1966,11 @@ export function useSaveClass() {
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       apiPost<{ id: string }>("academics.save_class", { payload }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["classes"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["classes"] });
+      void qc.invalidateQueries({ queryKey: ["program-sections"] });
+      void qc.invalidateQueries({ queryKey: ["pe-options"] });
+    },
   });
 }
 
@@ -3096,7 +3119,58 @@ export function useSaveExam() {
   return useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
       apiPost<{ id: string; title: string; date: string }>("exams.save_exam", { payload }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["exam-schedule"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["exam-schedule"] });
+      void qc.invalidateQueries({ queryKey: ["exam-availability"] });
+    },
+  });
+}
+
+export interface ExamPeriod {
+  order: number;
+  name: string;
+  from: string;
+  to: string;
+}
+
+export interface ExamAvailability {
+  weekStart: string;
+  periods: ExamPeriod[];
+  days: Array<{
+    date: string;
+    label: string;
+    holiday: string;
+    cells: Array<{
+      order: number;
+      lesson: string;
+      exams: Array<{
+        id: string;
+        course: string;
+        title: string;
+        group: string;
+        own: boolean;
+        from: string;
+        to: string;
+      }>;
+    }>;
+  }>;
+}
+
+/** A section's week, period by period — what is already booked — for picking an exam slot. */
+export function useExamAvailability(
+  studentGroup: string | undefined,
+  weekStart: string,
+  exam?: string,
+) {
+  return useQuery<ExamAvailability>({
+    queryKey: ["exam-availability", studentGroup, weekStart, exam],
+    queryFn: () =>
+      apiGet("exams.availability", {
+        student_group: studentGroup,
+        week_start: weekStart,
+        ...(exam ? { exam } : {}),
+      }),
+    enabled: !!studentGroup,
   });
 }
 

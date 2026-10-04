@@ -12,6 +12,7 @@ import { useViewedStudent } from "@/lib/use-viewed-student";
 import { useAcademicRecord, type SubjectGrade } from "@/lib/api/hooks";
 import { downloadReportCard } from "@/lib/api/export";
 import { isBackOffice } from "@/lib/roles";
+import { GroupFilterChip } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/finals")({
   validateSearch: groupSearch,
@@ -71,6 +72,11 @@ function FinalsPage() {
         subtitle="العلامة النهائية لكل مادة من 100، مقارنةً بالشعبة وبالصف"
       />
 
+      {staff && groupFromUrl && (
+        <div className="mt-5">
+          <GroupFilterChip group={groupFromUrl} />
+        </div>
+      )}
       {staff && (
         <div className="mt-5">
           <StudentPicker

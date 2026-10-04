@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { GradeBadge } from "@/components/shared/grade-badge";
 import { downloadQuarterCard } from "@/lib/api/export";
 import { useMyGroups, useQuarterResults, useQuarters, useSubjects } from "@/lib/api/hooks";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/quarter-results")({
   validateSearch: groupSearch,
@@ -33,6 +34,7 @@ function QuarterResultsPage() {
 
   const { group: groupFromUrl } = Route.useSearch();
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroup);
   const [quarter, setQuarter] = useState("");
   const [course, setCourse] = useState("");
   const [search, setSearch] = useState("");

@@ -37,6 +37,7 @@ import { SearchableSelect } from "@/components/shared/searchable-select";
 import { QuickGuardianDialog } from "@/components/shared/quick-guardian";
 import { PendingAttachments, uploadPending } from "@/components/shared/pending-attachments";
 import type { StudentRow } from "@/lib/api/types";
+import { GroupFilterChip } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/students/")({
   validateSearch: groupSearch,
@@ -76,6 +77,9 @@ function StudentsPage() {
   // Enrolment, not fees. Defaults to the students the office works with
   // daily; a leaver keeps every record and has to remain findable.
   const [enrolment, setEnrolment] = useState("active");
+  // «بدون شعبة»: pupils this year who sit in no section — invisible on every
+  // screen that starts from one.
+  const [placement, setPlacement] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -92,6 +96,7 @@ function StudentsPage() {
     ...(grade !== "all" ? { program: grade } : {}),
     ...(section !== "all" ? { batch: section } : {}),
     ...(status !== "all" ? { payment_status: status } : {}),
+    ...(placement === "none" ? { no_section: 1 } : {}),
     enrolment_status: enrolment,
   };
 
@@ -325,6 +330,18 @@ function StudentsPage() {
                 <SelectItem value="أنثى">أنثى</SelectItem>
               </SelectContent>
             </Select>
+            <GroupFilterChip group={groupFromUrl} />
+            {!groupFromUrl && (
+              <Select value={placement} onValueChange={resetPage(setPlacement)}>
+                <SelectTrigger className="h-10 w-[150px] rounded-xl">
+                  <SelectValue placeholder="الشعبة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الطلاب</SelectItem>
+                  <SelectItem value="none">بدون شعبة</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             <Select value={enrolment} onValueChange={resetPage(setEnrolment)}>
               <SelectTrigger className="h-10 w-[150px] rounded-xl">
                 <SelectValue placeholder="حالة القيد" />

@@ -453,7 +453,9 @@ function ClassDialog({ klass, onClose }: { klass: ClassRow | null; onClose: () =
     batch: klass?.batch ?? "",
     max_strength: String(klass?.capacity ?? 35),
   });
-  const [instructor, setInstructor] = useState(klass?.instructors?.[0]?.id ?? "");
+  const [instructor, setInstructor] = useState(
+    klass?.homeroomId ?? klass?.instructors?.[0]?.id ?? "",
+  );
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -469,7 +471,9 @@ function ClassDialog({ klass, onClose }: { klass: ClassRow | null; onClose: () =
         ...(klass ? { id: klass.name } : {}),
         ...form,
         max_strength: Number(form.max_strength) || 35,
-        ...(instructor ? { instructors: [instructor] } : {}),
+        // Sets the section's مربي الصف and adds them to its teachers — never
+        // replaces the others.
+        homeroom_instructor: instructor,
       });
       toast.success(klass ? "تم تحديث الشعبة" : "تمت إضافة الشعبة");
       onClose();

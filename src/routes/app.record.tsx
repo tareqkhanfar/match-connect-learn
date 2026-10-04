@@ -43,6 +43,7 @@ import {
 import { downloadReportCard } from "@/lib/api/export";
 import { FinalMarksTable } from "@/routes/app.finals";
 import { isBackOffice } from "@/lib/roles";
+import { useGroupFromUrl } from "@/components/shared/group-filter-chip";
 
 export const Route = createFileRoute("/app/record")({
   validateSearch: groupSearch,
@@ -81,6 +82,7 @@ function StaffRecordView() {
   const classesQuery = useClasses({});
   const { group: groupFromUrl } = Route.useSearch();
   const [group, setGroup] = useState(groupFromUrl ?? "");
+  useGroupFromUrl(groupFromUrl, setGroup);
   const [student, setStudent] = useState("");
   const [printing, setPrinting] = useState(false);
 

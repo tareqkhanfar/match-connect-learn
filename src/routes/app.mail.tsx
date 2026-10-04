@@ -647,7 +647,13 @@ function Composer({
         to: choice.users,
         cc,
         bcc,
-        ...(choice.audience ? { audience: choice.audience, audience_groups: choice.groups } : {}),
+        ...(choice.audience
+          ? {
+              audience: choice.audience,
+              audience_groups: choice.groups,
+              audience_exclude: choice.exclude ?? [],
+            }
+          : {}),
         copy_guardians: copyGuardians ? 1 : 0,
       });
       setPreview(res.recipients);
@@ -701,7 +707,13 @@ function Composer({
         to: choice.users,
         cc,
         bcc,
-        ...(choice.audience ? { audience: choice.audience, audience_groups: choice.groups } : {}),
+        ...(choice.audience
+          ? {
+              audience: choice.audience,
+              audience_groups: choice.groups,
+              audience_exclude: choice.exclude ?? [],
+            }
+          : {}),
         is_draft: asDraft ? 1 : 0,
         no_reply: noReply ? 1 : 0,
         copy_guardians: copyGuardians ? 1 : 0,
