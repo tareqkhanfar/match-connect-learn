@@ -1,10 +1,26 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, ChevronsLeft, LogOut, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDown, ChevronsLeft, ExternalLink, LogOut, X, type LucideIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { resolveItem } from "@/components/workspaces/workspace-view";
+import { useActiveWorkspace, workspaceHome } from "@/lib/active-workspace";
 import { groupFor, groupsForRole, labelFor, navForRole } from "@/lib/nav";
 import { useApp } from "@/lib/app-context";
 import { roleLabels } from "@/lib/roles";
 import { cn } from "@/lib/utils";
+import { wsIcon } from "@/lib/workspace-icons";
+
+interface SideItem {
+  key: string;
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  external: boolean;
+}
+
+interface SideGroup {
+  title: string;
+  items: SideItem[];
+}
 
 interface Props {
   collapsed: boolean;
@@ -15,6 +31,7 @@ interface Props {
 
 /** Which sections the reader left open, so the sidebar is where they put it. */
 const OPEN_KEY = "ms-sidebar-open";
+const CLOSED_WS_KEY = "ms-sidebar-closed-ws";
 
 function readOpen(): string[] | null {
   if (typeof window === "undefined") return null;
@@ -29,16 +46,74 @@ function readOpen(): string[] | null {
 export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Props) {
   const { role, session, signOut } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = navForRole(role);
-  const groups = groupsForRole(role);
+  const workspace = useActiveWorkspace().active;
+
+  // The role's menu, or — for someone working in a workspace the school
+  // built — that workspace's sections and buttons, with its home first.
+  const sections = useMemo<SideGroup[]>(() => {
+    if (workspace) {
+      const home: SideGroup = {
+        title: workspace.title,
+        items: [
+          {
+            key: "home",
+            to: workspaceHome(workspace.id),
+            label: "الرئيسية",
+            icon: wsIcon(workspace.icon),
+            external: false,
+          },
+        ],
+      };
+      const blocks = workspace.layout.blocks
+        .filter((b) => b.items?.length)
+        .map((b) => ({
+          title: b.title || workspace.title,
+          items: (b.items ?? [])
+            .map((i) => resolveItem(i, role))
+            .filter((i) => i !== null)
+            .map((i) => ({
+              key: i.id,
+              to: i.href,
+              label: i.label,
+              icon: i.icon,
+              external: i.external,
+            })),
+        }))
+        .filter((g) => g.items.length);
+      return [home, ...blocks];
+    }
+    const items = navForRole(role);
+    return groupsForRole(role)
+      .map((group) => ({
+        title: group,
+        items: items
+          .filter((i) => groupFor(i, role) === group)
+          .map((i) => ({
+            key: i.to,
+            to: i.to,
+            label: labelFor(i, role),
+            icon: i.icon,
+            external: false,
+          })),
+      }))
+      .filter((g) => g.items.length);
+  }, [workspace, role]);
+
+  const isActive = (to: string) =>
+    to === "/app" ? pathname === "/app" : pathname === to || pathname.startsWith(`${to}/`);
 
   // The section holding the current page. Resolved from the longest matching
   // route so /app/students/EDU-001 opens السجلات rather than nothing.
   const activeGroup = (() => {
-    const match = items
-      .filter((i) => pathname === i.to || pathname.startsWith(`${i.to}/`))
-      .sort((a, b) => b.to.length - a.to.length)[0];
-    return match ? groupFor(match, role) : null;
+    let best: { title: string; length: number } | null = null;
+    for (const g of sections) {
+      for (const i of g.items) {
+        if (!i.external && isActive(i.to) && (!best || i.to.length > best.length)) {
+          best = { title: g.title, length: i.to.length };
+        }
+      }
+    }
+    return best?.title ?? null;
   })();
 
   const [open, setOpen] = useState<string[]>(() => (activeGroup ? [activeGroup] : []));
@@ -59,7 +134,34 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
       setOpen((prev) => (prev.includes(activeGroup) ? prev : [...prev, activeGroup]));
   }, [activeGroup]);
 
+  // A workspace has a few sections the school chose, so they start open and
+  // stay open unless closed; the role's twelve start closed. Kept apart so
+  // one does not reshuffle the other.
+  const [closedWs, setClosedWs] = useState<string[]>([]);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CLOSED_WS_KEY);
+      if (raw) setClosedWs(JSON.parse(raw) as string[]);
+    } catch {
+      // Everything open, then.
+    }
+  }, []);
+  const isOpen = (group: string) =>
+    workspace ? !closedWs.includes(group) || group === activeGroup : open.includes(group);
+
   function toggleGroup(group: string) {
+    if (workspace) {
+      setClosedWs((prev) => {
+        const next = prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group];
+        try {
+          window.localStorage.setItem(CLOSED_WS_KEY, JSON.stringify(next));
+        } catch {
+          // Not worth failing the click over.
+        }
+        return next;
+      });
+      return;
+    }
     setOpen((prev) => {
       const next = prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group];
       try {
@@ -101,15 +203,13 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {groups.map((group) => {
-          const groupItems = items.filter((i) => groupFor(i, role) === group);
-          if (!groupItems.length) return null;
+        {sections.map((section) => {
+          const group = section.title;
+          const groupItems = section.items;
           // Collapsed to icons there is no room for a heading, and no way to
           // press one either, so every section stays open.
-          const expanded = collapsed || open.includes(group);
-          const hasActive = groupItems.some((i) =>
-            i.to === "/app" ? pathname === "/app" : pathname.startsWith(i.to),
-          );
+          const expanded = collapsed || isOpen(group);
+          const hasActive = groupItems.some((i) => !i.external && isActive(i.to));
           return (
             <div key={group} className={collapsed ? "mb-4" : "mb-0.5"}>
               {!collapsed && (
@@ -139,25 +239,45 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
               )}
               <ul className={cn("space-y-1", expanded ? "" : "hidden")}>
                 {groupItems.map((item) => {
-                  const active =
-                    item.to === "/app" ? pathname === "/app" : pathname.startsWith(item.to);
+                  const active = !item.external && isActive(item.to);
+                  const cls = cn(
+                    "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                    active
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-soft"
+                      : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    collapsed && "justify-center px-2",
+                  );
+                  const body = (
+                    <>
+                      <item.icon className="size-[18px] shrink-0" />
+                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && item.external && (
+                        <ExternalLink className="ms-auto size-3 shrink-0 opacity-60" />
+                      )}
+                    </>
+                  );
                   return (
-                    <li key={item.to}>
-                      <Link
-                        to={item.to}
-                        onClick={onCloseMobile}
-                        title={collapsed ? labelFor(item, role) : undefined}
-                        className={cn(
-                          "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                          active
-                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-soft"
-                            : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                          collapsed && "justify-center px-2",
-                        )}
-                      >
-                        <item.icon className="size-[18px] shrink-0" />
-                        {!collapsed && <span className="truncate">{labelFor(item, role)}</span>}
-                      </Link>
+                    <li key={item.key}>
+                      {item.external || item.to.includes("?") ? (
+                        <a
+                          href={item.to}
+                          onClick={onCloseMobile}
+                          title={collapsed ? item.label : undefined}
+                          className={cls}
+                          {...(item.external ? { target: "_blank", rel: "noreferrer" } : {})}
+                        >
+                          {body}
+                        </a>
+                      ) : (
+                        <Link
+                          to={item.to}
+                          onClick={onCloseMobile}
+                          title={collapsed ? item.label : undefined}
+                          className={cls}
+                        >
+                          {body}
+                        </Link>
+                      )}
                     </li>
                   );
                 })}

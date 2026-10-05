@@ -1,5 +1,4 @@
-import { Link } from "@tanstack/react-router";
-import { LayoutGrid, Menu, Moon, Sun } from "lucide-react";
+import { Menu, Moon, Sun } from "lucide-react";
 import { NotificationBell } from "./notification-bell";
 import { MailBadge } from "./mail-badge";
 import { HelpBadge } from "./help-badge";
@@ -14,6 +13,7 @@ import { AlertPopup } from "@/components/shared/alert-popup";
 import { ForcePasswordChange } from "@/components/shared/force-password-change";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppSidebar } from "./app-sidebar";
+import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
 import { MobileTabBar } from "./mobile-tabbar";
 import { useApp } from "@/lib/app-context";
 import { roleLabels } from "@/lib/roles";
@@ -85,14 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {/* The way back to everything. First thing in the row because it
                   is the most used, and labelled on wide screens because an
                   icon alone does not say "مساحة العمل". */}
-              <Link
-                to="/app/workspace"
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary-soft hover:text-primary md:px-3"
-                title="مساحة العمل"
-              >
-                <LayoutGrid className="size-[18px]" />
-                <span className="hidden lg:inline">مساحة العمل</span>
-              </Link>
+              <WorkspaceSwitcher />
               {/* On a phone the header keeps only what a thumb needs; the rest
                   moves into the drawer and the bottom tab bar. */}
               <div className="hidden items-center gap-2 md:flex">

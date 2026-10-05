@@ -101,6 +101,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => {
+    // The next sign-in starts in its default workspace again
+    // (lib/active-workspace.ts — inlined here to keep that module out of
+    // this one's imports).
+    try {
+      window.sessionStorage.removeItem("ms-landed");
+    } catch {
+      // Nothing to forget.
+    }
     logoutMutation.mutate();
   }, [logoutMutation]);
 

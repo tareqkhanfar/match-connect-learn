@@ -1,5 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ClipboardCheck, MessagesSquare, Save, School, ShieldCheck } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  ClipboardCheck,
+  LayoutGrid,
+  MessagesSquare,
+  Save,
+  School,
+  ShieldCheck,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/api/error-message";
@@ -19,6 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { DashboardSkeleton, ErrorState } from "@/components/shared/states";
 import { useSaveSettings, useSetOpenMessaging, useSettings } from "@/lib/api/hooks";
+import { useMyWorkspaces } from "@/lib/api/workspaces";
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({
@@ -49,6 +57,7 @@ function SettingsPage() {
   const { data, isLoading, error, refetch } = useSettings();
   const saveSettings = useSaveSettings();
   const setOpenMessaging = useSetOpenMessaging();
+  const workspaces = useMyWorkspaces();
 
   const [form, setForm] = useState({
     name: "",
@@ -220,6 +229,33 @@ function SettingsPage() {
           <MailPolicySettings canEdit={role === "admin"} />
         </SectionCard>
       </div>
+
+      {/* Workspaces and built pages decide what a whole department works
+          from; the Administrator account alone builds them. */}
+      {workspaces.data?.canBuild && (
+        <div className="mt-5">
+          <SectionCard
+            title="مساحات العمل والصفحات"
+            description="مساحة عمل لكل قسم بأزرارها، وصفحة لكل نموذج — وإسنادها للمستخدمين"
+            actions={<LayoutGrid className="size-4 text-muted-foreground" />}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">
+                ابنِ مساحة عمل لقسم (الإرشاد مثلاً) بأزرار تفتح شاشات النظام أو صفحات مبنية من
+                النماذج، ثم أسندها لمستخدمين أو لأدوار كاملة وحدّد ما يبدأ به كل مستخدم. من لا مساحة
+                له يبقى على القائمة الأساسية لدوره.
+              </p>
+              <Link
+                to="/app/workspaces"
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary px-4 text-xs font-bold text-primary-foreground hover:opacity-90"
+              >
+                <LayoutGrid className="size-4" />
+                إدارة مساحات العمل والصفحات
+              </Link>
+            </div>
+          </SectionCard>
+        </div>
+      )}
 
       {/* How the system's printed pages look — the administration's alone. */}
       {role === "admin" && (

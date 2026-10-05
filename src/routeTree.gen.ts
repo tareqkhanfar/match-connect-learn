@@ -68,15 +68,20 @@ import { Route as AppTransfersRouteImport } from './routes/app.transfers'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
 import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
 import { Route as AppWorkspaceSetupRouteImport } from './routes/app.workspace-setup'
+import { Route as AppCustomPagesPageIdRouteImport } from './routes/app.custom-pages.$pageId'
 import { Route as AppFormsCategoryRouteImport } from './routes/app.forms.$category'
 import { Route as AppGuardiansIndexRouteImport } from './routes/app.guardians.index'
 import { Route as AppGuardiansGuardianIdRouteImport } from './routes/app.guardians.$guardianId'
+import { Route as AppPPageIdRouteImport } from './routes/app.p.$pageId'
 import { Route as AppSecretariesIndexRouteImport } from './routes/app.secretaries.index'
 import { Route as AppSecretariesStaffIdRouteImport } from './routes/app.secretaries.$staffId'
 import { Route as AppStudentsIndexRouteImport } from './routes/app.students.index'
 import { Route as AppStudentsStudentIdRouteImport } from './routes/app.students.$studentId'
 import { Route as AppTeachersIndexRouteImport } from './routes/app.teachers.index'
 import { Route as AppTeachersInstructorIdRouteImport } from './routes/app.teachers.$instructorId'
+import { Route as AppWWorkspaceIdRouteImport } from './routes/app.w.$workspaceId'
+import { Route as AppWorkspacesIndexRouteImport } from './routes/app.workspaces.index'
+import { Route as AppWorkspacesWorkspaceIdRouteImport } from './routes/app.workspaces.$workspaceId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -373,6 +378,11 @@ const AppWorkspaceSetupRoute = AppWorkspaceSetupRouteImport.update({
   path: '/workspace-setup',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCustomPagesPageIdRoute = AppCustomPagesPageIdRouteImport.update({
+  id: '/custom-pages/$pageId',
+  path: '/custom-pages/$pageId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFormsCategoryRoute = AppFormsCategoryRouteImport.update({
   id: '/forms/$category',
   path: '/forms/$category',
@@ -386,6 +396,11 @@ const AppGuardiansIndexRoute = AppGuardiansIndexRouteImport.update({
 const AppGuardiansGuardianIdRoute = AppGuardiansGuardianIdRouteImport.update({
   id: '/guardians/$guardianId',
   path: '/guardians/$guardianId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPPageIdRoute = AppPPageIdRouteImport.update({
+  id: '/p/$pageId',
+  path: '/p/$pageId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSecretariesIndexRoute = AppSecretariesIndexRouteImport.update({
@@ -418,6 +433,22 @@ const AppTeachersInstructorIdRoute = AppTeachersInstructorIdRouteImport.update({
   path: '/teachers/$instructorId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppWWorkspaceIdRoute = AppWWorkspaceIdRouteImport.update({
+  id: '/w/$workspaceId',
+  path: '/w/$workspaceId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkspacesIndexRoute = AppWorkspacesIndexRouteImport.update({
+  id: '/workspaces/',
+  path: '/workspaces/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkspacesWorkspaceIdRoute =
+  AppWorkspacesWorkspaceIdRouteImport.update({
+    id: '/workspaces/$workspaceId',
+    path: '/workspaces/$workspaceId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -479,15 +510,20 @@ export interface FileRoutesByFullPath {
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/workspace-setup': typeof AppWorkspaceSetupRoute
   '/app/': typeof AppIndexRoute
+  '/app/custom-pages/$pageId': typeof AppCustomPagesPageIdRoute
   '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
+  '/app/p/$pageId': typeof AppPPageIdRoute
   '/app/secretaries/$staffId': typeof AppSecretariesStaffIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
+  '/app/w/$workspaceId': typeof AppWWorkspaceIdRoute
+  '/app/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/app/guardians/': typeof AppGuardiansIndexRoute
   '/app/secretaries/': typeof AppSecretariesIndexRoute
   '/app/students/': typeof AppStudentsIndexRoute
   '/app/teachers/': typeof AppTeachersIndexRoute
+  '/app/workspaces/': typeof AppWorkspacesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -548,15 +584,20 @@ export interface FileRoutesByTo {
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/workspace-setup': typeof AppWorkspaceSetupRoute
   '/app': typeof AppIndexRoute
+  '/app/custom-pages/$pageId': typeof AppCustomPagesPageIdRoute
   '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
+  '/app/p/$pageId': typeof AppPPageIdRoute
   '/app/secretaries/$staffId': typeof AppSecretariesStaffIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
+  '/app/w/$workspaceId': typeof AppWWorkspaceIdRoute
+  '/app/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/app/guardians': typeof AppGuardiansIndexRoute
   '/app/secretaries': typeof AppSecretariesIndexRoute
   '/app/students': typeof AppStudentsIndexRoute
   '/app/teachers': typeof AppTeachersIndexRoute
+  '/app/workspaces': typeof AppWorkspacesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -619,15 +660,20 @@ export interface FileRoutesById {
   '/app/workspace': typeof AppWorkspaceRoute
   '/app/workspace-setup': typeof AppWorkspaceSetupRoute
   '/app/': typeof AppIndexRoute
+  '/app/custom-pages/$pageId': typeof AppCustomPagesPageIdRoute
   '/app/forms/$category': typeof AppFormsCategoryRoute
   '/app/guardians/$guardianId': typeof AppGuardiansGuardianIdRoute
+  '/app/p/$pageId': typeof AppPPageIdRoute
   '/app/secretaries/$staffId': typeof AppSecretariesStaffIdRoute
   '/app/students/$studentId': typeof AppStudentsStudentIdRoute
   '/app/teachers/$instructorId': typeof AppTeachersInstructorIdRoute
+  '/app/w/$workspaceId': typeof AppWWorkspaceIdRoute
+  '/app/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRoute
   '/app/guardians/': typeof AppGuardiansIndexRoute
   '/app/secretaries/': typeof AppSecretariesIndexRoute
   '/app/students/': typeof AppStudentsIndexRoute
   '/app/teachers/': typeof AppTeachersIndexRoute
+  '/app/workspaces/': typeof AppWorkspacesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -691,15 +737,20 @@ export interface FileRouteTypes {
     | '/app/workspace'
     | '/app/workspace-setup'
     | '/app/'
+    | '/app/custom-pages/$pageId'
     | '/app/forms/$category'
     | '/app/guardians/$guardianId'
+    | '/app/p/$pageId'
     | '/app/secretaries/$staffId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
+    | '/app/w/$workspaceId'
+    | '/app/workspaces/$workspaceId'
     | '/app/guardians/'
     | '/app/secretaries/'
     | '/app/students/'
     | '/app/teachers/'
+    | '/app/workspaces/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -760,15 +811,20 @@ export interface FileRouteTypes {
     | '/app/workspace'
     | '/app/workspace-setup'
     | '/app'
+    | '/app/custom-pages/$pageId'
     | '/app/forms/$category'
     | '/app/guardians/$guardianId'
+    | '/app/p/$pageId'
     | '/app/secretaries/$staffId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
+    | '/app/w/$workspaceId'
+    | '/app/workspaces/$workspaceId'
     | '/app/guardians'
     | '/app/secretaries'
     | '/app/students'
     | '/app/teachers'
+    | '/app/workspaces'
   id:
     | '__root__'
     | '/'
@@ -830,15 +886,20 @@ export interface FileRouteTypes {
     | '/app/workspace'
     | '/app/workspace-setup'
     | '/app/'
+    | '/app/custom-pages/$pageId'
     | '/app/forms/$category'
     | '/app/guardians/$guardianId'
+    | '/app/p/$pageId'
     | '/app/secretaries/$staffId'
     | '/app/students/$studentId'
     | '/app/teachers/$instructorId'
+    | '/app/w/$workspaceId'
+    | '/app/workspaces/$workspaceId'
     | '/app/guardians/'
     | '/app/secretaries/'
     | '/app/students/'
     | '/app/teachers/'
+    | '/app/workspaces/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1262,6 +1323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspaceSetupRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/custom-pages/$pageId': {
+      id: '/app/custom-pages/$pageId'
+      path: '/custom-pages/$pageId'
+      fullPath: '/app/custom-pages/$pageId'
+      preLoaderRoute: typeof AppCustomPagesPageIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/forms/$category': {
       id: '/app/forms/$category'
       path: '/forms/$category'
@@ -1281,6 +1349,13 @@ declare module '@tanstack/react-router' {
       path: '/guardians/$guardianId'
       fullPath: '/app/guardians/$guardianId'
       preLoaderRoute: typeof AppGuardiansGuardianIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/p/$pageId': {
+      id: '/app/p/$pageId'
+      path: '/p/$pageId'
+      fullPath: '/app/p/$pageId'
+      preLoaderRoute: typeof AppPPageIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/secretaries/': {
@@ -1323,6 +1398,27 @@ declare module '@tanstack/react-router' {
       path: '/teachers/$instructorId'
       fullPath: '/app/teachers/$instructorId'
       preLoaderRoute: typeof AppTeachersInstructorIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/w/$workspaceId': {
+      id: '/app/w/$workspaceId'
+      path: '/w/$workspaceId'
+      fullPath: '/app/w/$workspaceId'
+      preLoaderRoute: typeof AppWWorkspaceIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/workspaces/': {
+      id: '/app/workspaces/'
+      path: '/workspaces'
+      fullPath: '/app/workspaces/'
+      preLoaderRoute: typeof AppWorkspacesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/workspaces/$workspaceId': {
+      id: '/app/workspaces/$workspaceId'
+      path: '/workspaces/$workspaceId'
+      fullPath: '/app/workspaces/$workspaceId'
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -1385,15 +1481,20 @@ interface AppRouteChildren {
   AppWorkspaceRoute: typeof AppWorkspaceRoute
   AppWorkspaceSetupRoute: typeof AppWorkspaceSetupRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppCustomPagesPageIdRoute: typeof AppCustomPagesPageIdRoute
   AppFormsCategoryRoute: typeof AppFormsCategoryRoute
   AppGuardiansGuardianIdRoute: typeof AppGuardiansGuardianIdRoute
+  AppPPageIdRoute: typeof AppPPageIdRoute
   AppSecretariesStaffIdRoute: typeof AppSecretariesStaffIdRoute
   AppStudentsStudentIdRoute: typeof AppStudentsStudentIdRoute
   AppTeachersInstructorIdRoute: typeof AppTeachersInstructorIdRoute
+  AppWWorkspaceIdRoute: typeof AppWWorkspaceIdRoute
+  AppWorkspacesWorkspaceIdRoute: typeof AppWorkspacesWorkspaceIdRoute
   AppGuardiansIndexRoute: typeof AppGuardiansIndexRoute
   AppSecretariesIndexRoute: typeof AppSecretariesIndexRoute
   AppStudentsIndexRoute: typeof AppStudentsIndexRoute
   AppTeachersIndexRoute: typeof AppTeachersIndexRoute
+  AppWorkspacesIndexRoute: typeof AppWorkspacesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -1453,15 +1554,20 @@ const AppRouteChildren: AppRouteChildren = {
   AppWorkspaceRoute: AppWorkspaceRoute,
   AppWorkspaceSetupRoute: AppWorkspaceSetupRoute,
   AppIndexRoute: AppIndexRoute,
+  AppCustomPagesPageIdRoute: AppCustomPagesPageIdRoute,
   AppFormsCategoryRoute: AppFormsCategoryRoute,
   AppGuardiansGuardianIdRoute: AppGuardiansGuardianIdRoute,
+  AppPPageIdRoute: AppPPageIdRoute,
   AppSecretariesStaffIdRoute: AppSecretariesStaffIdRoute,
   AppStudentsStudentIdRoute: AppStudentsStudentIdRoute,
   AppTeachersInstructorIdRoute: AppTeachersInstructorIdRoute,
+  AppWWorkspaceIdRoute: AppWWorkspaceIdRoute,
+  AppWorkspacesWorkspaceIdRoute: AppWorkspacesWorkspaceIdRoute,
   AppGuardiansIndexRoute: AppGuardiansIndexRoute,
   AppSecretariesIndexRoute: AppSecretariesIndexRoute,
   AppStudentsIndexRoute: AppStudentsIndexRoute,
   AppTeachersIndexRoute: AppTeachersIndexRoute,
+  AppWorkspacesIndexRoute: AppWorkspacesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

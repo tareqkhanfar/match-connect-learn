@@ -945,6 +945,8 @@ export function FormBody({
   onChange,
   readOnly,
   students,
+  lockedFields,
+  hints,
 }: {
   fields: FormField[];
   values: Record<string, string>;
@@ -952,6 +954,10 @@ export function FormBody({
   readOnly?: boolean;
   /** The section's pupils, for a «جدول طلاب». */
   students?: SectionStudent[] | undefined;
+  /** Shown but not editable — a built page's read-only and fetched fields. */
+  lockedFields?: Set<string> | undefined;
+  /** A line under a field, e.g. where its value is fetched from. */
+  hints?: Record<string, string> | undefined;
 }) {
   if (!fields.length) {
     return <p className="py-6 text-center text-sm text-muted-foreground">لا توجد حقول بعد.</p>;
@@ -993,13 +999,30 @@ export function FormBody({
                   {f.label}
                   {f.reqd ? <span className="text-destructive"> *</span> : null}
                 </p>
-                <FormFieldInput
-                  field={f}
-                  value={values[f.fieldname] ?? f.default ?? ""}
-                  onChange={(v) => onChange(f.fieldname, v)}
-                  students={students}
-                  {...(readOnly ? { readOnly: true } : {})}
-                />
+                {lockedFields?.has(f.fieldname) && !readOnly ? (
+                  <div className="min-h-9 rounded-lg border border-dashed border-border bg-secondary/40 px-2.5 py-1">
+                    <FormFieldInput
+                      field={f}
+                      value={values[f.fieldname] ?? f.default ?? ""}
+                      onChange={() => undefined}
+                      students={students}
+                      readOnly
+                    />
+                  </div>
+                ) : (
+                  <FormFieldInput
+                    field={f}
+                    value={values[f.fieldname] ?? f.default ?? ""}
+                    onChange={(v) => onChange(f.fieldname, v)}
+                    students={students}
+                    {...(readOnly ? { readOnly: true } : {})}
+                  />
+                )}
+                {hints?.[f.fieldname] && !readOnly && (
+                  <p className="mt-0.5 text-[10px] font-medium text-primary/80">
+                    {hints[f.fieldname]}
+                  </p>
+                )}
                 {f.description && !readOnly && (
                   <p className="mt-0.5 text-[10px] text-muted-foreground">{f.description}</p>
                 )}
