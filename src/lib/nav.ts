@@ -126,7 +126,7 @@ export const navItems: NavItem[] = [
     group: "السجلات",
   },
   {
-    label: "السكرتارية",
+    label: "الطاقم الإداري",
     to: "/app/secretaries",
     icon: UserCog,
     roles: ["admin"],
@@ -510,6 +510,22 @@ export const navItems: NavItem[] = [
     group: "العلامات والتقييم",
   },
   {
+    // The vice principal's view over the teachers: marks entry, activity,
+    // duty and cover, attendance and class-log compliance — as charts.
+    label: "تقارير القيادة",
+    to: "/app/leadership-reports",
+    icon: BarChart3,
+    roles: ["admin"],
+    group: "المالية والتقارير",
+  },
+  {
+    label: "تقارير التمريض",
+    to: "/app/health-reports",
+    icon: HeartPulse,
+    roles: ["admin", "secretary"],
+    group: "خدمات الطلاب",
+  },
+  {
     label: "شهادات الأرباع",
     to: "/app/quarter-results",
     icon: FileText,
@@ -674,8 +690,9 @@ export function groupFor(item: NavItem, role: Role): string {
   return item.groupByRole?.[role] ?? item.group;
 }
 
-export function navForRole(role: Role) {
-  return navItems.filter((i) => i.roles.includes(role));
+/** The screens a role sees; `allows` narrows them for a staff role (see `allowsPath`). */
+export function navForRole(role: Role, allows?: (path: string) => boolean) {
+  return navItems.filter((i) => i.roles.includes(role) && (!allows || allows(i.to)));
 }
 
 /** Page title for a route, resolved for the current role. */

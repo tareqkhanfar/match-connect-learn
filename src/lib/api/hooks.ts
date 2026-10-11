@@ -1591,7 +1591,12 @@ export interface SchoolSettings {
     }>;
   };
   roles: Array<{ persona: string; role: string; label: string; users: number }>;
-  policies: { student_open_messaging: boolean; attendance_homeroom_only?: boolean };
+  policies: {
+    student_open_messaging: boolean;
+    attendance_homeroom_only?: boolean;
+    /** The vice principal sees the finance screens. Off unless the principal turns it on. */
+    vp_sees_finance?: boolean;
+  };
   counts: Record<string, number>;
 }
 
@@ -8684,9 +8689,17 @@ export function useIssueAccounts() {
  * The office staff's files (secretaries)
  * ---------------------------------------------------------------------- */
 
+export type StaffRoleKey = "secretary" | "vice_principal" | "supervisor" | "nurse";
+
 export interface StaffMember {
   id: string;
   fullName: string;
+  /** سكرتارية، نائب المدير، مشرف، ممرض. */
+  role: StaffRoleKey;
+  roleLabel: string;
+  /** A supervisor's grades (Program ids) and sections. */
+  supervisedPrograms: string[];
+  supervisedGroups: Array<{ id: string; label: string }>;
   jobTitle: string;
   status: "Active" | "Inactive";
   gender: string;
@@ -8710,6 +8723,19 @@ export function useStaffList(search = "") {
   });
 }
 
+export function useStaffOptions(enabled = true) {
+  return useQuery<{
+    roles: Array<{ key: StaffRoleKey; label: string }>;
+    programs: Array<{ id: string; label: string }>;
+    groups: Array<{ id: string; label: string; program: string }>;
+  }>({
+    queryKey: ["staff", "options"],
+    queryFn: () => apiGet("staff.staff_options"),
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
 export function useStaffMember(name: string | undefined) {
   return useQuery<{ staff: StaffMember }>({
     queryKey: ["staff", "one", name],
@@ -8721,7 +8747,12 @@ export function useStaffMember(name: string | undefined) {
 export function useSaveStaff() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<StaffMember> & { createAccount?: number }) =>
+    mutationFn: (
+      payload: Omit<Partial<StaffMember>, "supervisedGroups"> & {
+        createAccount?: number;
+        supervisedGroups?: string[];
+      },
+    ) =>
       apiPost<{
         staff: StaffMember;
         credentials: { username: string; password: string; user: string } | null;

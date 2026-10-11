@@ -53,7 +53,7 @@ const COUNT_LABELS: Record<string, string> = {
 };
 
 function SettingsPage() {
-  const { role } = useApp();
+  const { role, access } = useApp();
   const { data, isLoading, error, refetch } = useSettings();
   const saveSettings = useSaveSettings();
   const setOpenMessaging = useSetOpenMessaging();
@@ -347,6 +347,41 @@ function SettingsPage() {
             />
           </div>
         </SectionCard>
+
+        {/* Opening the money to the vice principal is the principal's call —
+            the vice principal shares this screen but not this switch. */}
+        {!access.staffRole && (
+          <SectionCard
+            title="نائب المدير"
+            description="صلاحيات نائب المدير على كامل المدرسة ما عدا الأمور المالية"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 text-sm">
+                <p className="font-medium">إظهار الأمور المالية لنائب المدير</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  معطّل افتراضياً: لا يرى نائب المدير الرسوم والفواتير وأرصدة الطلاب. عند التفعيل
+                  تظهر له الشاشات المالية كما تظهر للمدير.
+                </p>
+              </div>
+              <Switch
+                checked={data.policies?.vp_sees_finance ?? false}
+                disabled={saveSettings.isPending}
+                onCheckedChange={async (on) => {
+                  try {
+                    await saveSettings.mutateAsync({ vp_sees_finance: on ? 1 : 0 });
+                    toast.success(
+                      on
+                        ? "أصبحت الأمور المالية ظاهرة لنائب المدير"
+                        : "أُخفيت الأمور المالية عن نائب المدير",
+                    );
+                  } catch (err) {
+                    toast.error(errorMessage(err, "تعذّر تحديث الإعداد"));
+                  }
+                }}
+              />
+            </div>
+          </SectionCard>
+        )}
 
         <SectionCard title="ملخص النظام" description="أعداد السجلات الحالية">
           <div className="grid grid-cols-2 gap-3">

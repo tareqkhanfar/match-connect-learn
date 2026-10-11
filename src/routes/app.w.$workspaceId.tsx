@@ -20,7 +20,7 @@ export const Route = createFileRoute("/app/w/$workspaceId")({
 /** A built workspace's home: its blocks, for whoever was given it. */
 function WorkspaceHome() {
   const { workspaceId } = Route.useParams();
-  const { role } = useApp();
+  const { role, allows } = useApp();
   const ws = useActiveWorkspace();
   const shortcuts = useWorkspaceShortcuts();
   const workspace = ws.workspaces.find((w) => w.id === workspaceId);
@@ -53,6 +53,7 @@ function WorkspaceHome() {
         layout={workspace.layout}
         role={role}
         shortcuts={shortcuts.data?.shortcuts}
+        allows={allows}
         headerActions={
           ws.canBuild ? (
             <Link

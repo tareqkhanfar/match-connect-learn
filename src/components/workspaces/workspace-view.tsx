@@ -33,7 +33,15 @@ export function resolveItem(
   item: WsItem,
   role: Role,
   pageLabels?: Record<string, { title: string; icon: string }>,
+  allows?: (path: string) => boolean,
 ): ResolvedItem | null {
+  if (
+    allows &&
+    item.kind !== "url" &&
+    !allows(item.kind === "page" ? `/app/p/${item.target}` : item.target)
+  ) {
+    return null;
+  }
   if (item.kind === "screen") {
     const path = item.target.split("?")[0] ?? item.target;
     const nav = navItems.find((n) => n.to === path);
@@ -127,6 +135,7 @@ export function WorkspaceView({
   pageLabels,
   preview,
   headerActions,
+  allows,
 }: {
   title: string;
   icon: string;
@@ -138,6 +147,8 @@ export function WorkspaceView({
   pageLabels?: Record<string, { title: string; icon: string }> | undefined;
   preview?: boolean;
   headerActions?: ReactNode;
+  /** Narrows buttons to the screens this person's role reaches. */
+  allows?: ((path: string) => boolean) | undefined;
 }) {
   const Icon = wsIcon(icon);
   const rows: Array<WsBlock | WsBlock[]> = [];
@@ -183,6 +194,7 @@ export function WorkspaceView({
                 role={role}
                 pageLabels={pageLabels}
                 preview={preview}
+                allows={allows}
               />
             ))}
           </div>
@@ -193,6 +205,7 @@ export function WorkspaceView({
             role={role}
             pageLabels={pageLabels}
             preview={preview}
+            allows={allows}
           />
         ) : row.type === "numbers" ? (
           <NumbersBlock key={row.id} block={row} shortcuts={shortcuts} preview={preview} />
@@ -213,14 +226,16 @@ function ShortcutsBlock({
   role,
   pageLabels,
   preview,
+  allows,
 }: {
   block: WsBlock;
   role: Role;
   pageLabels?: Record<string, { title: string; icon: string }> | undefined;
   preview?: boolean | undefined;
+  allows?: ((path: string) => boolean) | undefined;
 }) {
   const items = (block.items ?? [])
-    .map((i) => resolveItem(i, role, pageLabels))
+    .map((i) => resolveItem(i, role, pageLabels, allows))
     .filter((i): i is ResolvedItem => !!i);
   return (
     <section>
@@ -267,14 +282,16 @@ function LinksBlock({
   role,
   pageLabels,
   preview,
+  allows,
 }: {
   block: WsBlock;
   role: Role;
   pageLabels?: Record<string, { title: string; icon: string }> | undefined;
   preview?: boolean | undefined;
+  allows?: ((path: string) => boolean) | undefined;
 }) {
   const items = (block.items ?? [])
-    .map((i) => resolveItem(i, role, pageLabels))
+    .map((i) => resolveItem(i, role, pageLabels, allows))
     .filter((i): i is ResolvedItem => !!i);
   return (
     <section className="rounded-2xl border border-border bg-card p-4">

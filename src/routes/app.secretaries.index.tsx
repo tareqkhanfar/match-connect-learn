@@ -17,14 +17,50 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { errorMessage } from "@/lib/api/error-message";
-import { useSaveStaff, useStaffList, type StaffMember } from "@/lib/api/hooks";
+import {
+  useSaveStaff,
+  useStaffList,
+  useStaffOptions,
+  type StaffMember,
+  type StaffRoleKey,
+} from "@/lib/api/hooks";
 import { useApp } from "@/lib/app-context";
+import { cn } from "@/lib/utils";
+
+const ROLE_INFO: Record<StaffRoleKey, { label: string; title: string; hint: string }> = {
+  secretary: { label: "سكرتارية", title: "سكرتير/ة", hint: "القبول والتسجيل والطلاب والرسوم." },
+  vice_principal: {
+    label: "نائب المدير",
+    title: "نائب المدير",
+    hint: "صلاحيات المدير على كامل المدرسة ما عدا الأمور المالية (تُفعَّل من الإعدادات)، مع تقارير القيادة.",
+  },
+  supervisor: {
+    label: "مشرف",
+    title: "مشرف",
+    hint: "اطّلاع فقط على الأمور الأكاديمية للصفوف والشعب التي تحددها أدناه — لا تعديل.",
+  },
+  nurse: {
+    label: "ممرض",
+    title: "ممرض/ة",
+    hint: "الملفات الصحية وزيارات العيادة ونماذج التمريض وتقاريرها فقط.",
+  },
+};
+
+const ROLE_TONE: Record<StaffRoleKey, "info" | "primary" | "warning" | "danger"> = {
+  secretary: "info",
+  vice_principal: "primary",
+  supervisor: "warning",
+  nurse: "danger",
+};
 
 export const Route = createFileRoute("/app/secretaries/")({
   head: () => ({
     meta: [
-      { title: "السكرتارية — Match Education" },
-      { name: "description", content: "ملفات السكرتارية وحساباتهم." },
+      { title: "الطاقم الإداري — Match Education" },
+      {
+        name: "description",
+        content: "ملفات السكرتارية ونائب المدير والمشرفين والتمريض وحساباتهم.",
+      },
     ],
   }),
   component: SecretariesPage,
@@ -36,21 +72,28 @@ function SecretariesPage() {
   const { data, isLoading, error, refetch } = useStaffList();
   const [editing, setEditing] = useState<StaffMember | "new" | null>(null);
   const [issuing, setIssuing] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<StaffRoleKey | "">("");
 
   if (role !== "admin")
     return (
-      <EmptyBlock title="غير متاح" description="ملفات السكرتارية يطّلع عليها مدير المدرسة فقط." />
+      <EmptyBlock
+        title="غير متاح"
+        description="ملفات الطاقم الإداري يطّلع عليها مدير المدرسة فقط."
+      />
     );
 
-  const staff = (data?.staff ?? []).filter(
-    (s) => !q.trim() || s.fullName.includes(q.trim()) || s.phone.includes(q.trim()),
+  const all = data?.staff ?? [];
+  const staff = all.filter(
+    (s) =>
+      (!roleFilter || (s.role || "secretary") === roleFilter) &&
+      (!q.trim() || s.fullName.includes(q.trim()) || s.phone.includes(q.trim())),
   );
 
   return (
     <>
       <PageHeader
-        title="السكرتارية"
-        subtitle={`${data?.staff.length ?? 0} من طاقم المكتب — ملفاتهم وحسابات دخولهم`}
+        title="الطاقم الإداري"
+        subtitle={`${all.length} — السكرتارية ونائب المدير والمشرفون والتمريض: ملفاتهم وأدوارهم وحسابات دخولهم`}
         actions={
           <>
             <button
@@ -65,11 +108,31 @@ function SecretariesPage() {
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-gradient px-4 text-sm font-bold text-primary-foreground shadow-soft"
             >
               <Plus className="size-4" />
-              إضافة سكرتير/ة
+              إضافة موظف
             </button>
           </>
         }
       />
+
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {(["", "secretary", "vice_principal", "supervisor", "nurse"] as const).map((k) => (
+          <button
+            key={k || "all"}
+            onClick={() => setRoleFilter(k)}
+            className={cn(
+              "rounded-lg border px-2.5 py-1 text-xs font-medium",
+              roleFilter === k
+                ? "border-primary bg-primary-soft/50 text-primary"
+                : "border-border hover:bg-secondary",
+            )}
+          >
+            {k ? ROLE_INFO[k].label : "الكل"}{" "}
+            <span className="num text-muted-foreground">
+              ({k ? all.filter((s) => (s.role || "secretary") === k).length : all.length})
+            </span>
+          </button>
+        ))}
+      </div>
 
       <div className="relative mb-5 max-w-md">
         <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -87,8 +150,8 @@ function SecretariesPage() {
         <TableSkeleton rows={4} />
       ) : staff.length === 0 ? (
         <EmptyBlock
-          title="لا يوجد سكرتارية"
-          description="أضف أول ملف من زر «إضافة سكرتير/ة»."
+          title="لا يوجد موظفون"
+          description="أضف أول ملف من زر «إضافة موظف»، واختر دوره: سكرتارية، نائب مدير، مشرف أو ممرض."
           icon={<UserCog className="size-6" />}
         />
       ) : (
@@ -105,12 +168,25 @@ function SecretariesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{s.fullName}</p>
                   <p className="truncate text-xs text-muted-foreground">{s.jobTitle || "—"}</p>
+                  <div className="mt-1">
+                    <Pill tone={ROLE_TONE[s.role || "secretary"]}>
+                      {s.roleLabel || ROLE_INFO[s.role || "secretary"].label}
+                    </Pill>
+                  </div>
                 </div>
                 <Pill tone={s.status === "Active" ? "success" : "muted"}>
                   {s.status === "Active" ? "نشِط" : "غير نشِط"}
                 </Pill>
               </div>
               <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                {s.role === "supervisor" && (
+                  <p className="truncate">
+                    يشرف على:{" "}
+                    {[...s.supervisedPrograms, ...s.supervisedGroups.map((g) => g.label)].join(
+                      "، ",
+                    ) || "لم يُحدَّد بعد"}
+                  </p>
+                )}
                 {s.phone && (
                   <p className="num flex items-center gap-1.5">
                     <Phone className="size-3.5" />
@@ -143,7 +219,8 @@ function SecretariesPage() {
   );
 }
 
-/** Add or edit a secretary's file; a new one can get its login straight away. */
+/** Add or edit a staff file — its role, and a supervisor's grades and
+    sections; a new one can get its login straight away. */
 export function StaffDialog({
   staff,
   onClose,
@@ -152,6 +229,10 @@ export function StaffDialog({
   onClose: () => void;
 }) {
   const save = useSaveStaff();
+  const options = useStaffOptions();
+  const [staffRole, setStaffRole] = useState<StaffRoleKey>(staff?.role ?? "secretary");
+  const [programs, setPrograms] = useState<string[]>(staff?.supervisedPrograms ?? []);
+  const [groups, setGroups] = useState<string[]>((staff?.supervisedGroups ?? []).map((g) => g.id));
   const [form, setForm] = useState({
     fullName: staff?.fullName ?? "",
     jobTitle: staff?.jobTitle ?? "سكرتير/ة",
@@ -172,9 +253,17 @@ export function StaffDialog({
 
   async function submit() {
     try {
+      if (staffRole === "supervisor" && !programs.length && !groups.length) {
+        toast.error("حدّد الصفوف أو الشعب التي يشرف عليها المشرف");
+        return;
+      }
       const res = await save.mutateAsync({
         ...(staff ? { id: staff.id } : {}),
         ...form,
+        role: staffRole,
+        ...(staffRole === "supervisor"
+          ? { supervisedPrograms: programs, supervisedGroups: groups }
+          : {}),
         ...(staff ? {} : { createAccount: createAccount ? 1 : 0 }),
       });
       toast.success(res.message_ar || "تم الحفظ");
@@ -202,8 +291,10 @@ export function StaffDialog({
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>{staff ? "تعديل ملف" : "سكرتير/ة جديد"}</DialogTitle>
-          <DialogDescription>بيانات الملف الشخصي — تظهر لمدير المدرسة فقط.</DialogDescription>
+          <DialogTitle>{staff ? "تعديل ملف" : "موظف جديد"}</DialogTitle>
+          <DialogDescription>
+            الدور يحدد صلاحياته في النظام — الملف يظهر لمدير المدرسة فقط.
+          </DialogDescription>
         </DialogHeader>
 
         {issued ? (
@@ -224,6 +315,96 @@ export function StaffDialog({
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>الدور في النظام</Label>
+              <div className="grid gap-1.5 sm:grid-cols-4">
+                {(Object.keys(ROLE_INFO) as StaffRoleKey[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      setStaffRole(k);
+                      if (
+                        !staff &&
+                        Object.values(ROLE_INFO).some((r) => r.title === form.jobTitle)
+                      ) {
+                        set("jobTitle", ROLE_INFO[k].title);
+                      }
+                    }}
+                    className={cn(
+                      "rounded-xl border p-2 text-sm font-bold transition-colors",
+                      staffRole === k
+                        ? "border-primary bg-primary-soft/50 text-primary"
+                        : "border-border hover:border-primary/40",
+                    )}
+                  >
+                    {ROLE_INFO[k].label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">{ROLE_INFO[staffRole].hint}</p>
+            </div>
+            {staffRole === "supervisor" && (
+              <div className="space-y-2 rounded-xl border border-warning/40 bg-warning/5 p-3 sm:col-span-2">
+                <p className="text-xs font-bold">يشرف على</p>
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">صفوف كاملة (كل شعبها)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(options.data?.programs ?? []).map((p) => {
+                      const on = programs.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() =>
+                            setPrograms((prev) =>
+                              on ? prev.filter((x) => x !== p.id) : [...prev, p.id],
+                            )
+                          }
+                          className={cn(
+                            "rounded-lg border px-2 py-1 text-[11px]",
+                            on
+                              ? "border-primary bg-primary-soft/50 font-bold text-primary"
+                              : "border-border",
+                          )}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-1 text-[11px] text-muted-foreground">أو شعب بعينها</p>
+                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+                    {(options.data?.groups ?? [])
+                      .filter((g) => !programs.includes(g.program))
+                      .map((g) => {
+                        const on = groups.includes(g.id);
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() =>
+                              setGroups((prev) =>
+                                on ? prev.filter((x) => x !== g.id) : [...prev, g.id],
+                              )
+                            }
+                            className={cn(
+                              "rounded-lg border px-2 py-1 text-[11px]",
+                              on
+                                ? "border-primary bg-primary-soft/50 font-bold text-primary"
+                                : "border-border",
+                            )}
+                          >
+                            {g.label}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+            )}
             {field("fullName", "الاسم الكامل")}
             {field("jobTitle", "المسمى الوظيفي")}
             <div className="space-y-1.5">

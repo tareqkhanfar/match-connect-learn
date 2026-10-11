@@ -41,7 +41,9 @@ import { Route as AppFinalsRouteImport } from './routes/app.finals'
 import { Route as AppFormsReportsRouteImport } from './routes/app.forms-reports'
 import { Route as AppGradebookRouteImport } from './routes/app.gradebook'
 import { Route as AppHealthRouteImport } from './routes/app.health'
+import { Route as AppHealthReportsRouteImport } from './routes/app.health-reports'
 import { Route as AppHelpRouteImport } from './routes/app.help'
+import { Route as AppLeadershipReportsRouteImport } from './routes/app.leadership-reports'
 import { Route as AppLibraryRouteImport } from './routes/app.library'
 import { Route as AppMailRouteImport } from './routes/app.mail'
 import { Route as AppPeriodicEvaluationsRouteImport } from './routes/app.periodic-evaluations'
@@ -243,9 +245,19 @@ const AppHealthRoute = AppHealthRouteImport.update({
   path: '/health',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHealthReportsRoute = AppHealthReportsRouteImport.update({
+  id: '/health-reports',
+  path: '/health-reports',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHelpRoute = AppHelpRouteImport.update({
   id: '/help',
   path: '/help',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeadershipReportsRoute = AppLeadershipReportsRouteImport.update({
+  id: '/leadership-reports',
+  path: '/leadership-reports',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLibraryRoute = AppLibraryRouteImport.update({
@@ -482,7 +494,9 @@ export interface FileRoutesByFullPath {
   '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
+  '/app/health-reports': typeof AppHealthReportsRoute
   '/app/help': typeof AppHelpRoute
+  '/app/leadership-reports': typeof AppLeadershipReportsRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
   '/app/periodic-evaluations': typeof AppPeriodicEvaluationsRoute
@@ -556,7 +570,9 @@ export interface FileRoutesByTo {
   '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
+  '/app/health-reports': typeof AppHealthReportsRoute
   '/app/help': typeof AppHelpRoute
+  '/app/leadership-reports': typeof AppLeadershipReportsRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
   '/app/periodic-evaluations': typeof AppPeriodicEvaluationsRoute
@@ -632,7 +648,9 @@ export interface FileRoutesById {
   '/app/forms-reports': typeof AppFormsReportsRoute
   '/app/gradebook': typeof AppGradebookRoute
   '/app/health': typeof AppHealthRoute
+  '/app/health-reports': typeof AppHealthReportsRoute
   '/app/help': typeof AppHelpRoute
+  '/app/leadership-reports': typeof AppLeadershipReportsRoute
   '/app/library': typeof AppLibraryRoute
   '/app/mail': typeof AppMailRoute
   '/app/periodic-evaluations': typeof AppPeriodicEvaluationsRoute
@@ -709,7 +727,9 @@ export interface FileRouteTypes {
     | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
+    | '/app/health-reports'
     | '/app/help'
+    | '/app/leadership-reports'
     | '/app/library'
     | '/app/mail'
     | '/app/periodic-evaluations'
@@ -783,7 +803,9 @@ export interface FileRouteTypes {
     | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
+    | '/app/health-reports'
     | '/app/help'
+    | '/app/leadership-reports'
     | '/app/library'
     | '/app/mail'
     | '/app/periodic-evaluations'
@@ -858,7 +880,9 @@ export interface FileRouteTypes {
     | '/app/forms-reports'
     | '/app/gradebook'
     | '/app/health'
+    | '/app/health-reports'
     | '/app/help'
+    | '/app/leadership-reports'
     | '/app/library'
     | '/app/mail'
     | '/app/periodic-evaluations'
@@ -1134,11 +1158,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHealthRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/health-reports': {
+      id: '/app/health-reports'
+      path: '/health-reports'
+      fullPath: '/app/health-reports'
+      preLoaderRoute: typeof AppHealthReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/help': {
       id: '/app/help'
       path: '/help'
       fullPath: '/app/help'
       preLoaderRoute: typeof AppHelpRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/leadership-reports': {
+      id: '/app/leadership-reports'
+      path: '/leadership-reports'
+      fullPath: '/app/leadership-reports'
+      preLoaderRoute: typeof AppLeadershipReportsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/library': {
@@ -1453,7 +1491,9 @@ interface AppRouteChildren {
   AppFormsReportsRoute: typeof AppFormsReportsRoute
   AppGradebookRoute: typeof AppGradebookRoute
   AppHealthRoute: typeof AppHealthRoute
+  AppHealthReportsRoute: typeof AppHealthReportsRoute
   AppHelpRoute: typeof AppHelpRoute
+  AppLeadershipReportsRoute: typeof AppLeadershipReportsRoute
   AppLibraryRoute: typeof AppLibraryRoute
   AppMailRoute: typeof AppMailRoute
   AppPeriodicEvaluationsRoute: typeof AppPeriodicEvaluationsRoute
@@ -1526,7 +1566,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppFormsReportsRoute: AppFormsReportsRoute,
   AppGradebookRoute: AppGradebookRoute,
   AppHealthRoute: AppHealthRoute,
+  AppHealthReportsRoute: AppHealthReportsRoute,
   AppHelpRoute: AppHelpRoute,
+  AppLeadershipReportsRoute: AppLeadershipReportsRoute,
   AppLibraryRoute: AppLibraryRoute,
   AppMailRoute: AppMailRoute,
   AppPeriodicEvaluationsRoute: AppPeriodicEvaluationsRoute,

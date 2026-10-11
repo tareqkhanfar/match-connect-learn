@@ -54,7 +54,14 @@ import {
   type WsItemKind,
 } from "@/lib/api/workspaces";
 import { groupFor, labelFor, navItems } from "@/lib/nav";
-import { roleLabels, type Role } from "@/lib/roles";
+import {
+  allowsPath,
+  roleLabels,
+  schoolRoleLabels,
+  type Role,
+  type SchoolRole,
+  type StaffRole,
+} from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { wsColor, wsIcon } from "@/lib/workspace-icons";
 
@@ -76,6 +83,7 @@ const EMPTY: WorkspacePayload = {
   isActive: 1,
   sortOrder: 0,
   personas: [],
+  defaultRoles: [],
   layout: { blocks: [] },
 };
 
@@ -92,7 +100,35 @@ const KIND_LABEL: Record<WsItemKind, string> = {
   url: "رابط خارجي",
 };
 
-const ALL_ROLES: Role[] = ["admin", "secretary", "teacher", "student", "parent"];
+const SCHOOL_ROLES: SchoolRole[] = [
+  "admin",
+  "vice_principal",
+  "secretary",
+  "supervisor",
+  "nurse",
+  "teacher",
+  "student",
+  "parent",
+];
+const STAFF_BASE: Record<StaffRole, Role> = {
+  vice_principal: "admin",
+  supervisor: "teacher",
+  nurse: "secretary",
+};
+
+/** A role as the screens see it: the persona, and what its staff role narrows. */
+function viewOf(r: SchoolRole): { role: Role; allows: (path: string) => boolean } {
+  const staff = r in STAFF_BASE ? (r as StaffRole) : null;
+  const access = {
+    staffRole: staff,
+    hidesFinance: staff !== null,
+    readOnly: staff === "supervisor",
+  };
+  return {
+    role: staff ? STAFF_BASE[staff] : (r as Role),
+    allows: (path: string) => allowsPath(access, path),
+  };
+}
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -131,6 +167,7 @@ function WorkspaceBuilder() {
               isActive: detail.data.isActive,
               sortOrder: detail.data.sortOrder,
               personas: detail.data.personas,
+              defaultRoles: detail.data.defaultRoles ?? [],
               layout: detail.data.layout,
             }
           : EMPTY
@@ -159,7 +196,7 @@ function Builder({
   const [dirty, setDirty] = useState(!id);
   const [tab, setTab] = useState<"design" | "users" | "preview">("design");
   const [itemDialog, setItemDialog] = useState<{ block: string; item?: WsItem } | null>(null);
-  const [previewRole, setPreviewRole] = useState<Role>("admin");
+  const [previewRole, setPreviewRole] = useState<SchoolRole>("admin");
 
   const pageLabels = useMemo(
     () =>
@@ -446,6 +483,8 @@ function Builder({
         <UsersPanel
           personas={draft.personas}
           onPersonas={(personas) => change({ personas })}
+          defaultRoles={draft.defaultRoles}
+          onDefaultRoles={(defaultRoles) => change({ defaultRoles })}
           assigned={assigned}
           onAssigned={(next) => {
             setAssigned(next);
@@ -458,7 +497,7 @@ function Builder({
         <div className="mt-5 space-y-3">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted-foreground">كما يراها:</span>
-            {ALL_ROLES.map((r) => (
+            {SCHOOL_ROLES.map((r) => (
               <button
                 key={r}
                 onClick={() => setPreviewRole(r)}
@@ -469,7 +508,7 @@ function Builder({
                     : "border-border",
                 )}
               >
-                {roleLabels[r]}
+                {schoolRoleLabels[r]}
               </button>
             ))}
           </div>
@@ -483,7 +522,8 @@ function Builder({
               color={draft.color}
               description={draft.description}
               layout={draft.layout}
-              role={previewRole}
+              role={viewOf(previewRole).role}
+              allows={viewOf(previewRole).allows}
               pageLabels={pageLabels}
               preview
             />
@@ -904,11 +944,15 @@ function ItemDialog({
 function UsersPanel({
   personas,
   onPersonas,
+  defaultRoles,
+  onDefaultRoles,
   assigned,
   onAssigned,
 }: {
-  personas: Role[];
-  onPersonas: (p: Role[]) => void;
+  personas: SchoolRole[];
+  onPersonas: (p: SchoolRole[]) => void;
+  defaultRoles: SchoolRole[];
+  onDefaultRoles: (p: SchoolRole[]) => void;
   assigned: AssignedUser[];
   onAssigned: (next: AssignedUser[]) => void;
 }) {
@@ -968,19 +1012,45 @@ function UsersPanel({
       </SectionCard>
 
       <div className="space-y-4">
-        <SectionCard title="لأدوار كاملة" description="متاحة لكل من له هذا الدور — الحالي والقادم">
-          <div className="space-y-2">
-            {ALL_ROLES.map((r) => (
-              <label key={r} className="flex items-center gap-2 text-xs">
-                <Switch
-                  checked={personas.includes(r)}
-                  onCheckedChange={(v) =>
-                    onPersonas(v ? [...personas, r] : personas.filter((p) => p !== r))
-                  }
-                />
-                كل {roleLabels[r]}
-              </label>
-            ))}
+        <SectionCard
+          title="لأدوار كاملة"
+          description="متاحة لكل من له الدور — الحالي والقادم؛ و«تبدأ بها» تجعلها شاشة دخولهم"
+        >
+          <div className="space-y-1.5">
+            {SCHOOL_ROLES.map((r) => {
+              const on = personas.includes(r);
+              const isDefault = defaultRoles.includes(r);
+              return (
+                <div key={r} className="flex items-center gap-2 text-xs">
+                  <Switch
+                    checked={on}
+                    onCheckedChange={(v) => {
+                      onPersonas(v ? [...personas, r] : personas.filter((p) => p !== r));
+                      if (!v && isDefault) onDefaultRoles(defaultRoles.filter((p) => p !== r));
+                    }}
+                  />
+                  <span className="min-w-0 flex-1">كل {schoolRoleLabels[r]}</span>
+                  <button
+                    type="button"
+                    disabled={!on}
+                    onClick={() =>
+                      onDefaultRoles(
+                        isDefault ? defaultRoles.filter((p) => p !== r) : [...defaultRoles, r],
+                      )
+                    }
+                    className={cn(
+                      "rounded-md border px-1.5 py-0.5 text-[10px] disabled:opacity-30",
+                      isDefault
+                        ? "border-primary bg-primary-soft/50 font-bold text-primary"
+                        : "border-border text-muted-foreground",
+                    )}
+                    title="يبدأ بها كل من له هذا الدور ولم تُحدَّد له مساحة بالاسم"
+                  >
+                    {isDefault ? "✓ تبدأ بها" : "تبدأ بها"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </SectionCard>
 

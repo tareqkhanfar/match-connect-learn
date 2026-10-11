@@ -32,11 +32,13 @@ import {
   useSaveAssignment,
   useWorkspaceAssignments,
   useWorkspaceFromCategory,
+  useWorkspaceFromTemplate,
   useWorkspaceList,
+  useWorkspaceTemplates,
   type UserAssignment,
   type WorkspaceRow,
 } from "@/lib/api/workspaces";
-import { roleLabels } from "@/lib/roles";
+import { roleLabels, schoolRoleLabels } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { wsColor, wsIcon } from "@/lib/workspace-icons";
 
@@ -155,8 +157,77 @@ function WorkspacesTab() {
           ))}
         </div>
       )}
+      <TemplatesGallery />
       <FromCategoryDialog open={fromFile} onClose={() => setFromFile(false)} />
     </div>
+  );
+}
+
+/** Ready-made workspaces per role — each makes an ordinary workspace to edit. */
+function TemplatesGallery() {
+  const templates = useWorkspaceTemplates();
+  const create = useWorkspaceFromTemplate();
+  const navigate = useNavigate();
+  const rows = templates.data?.templates ?? [];
+  if (!rows.length) return null;
+
+  return (
+    <section className="pt-2">
+      <h2 className="mb-1 text-sm font-bold">قوالب جاهزة</h2>
+      <p className="mb-3 text-xs text-muted-foreground">
+        مساحة عمل جاهزة لكل دور، تبدأ منها ثم تعدّلها كما تشاء. يبقى القالب هنا لتبدأ منه من جديد في
+        أي وقت.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((t) => {
+          const Icon = wsIcon(t.icon);
+          return (
+            <div
+              key={t.key}
+              className="flex flex-col gap-3 rounded-2xl border border-dashed border-border bg-card p-4"
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={cn(
+                    "grid size-10 shrink-0 place-items-center rounded-xl",
+                    wsColor(t.color).tile,
+                  )}
+                >
+                  <Icon className="size-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">{t.title}</p>
+                  <p className="line-clamp-2 text-[11px] text-muted-foreground">{t.description}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <Pill tone="muted">{t.buttons} زر</Pill>
+                {t.rolesLabel && <Pill tone="primary">لـ {t.rolesLabel}</Pill>}
+                {t.exists && <Pill tone="success">مستخدَم</Pill>}
+              </div>
+              <button
+                onClick={() =>
+                  create.mutate(t.key, {
+                    onSuccess: (res) => {
+                      toast.success("أُنشئت مساحة العمل من القالب — عدّلها كما تشاء");
+                      void navigate({
+                        to: "/app/workspaces/$workspaceId",
+                        params: { workspaceId: res.id },
+                      });
+                    },
+                    onError: (e) => toast.error(errorMessage(e, "تعذّر الإنشاء")),
+                  })
+                }
+                disabled={create.isPending}
+                className="mt-auto rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:border-primary/40 hover:text-primary disabled:opacity-50"
+              >
+                {t.exists ? "إنشاء نسخة جديدة منه" : "إنشاء من القالب"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -193,9 +264,14 @@ function WorkspaceCard({ w }: { w: WorkspaceRow }) {
         <Pill tone={w.users ? "info" : "muted"}>{w.users ?? 0} مستخدم</Pill>
         {w.personas.map((p) => (
           <Pill key={p} tone="primary">
-            كل {roleLabels[p]}
+            كل {schoolRoleLabels[p]}
           </Pill>
         ))}
+        {w.defaultRoles.length > 0 && (
+          <Pill tone="success">
+            تبدأ بها: {w.defaultRoles.map((r) => schoolRoleLabels[r]).join("، ")}
+          </Pill>
+        )}
         {!w.isActive && <Pill tone="warning">موقوفة</Pill>}
       </div>
     </Link>
@@ -364,7 +440,9 @@ function PagesTab() {
                     <td className="px-3 py-2 text-xs">{p.templateTitle || "—"}</td>
                     <td className="px-3 py-2 text-xs">{p.categoryLabel || "—"}</td>
                     <td className="px-3 py-2 text-xs">
-                      {p.personas.map((r) => roleLabels[r]).join("، ")}
+                      {p.personas
+                        .map((r) => schoolRoleLabels[r] ?? roleLabels[r as keyof typeof roleLabels])
+                        .join("، ")}
                     </td>
                     <td className="num px-3 py-2 text-xs">{p.entries}</td>
                     <td className="px-3 py-2">
@@ -474,7 +552,11 @@ function UsersTab() {
                     </div>
                   </td>
                   <td className="px-3 py-2 text-xs">
-                    {u.default ? (titles[u.default] ?? u.default) : "القائمة الأساسية"}
+                    {u.default
+                      ? (titles[u.default] ?? u.default)
+                      : u.roleDefault
+                        ? `${titles[u.roleDefault] ?? u.roleDefault} (بالدور)`
+                        : "القائمة الأساسية"}
                     {u.hideSystem ? (
                       <span className="block text-[10px] text-muted-foreground">
                         القائمة الأساسية مخفية

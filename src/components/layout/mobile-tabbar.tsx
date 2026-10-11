@@ -20,9 +20,9 @@ const PREFERRED: Record<string, string[]> = {
 };
 
 export function MobileTabBar({ onOpenMore }: { onOpenMore: () => void }) {
-  const { role } = useApp();
+  const { role, allows } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const items = navForRole(role);
+  const items = navForRole(role, allows);
 
   const wanted = PREFERRED[role] ?? ["/app"];
   const picked: NavItem[] = [];

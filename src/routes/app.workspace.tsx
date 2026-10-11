@@ -57,7 +57,7 @@ const TONE: Record<string, string> = {
  * appears in the other without anyone remembering to add it twice.
  */
 function WorkspacePage() {
-  const { role, session } = useApp();
+  const { role, session, allows } = useApp();
   const [query, setQuery] = useState("");
   const [pins, setPins] = useState<string[]>(() => readPins());
   const shortcuts = useWorkspaceShortcuts();
@@ -72,8 +72,11 @@ function WorkspacePage() {
   const hiddenCards = useMemo(() => new Set(layout.hiddenCards ?? []), [layout.hiddenCards]);
 
   const items = useMemo(
-    () => navForRole(role).filter((i) => !hiddenItems.has(i.to) && !hiddenGroups.has(groupFor(i, role))),
-    [role, hiddenItems, hiddenGroups],
+    () =>
+      navForRole(role, allows).filter(
+        (i) => !hiddenItems.has(i.to) && !hiddenGroups.has(groupFor(i, role)),
+      ),
+    [role, allows, hiddenItems, hiddenGroups],
   );
   const groups = useMemo(() => {
     const visible = groupsForRole(role).filter((g) => !hiddenGroups.has(g));
@@ -84,8 +87,10 @@ function WorkspacePage() {
     return [...visible].sort((a, b) => {
       const ai = order.indexOf(a);
       const bi = order.indexOf(b);
-      return (ai === -1 ? order.length + visible.indexOf(a) : ai) -
-        (bi === -1 ? order.length + visible.indexOf(b) : bi);
+      return (
+        (ai === -1 ? order.length + visible.indexOf(a) : ai) -
+        (bi === -1 ? order.length + visible.indexOf(b) : bi)
+      );
     });
   }, [role, hiddenGroups, layout.groupOrder]);
 

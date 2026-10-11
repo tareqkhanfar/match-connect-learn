@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useApp } from "@/lib/app-context";
-import { roleLabels } from "@/lib/roles";
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -17,7 +16,7 @@ function initials(name: string) {
 }
 
 export function UserMenu() {
-  const { session, role, theme, toggleTheme, signOut } = useApp();
+  const { session, role, theme, toggleTheme, signOut, roleLabel } = useApp();
   const navigate = useNavigate();
   const displayName = session?.name || session?.email || "مستخدم";
 
@@ -37,7 +36,7 @@ export function UserMenu() {
           )}
           <div className="hidden min-w-0 text-right sm:block">
             <p className="truncate text-sm font-semibold leading-tight">{displayName}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{roleLabels[role]}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{roleLabel}</p>
           </div>
           <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
         </button>

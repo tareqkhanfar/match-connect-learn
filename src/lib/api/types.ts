@@ -1,6 +1,9 @@
 /** Types mirroring the Match Schools backend payloads. */
 
 export type Role = "admin" | "secretary" | "teacher" | "student" | "parent";
+
+/** Staff roles that ride on a persona (see match_schools utils.role_policy). */
+export type StaffRole = "vice_principal" | "supervisor" | "nurse";
 // "draft" is an invoice that has not been posted yet: visible to the office
 // as work in progress, never counted as money owed.
 export type PaymentStatus = "paid" | "partial" | "late" | "draft";
@@ -23,6 +26,14 @@ export interface Session {
   user: string;
   email: string;
   role: Role;
+  /** A staff role riding on `role`: the screens follow `role` and narrow by this. */
+  staffRole?: StaffRole | null;
+  /** «نائب المدير», «مشرف»… — the role as the person is called. */
+  roleLabel?: string;
+  /** A supervisor: everything is for reading. */
+  readOnly?: boolean;
+  /** Money stays out of this person's screens. */
+  hidesFinance?: boolean;
   name: string;
   image: string | null;
   language: string;

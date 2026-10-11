@@ -5,7 +5,6 @@ import { resolveItem } from "@/components/workspaces/workspace-view";
 import { useActiveWorkspace, workspaceHome } from "@/lib/active-workspace";
 import { groupFor, groupsForRole, labelFor, navForRole } from "@/lib/nav";
 import { useApp } from "@/lib/app-context";
-import { roleLabels } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { wsIcon } from "@/lib/workspace-icons";
 
@@ -44,7 +43,7 @@ function readOpen(): string[] | null {
 }
 
 export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: Props) {
-  const { role, session, signOut } = useApp();
+  const { role, session, signOut, allows, roleLabel } = useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const workspace = useActiveWorkspace().active;
 
@@ -69,7 +68,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
         .map((b) => ({
           title: b.title || workspace.title,
           items: (b.items ?? [])
-            .map((i) => resolveItem(i, role))
+            .map((i) => resolveItem(i, role, undefined, allows))
             .filter((i) => i !== null)
             .map((i) => ({
               key: i.id,
@@ -82,7 +81,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
         .filter((g) => g.items.length);
       return [home, ...blocks];
     }
-    const items = navForRole(role);
+    const items = navForRole(role, allows);
     return groupsForRole(role)
       .map((group) => ({
         title: group,
@@ -97,7 +96,7 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
           })),
       }))
       .filter((g) => g.items.length);
-  }, [workspace, role]);
+  }, [workspace, role, allows]);
 
   const isActive = (to: string) =>
     to === "/app" ? pathname === "/app" : pathname === to || pathname.startsWith(`${to}/`);
@@ -291,9 +290,9 @@ export function AppSidebar({ collapsed, onToggle, mobileOpen, onCloseMobile }: P
         {!collapsed && (
           <div className="rounded-xl bg-sidebar-accent/60 px-3 py-2.5">
             <p className="text-xs text-sidebar-foreground/60">مسجَّل الدخول كـ</p>
-            <p className="truncate text-sm font-semibold">{session?.name || roleLabels[role]}</p>
+            <p className="truncate text-sm font-semibold">{session?.name || roleLabel}</p>
             {session?.name && (
-              <p className="truncate text-[11px] text-sidebar-foreground/60">{roleLabels[role]}</p>
+              <p className="truncate text-[11px] text-sidebar-foreground/60">{roleLabel}</p>
             )}
           </div>
         )}

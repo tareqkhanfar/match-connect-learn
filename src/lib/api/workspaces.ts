@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet, apiPost } from "@/lib/api/client";
 import type { FormEntryFor, FormTemplate } from "@/lib/api/hooks";
-import type { Role } from "@/lib/roles";
+import type { Role, SchoolRole } from "@/lib/roles";
 
 // --- مساحات العمل ----------------------------------------------------------------
 
@@ -62,7 +62,10 @@ export interface WorkspaceRow {
   description: string;
   isActive: number;
   sortOrder: number;
-  personas: Role[];
+  /** Roles whose every member has this workspace. */
+  personas: SchoolRole[];
+  /** Roles that land on it when nobody chose for them by name. */
+  defaultRoles: SchoolRole[];
   buttons: number;
   users?: number;
 }
@@ -83,17 +86,19 @@ export interface WorkspaceDetail extends WorkspaceRow {
 export interface WorkspaceCatalog {
   pages: CustomPageRow[];
   cards: Array<{ key: string; label: string; personas: Role[] }>;
-  personas: Array<{ key: Role; label: string }>;
+  personas: Array<{ key: SchoolRole; label: string }>;
 }
 
 export interface UserAssignment {
   user: string;
   name: string;
-  persona: Role;
+  persona: SchoolRole;
   personaLabel: string;
   workspaces: string[];
   /** Workspaces this person has through their role. */
   roleWorkspaces: string[];
+  /** The workspace their role lands on, when none was chosen by name. */
+  roleDefault: string;
   default: string;
   hideSystem: number;
 }
@@ -140,7 +145,8 @@ export interface WorkspacePayload {
   description: string;
   isActive: number;
   sortOrder: number;
-  personas: Role[];
+  personas: SchoolRole[];
+  defaultRoles: SchoolRole[];
   layout: WsLayout;
   assigned?: Array<{ user: string; isDefault: boolean }>;
 }
@@ -192,6 +198,34 @@ export function useWorkspaceFromCategory() {
       void qc.invalidateQueries({ queryKey: WS });
       void qc.invalidateQueries({ queryKey: PAGES });
     },
+  });
+}
+
+export interface WorkspaceTemplate {
+  key: string;
+  title: string;
+  icon: string;
+  color: string;
+  description: string;
+  roles: SchoolRole[];
+  rolesLabel: string;
+  buttons: number;
+  /** A workspace by this name already exists. */
+  exists: boolean;
+}
+
+export function useWorkspaceTemplates() {
+  return useQuery<{ templates: WorkspaceTemplate[] }>({
+    queryKey: [...WS, "templates"],
+    queryFn: () => apiGet("workspaces.templates"),
+  });
+}
+
+export function useWorkspaceFromTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (key: string) => apiPost<{ id: string }>("workspaces.from_template", { key }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: WS }),
   });
 }
 

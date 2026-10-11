@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useLogin, useLogout, useSession } from "./api/hooks";
 import type { Role, Session } from "./api/types";
+import { allowsPath, schoolRoleLabels, type Access } from "./roles";
 
 interface AppState {
   /** Persona resolved from the backend session (never chosen by the client). */
@@ -36,6 +37,13 @@ interface AppState {
   setActiveChild: (student: string | null) => void;
   /** The children this guardian may switch between. */
   children_: Array<{ id: string; name: string }>;
+
+  /** A staff role's narrowing of `role`: the vice principal, a supervisor, the nurse. */
+  access: Access;
+  /** Whether this person's role reaches the screen at `path`. */
+  allows: (path: string) => boolean;
+  /** The role as the person is called — «نائب المدير» rather than «مدير المدرسة». */
+  roleLabel: string;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -121,6 +129,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const session = sessionQuery.data ?? null;
+  const access = useMemo<Access>(
+    () => ({
+      staffRole: session?.staffRole ?? null,
+      hidesFinance: !!session?.hidesFinance,
+      readOnly: !!session?.readOnly,
+    }),
+    [session],
+  );
+  const allows = useCallback((path: string) => allowsPath(access, path), [access]);
 
   const value = useMemo<AppState>(
     () => ({
@@ -137,8 +154,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activeChild,
       setActiveChild,
       children_: kids,
+      access,
+      allows,
+      roleLabel:
+        session?.roleLabel ||
+        (session?.staffRole
+          ? schoolRoleLabels[session.staffRole]
+          : schoolRoleLabels[session?.role ?? "admin"]),
     }),
     [
+      access,
+      allows,
       session,
       signIn,
       signOut,

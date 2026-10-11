@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Ban, ClipboardList, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMyBlocks, usePendingSurveys } from "@/lib/api/hooks";
+import { useApp } from "@/lib/app-context";
 
 /**
  * Stops a blocked student from opening a page a rule has closed.
@@ -15,6 +16,7 @@ export function AccessGuard({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { data } = useMyBlocks();
   const pending = usePendingSurveys();
+  const { allows, roleLabel, access } = useApp();
 
   // Two kinds of block: named pages, and the whole portal. The second cannot
   // be a list of paths — it has to close routes added after the rule was
@@ -71,7 +73,46 @@ export function AccessGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!blocked) return <>{children}</>;
+  // A staff role reaching past its screens — by a link someone sent, or the
+  // address bar. The server refuses anyway; this says why.
+  if (!blocked && !allows(pathname)) {
+    return (
+      <div className="mx-auto max-w-xl py-12 text-center">
+        <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-secondary text-muted-foreground">
+          <ShieldAlert className="size-8" />
+        </span>
+        <h1 className="mt-4 text-lg font-black">هذه الشاشة خارج صلاحيات {roleLabel}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {access.staffRole === "nurse"
+            ? "صلاحيات التمريض: الملفات الصحية وزيارات العيادة ونماذج التمريض وتقاريرها."
+            : access.staffRole === "supervisor"
+              ? "صلاحيات المشرف: الأمور الأكاديمية للشعب والصفوف التي يشرف عليها، للاطلاع فقط."
+              : "الأمور المالية غير متاحة لدورك — يفعّلها المدير من إعدادات المدرسة."}
+        </p>
+        <button
+          onClick={() => void navigate({ to: "/app" })}
+          className="mt-5 h-10 rounded-xl border border-border px-5 text-sm font-semibold hover:bg-secondary"
+        >
+          العودة للرئيسية
+        </button>
+      </div>
+    );
+  }
+
+  if (!blocked) {
+    return (
+      <>
+        {access.readOnly && (
+          <p className="mb-4 flex items-center gap-2 rounded-xl border border-info/30 bg-info-soft px-3 py-2 text-xs font-medium text-info">
+            <ShieldAlert className="size-4 shrink-0" />
+            حساب {roleLabel} للاطلاع فقط: تعرض الشاشات الشعب التي تشرف عليها، ولا يُحفظ منها أي
+            تعديل.
+          </p>
+        )}
+        {children}
+      </>
+    );
+  }
 
   const reason = (data?.reasons ?? []).find((r) => (r.pages.length ? true : false));
 
