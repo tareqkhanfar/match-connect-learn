@@ -3145,6 +3145,11 @@ export interface ExamAvailability {
     date: string;
     label: string;
     holiday: string;
+    /** The agenda: a trip or activity that suspends this section's lessons. */
+    noLessons?: string;
+    /** The agenda: the exam period. */
+    examPeriod?: string;
+    events?: string[];
     cells: Array<{
       order: number;
       lesson: string;

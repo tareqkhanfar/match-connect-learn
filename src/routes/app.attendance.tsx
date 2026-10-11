@@ -305,6 +305,9 @@ function StaffAttendanceView() {
   const holidayReason = (holidayInfo?.holidays ?? []).find((h) => h.date === date)?.reason ?? null;
   const isFuture = date > (context?.today ?? date);
   const periodClosed = context ? !context.canWrite : false;
+  // A trip or activity on the agenda: said, not enforced — some schools still
+  // take the register on a trip.
+  const agendaNote = (sheetQuery.data as { agendaNote?: string } | undefined)?.agendaNote ?? "";
   const blockedReason = holidayReason
     ? `اليوم عطلة — ${holidayReason}. لا يمكن تسجيل الحضور.`
     : isFuture
@@ -399,6 +402,16 @@ function StaffAttendanceView() {
             <p className="font-semibold text-amber-800">تعذّر التسجيل في هذا التاريخ</p>
             <p className="text-amber-700/90">{blockedReason}</p>
           </div>
+        </div>
+      )}
+
+      {!blockedReason && agendaNote && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 p-3 text-sm">
+          <CalendarOff className="mt-0.5 size-4 shrink-0 text-sky-600" />
+          <p className="text-sky-800 dark:text-sky-200">
+            على الأجندة لهذه الشعبة اليوم: <b>{agendaNote}</b> — الحصص معلّقة، ويمكن تسجيل الحضور إن
+            لزم.
+          </p>
         </div>
       )}
 

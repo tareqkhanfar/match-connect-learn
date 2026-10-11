@@ -302,6 +302,23 @@ export function ExamDialog({
                         >
                           {d.date.slice(5).replace("-", "/")}
                         </div>
+                        {/* The agenda's word on the day, so a trip day is not
+                            booked by surprise and the exam period is visible. */}
+                        {d.noLessons ? (
+                          <div
+                            className="mt-0.5 truncate rounded bg-amber-500/15 px-1 text-[9px] font-medium text-amber-700 dark:text-amber-300"
+                            title={d.noLessons}
+                          >
+                            {d.noLessons}
+                          </div>
+                        ) : d.examPeriod ? (
+                          <div
+                            className="mt-0.5 truncate rounded bg-violet-500/15 px-1 text-[9px] font-medium text-violet-700 dark:text-violet-300"
+                            title={d.examPeriod}
+                          >
+                            {d.examPeriod}
+                          </div>
+                        ) : null}
                       </th>
                     ))}
                   </tr>
