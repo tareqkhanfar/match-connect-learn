@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { toast } from "sonner";
-import { BookOpen, Eye, EyeOff, Link2, NotebookPen, Save, Target, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  Copy,
+  Eye,
+  EyeOff,
+  Link2,
+  NotebookPen,
+  Save,
+  Target,
+  Trash2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -58,7 +70,10 @@ export function LessonPlanDialog({
     resources: "",
     notes: "",
   });
-  const [published, setPublished] = useState(true);
+  // Off until the teacher says it is ready: preparation in progress is not
+  // an announcement to families.
+  const [published, setPublished] = useState(false);
+  const [copying, setCopying] = useState(false);
   // Files picked before the plan's first save; uploaded once it has an id.
   const [pending, setPending] = useState<File[]>([]);
   const [tab, setTab] = useState<"plan" | "log">("plan");
@@ -79,19 +94,32 @@ export function LessonPlanDialog({
     setPublished(p.is_published);
   }, [data?.plan]);
 
-  async function submit() {
+  async function persist(): Promise<boolean> {
     try {
       const res = await save.mutateAsync({
         course_schedule: courseSchedule,
         ...form,
         is_published: published ? 1 : 0,
       });
-      if (pending.length && res.id) await uploadPending("MS Lesson Plan", res.id, pending);
+      if (pending.length && res.id) {
+        await uploadPending("MS Lesson Plan", res.id, pending);
+        setPending([]);
+      }
       toast.success(res.message_ar || "تم حفظ التحضير");
-      onClose();
+      return true;
     } catch (err) {
       toast.error(errorMessage(err, "تعذّر حفظ التحضير"));
+      return false;
     }
+  }
+
+  async function submit() {
+    if (await persist()) onClose();
+  }
+
+  /** Copying copies what is saved, so the form is saved first. */
+  async function startCopy() {
+    if (await persist()) setCopying(true);
   }
 
   async function drop() {
@@ -313,7 +341,20 @@ export function LessonPlanDialog({
           </div>
         )}
 
+        {copying && <CopyPlanPanel source={courseSchedule} onDone={() => setCopying(false)} />}
+
         <DialogFooter>
+          {canEdit && tab === "plan" && !copying && (
+            <button
+              onClick={() => void startCopy()}
+              disabled={save.isPending || !(form.title || form.objectives || form.content)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-border px-4 text-sm font-semibold transition-colors hover:bg-secondary disabled:opacity-50"
+              title="نفس التحضير لحصة المادة نفسها في شعبك الأخرى"
+            >
+              <Copy className="size-4" />
+              نسخ إلى شعب أخرى
+            </button>
+          )}
           {canEdit && data?.plan && (
             <button
               onClick={drop}
@@ -531,5 +572,115 @@ function InlineClassLog({
         </button>
       </DialogFooter>
     </>
+  );
+}
+
+interface CopyTarget {
+  course_schedule: string;
+  class_name: string;
+  date: string;
+  from: string;
+  to: string;
+  hasPlan: boolean;
+  sameDay: boolean;
+}
+
+/**
+ * The same preparation for the same subject in the teacher's other sections —
+ * a teacher of three sections writes it once. Offers that teacher's lessons
+ * of this subject within a week either side; one that has its own plan is
+ * kept unless replacing is asked for.
+ */
+function CopyPlanPanel({ source, onDone }: { source: string; onDone: () => void }) {
+  const qc = useQueryClient();
+  const targets = useQuery<{ lessons: CopyTarget[] }>({
+    queryKey: ["lesson-plan-copy-targets", source],
+    queryFn: () => apiGet("lesson_plans.copy_targets", { course_schedule: source }),
+  });
+  const [chosen, setChosen] = useState<string[] | null>(null);
+  const [overwrite, setOverwrite] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const lessons = targets.data?.lessons ?? [];
+  // Start with the lessons that have nothing yet, nearest first.
+  const picked = chosen ?? lessons.filter((l) => !l.hasPlan).map((l) => l.course_schedule);
+
+  async function copy() {
+    setBusy(true);
+    try {
+      const res = await apiPost<{ copied: number; skipped: number; message_ar?: string }>(
+        "lesson_plans.copy_lesson_plan",
+        { source, targets: picked, overwrite: overwrite ? 1 : 0 },
+      );
+      toast.success(res.message_ar || `نُسخ إلى ${res.copied} حصة`);
+      void qc.invalidateQueries({ queryKey: ["timetable"] });
+      void qc.invalidateQueries({ queryKey: ["lesson-plan"] });
+      onDone();
+    } catch (err) {
+      toast.error(errorMessage(err, "تعذّر النسخ"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-xl border border-primary/30 bg-primary-soft/20 p-3">
+      <p className="text-xs font-bold">نسخ هذا التحضير إلى حصص المادة نفسها في شعبك الأخرى</p>
+      {targets.isLoading ? (
+        <p className="text-xs text-muted-foreground">جارِ البحث عن الحصص…</p>
+      ) : lessons.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          لا توجد حصص لهذه المادة في شعب أخرى خلال أسبوع من هذا التاريخ.
+        </p>
+      ) : (
+        <div className="max-h-48 space-y-1 overflow-y-auto">
+          {lessons.map((l) => {
+            const on = picked.includes(l.course_schedule);
+            return (
+              <label
+                key={l.course_schedule}
+                className="flex cursor-pointer items-center gap-2 rounded-lg bg-card px-2 py-1.5 text-xs"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() =>
+                    setChosen(
+                      on
+                        ? picked.filter((x) => x !== l.course_schedule)
+                        : [...picked, l.course_schedule],
+                    )
+                  }
+                />
+                <span className="min-w-0 flex-1 truncate font-medium">{l.class_name}</span>
+                <span className="num text-muted-foreground" dir="ltr">
+                  {l.date} {l.from}
+                </span>
+                {l.hasPlan && <Pill tone="warning">لها تحضير</Pill>}
+              </label>
+            );
+          })}
+        </div>
+      )}
+      {lessons.some((l) => l.hasPlan) && (
+        <label className="flex items-center gap-2 text-[11px]">
+          <Switch checked={overwrite} onCheckedChange={setOverwrite} />
+          استبدال التحضير الموجود في الحصص المحددة
+        </label>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => void copy()}
+          disabled={busy || picked.length === 0}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground disabled:opacity-50"
+        >
+          <Copy className="size-3.5" />
+          نسخ إلى {picked.length} حصة
+        </button>
+        <button onClick={onDone} className="h-8 rounded-lg border border-border px-3 text-xs">
+          إلغاء
+        </button>
+        <span className="text-[10px] text-muted-foreground">المرفقات تبقى مع الحصة الأصلية.</span>
+      </div>
+    </div>
   );
 }

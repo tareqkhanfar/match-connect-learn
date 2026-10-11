@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { groupSearch } from "@/lib/preselect";
-import { CalendarDays, NotebookPen, Printer, Radio } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, NotebookPen, Printer, Radio } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader, Pill, SectionCard } from "@/components/shared/ui-kit";
 import { LessonPlanDialog, PlanMarker } from "@/components/shared/lesson-plan-dialog";
@@ -138,8 +138,11 @@ function TimetablePage() {
   }, [showsClassPicker, classesQuery.data, groupId]);
 
   const viewed = useViewedStudent();
-  const timetableQuery = useTimetable(
-    byTeacher
+  // Any week, not only this one: the server snaps the date to its Sunday.
+  const [weekDate, setWeekDate] = useState("");
+  const week = weekDate ? { week_start: weekDate } : {};
+  const timetableQuery = useTimetable({
+    ...(byTeacher
       ? instructorId
         ? { instructor: instructorId }
         : {}
@@ -151,8 +154,18 @@ function TimetablePage() {
           ? {}
           : viewed
             ? { student: viewed }
-            : {},
-  );
+            : {}),
+    ...week,
+  });
+
+  function shiftWeek(by: number) {
+    const base = timetableQuery.data?.week_start ?? weekDate;
+    const d = base ? new Date(`${base}T00:00:00`) : new Date();
+    d.setDate(d.getDate() + by * 7);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    setWeekDate(`${d.getFullYear()}-${m}-${day}`);
+  }
 
   // `?? []` builds a new array every render, so every memo downstream
   // recomputed on each one. Memoised so the identity is stable.
@@ -314,7 +327,49 @@ function TimetablePage() {
         }
       />
 
-      <SectionCard title="الجدول الأسبوعي" description="الأحد إلى الخميس">
+      <SectionCard
+        title="الجدول الأسبوعي"
+        description={
+          timetableQuery.data?.week_start
+            ? `الأحد ${timetableQuery.data.week_start} إلى الخميس`
+            : "الأحد إلى الخميس"
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-1.5 print:hidden">
+            <button
+              onClick={() => shiftWeek(-1)}
+              className="grid size-8 place-items-center rounded-lg border border-border hover:bg-secondary"
+              aria-label="الأسبوع السابق"
+              title="الأسبوع السابق"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+            <input
+              type="date"
+              value={weekDate || timetableQuery.data?.week_start || ""}
+              onChange={(e) => setWeekDate(e.target.value)}
+              className="h-8 rounded-lg border border-input bg-background px-2 text-xs"
+              title="اختر أي يوم لعرض أسبوعه"
+            />
+            <button
+              onClick={() => shiftWeek(1)}
+              className="grid size-8 place-items-center rounded-lg border border-border hover:bg-secondary"
+              aria-label="الأسبوع التالي"
+              title="الأسبوع التالي"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            {weekDate && (
+              <button
+                onClick={() => setWeekDate("")}
+                className="h-8 rounded-lg border border-border px-2 text-xs hover:bg-secondary"
+              >
+                هذا الأسبوع
+              </button>
+            )}
+          </div>
+        }
+      >
         {timetableQuery.error ? (
           <ErrorState error={timetableQuery.error} onRetry={() => timetableQuery.refetch()} />
         ) : timetableQuery.isLoading ? (
