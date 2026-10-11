@@ -381,6 +381,15 @@ export interface Timetable {
   /** The rows of the grid, from the server: the school day, whether or not a
    *  lesson falls in each period. */
   periods?: TimetablePeriod[];
+  /** Under the title: a section's class teacher and supervisors; a teacher's
+   *  weekly quota against the lessons they have. */
+  info?: {
+    homeroom?: string;
+    supervisors?: string[];
+    quota?: number;
+    weeklyLessons?: number;
+    thisWeek?: number;
+  };
 }
 
 export interface ExamRow {

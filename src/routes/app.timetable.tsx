@@ -180,16 +180,36 @@ function TimetablePage() {
   // Lessons by row, so a cell is found by its period and not by matching a
   // time string: two classes in a teacher's week may run the same period at
   // different hours.
+  // Filters by subject and section, over whatever week is shown.
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
+  const filterOptions = useMemo(() => {
+    const subjects = new Set<string>();
+    const sections = new Set<string>();
+    for (const slots of Object.values(days)) {
+      for (const s of slots) {
+        if (s.subject) subjects.add(s.subject);
+        const sec = s.class_name || s.student_group;
+        if (sec) sections.add(sec);
+      }
+    }
+    return { subjects: [...subjects].sort(), sections: [...sections].sort() };
+  }, [days]);
+  const subjectOn = filterOptions.subjects.includes(subjectFilter) ? subjectFilter : "";
+  const sectionOn = filterOptions.sections.includes(sectionFilter) ? sectionFilter : "";
+
   const byCell = useMemo(() => {
     const map = new Map<string, ScheduleSlot>();
     for (const [day, slots] of Object.entries(days)) {
       for (const s of slots) {
+        if (subjectOn && s.subject !== subjectOn) continue;
+        if (sectionOn && (s.class_name || s.student_group) !== sectionOn) continue;
         const row = s.period_order ?? periods.find((p) => p.from === shortTime(s.from_time))?.order;
         if (row != null) map.set(`${day}#${row}`, s);
       }
     }
     return map;
-  }, [days, periods]);
+  }, [days, periods, subjectOn, sectionOn]);
 
   // The grid is drawn whenever there is a class to draw it for: an empty week
   // is a timetable with nothing in it, which is an answer, where a blank
@@ -199,6 +219,7 @@ function TimetablePage() {
   const selectedClass = classesQuery.data?.find((c) => c.name === groupId);
   const selectedTeacher = (teachersQuery.data ?? []).find((t) => t.name === instructorId);
   const nowSlot = useNowSlot(timetableQuery.data?.week_start, days);
+  const info = timetableQuery.data?.info;
 
   return (
     <>
@@ -310,6 +331,94 @@ function TimetablePage() {
             {/* An empty week is still drawn as a week: the same seven rows,
                 every cell "—". Replacing the grid with a notice made a class
                 with nothing scheduled look like a failure to load. */}
+            {/* Who stands behind the section, or what the teacher is asked
+                to carry — under the title, as information. */}
+            {(info?.homeroom !== undefined || info?.quota !== undefined) && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                {info?.homeroom !== undefined && (
+                  <span className="rounded-lg border border-border bg-card px-2.5 py-1">
+                    مربي الصف: <b>{info.homeroom || "غير محدد"}</b>
+                  </span>
+                )}
+                {info?.supervisors !== undefined && (
+                  <span className="rounded-lg border border-border bg-card px-2.5 py-1">
+                    المشرف:{" "}
+                    <b>{info.supervisors.length ? info.supervisors.join("، ") : "غير محدد"}</b>
+                  </span>
+                )}
+                {info?.quota !== undefined && (
+                  <span
+                    className={`rounded-lg border px-2.5 py-1 ${
+                      info.quota && (info.weeklyLessons ?? 0) > info.quota
+                        ? "border-destructive/40 bg-destructive-soft text-destructive"
+                        : "border-border bg-card"
+                    }`}
+                  >
+                    نصاب الحصص الأسبوعي: <b className="num">{info.quota || "غير محدد"}</b>
+                    {" · "}
+                    الحصص في الجدول: <b className="num">{info.weeklyLessons ?? 0}</b>
+                    {info.quota ? (
+                      <span className="num">
+                        {" "}
+                        (
+                        {(info.weeklyLessons ?? 0) >= info.quota
+                          ? (info.weeklyLessons ?? 0) > info.quota
+                            ? `زيادة ${(info.weeklyLessons ?? 0) - info.quota}`
+                            : "مكتمل"
+                          : `متبقٍ ${info.quota - (info.weeklyLessons ?? 0)}`}
+                        )
+                      </span>
+                    ) : null}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {(filterOptions.subjects.length > 1 || filterOptions.sections.length > 1) && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                <select
+                  value={subjectOn}
+                  onChange={(e) => setSubjectFilter(e.target.value)}
+                  className="h-8 rounded-lg border border-input bg-background px-2"
+                >
+                  <option value="">كل المواد</option>
+                  {filterOptions.subjects.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                {filterOptions.sections.length > 1 && (
+                  <select
+                    value={sectionOn}
+                    onChange={(e) => setSectionFilter(e.target.value)}
+                    className="h-8 rounded-lg border border-input bg-background px-2"
+                  >
+                    <option value="">كل الشعب</option>
+                    {filterOptions.sections.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {(subjectOn || sectionOn) && (
+                  <>
+                    <span className="text-muted-foreground">{byCell.size} حصة</span>
+                    <button
+                      onClick={() => {
+                        setSubjectFilter("");
+                        setSectionFilter("");
+                      }}
+                      className="text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      مسح
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
             {!hasLessons && (
               <p className="mb-3 rounded-xl border border-dashed border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
                 لا توجد حصص مجدولة هذا الأسبوع — الشبكة تعرض أوقات الحصص كما هي معرّفة.
