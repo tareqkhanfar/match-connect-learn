@@ -40,6 +40,7 @@ const STAFF_PATHS: Partial<Record<StaffRole, string[]>> = {
     ...ALWAYS,
     "/app/students",
     "/app/attendance",
+    "/app/absence-report",
     "/app/timetable",
     "/app/exams",
     "/app/gradebook",

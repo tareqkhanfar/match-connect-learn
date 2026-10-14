@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as MarksRouteImport } from './routes/marks'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppAbsenceReportRouteImport } from './routes/app.absence-report'
 import { Route as AppActivitiesRouteImport } from './routes/app.activities'
 import { Route as AppAdmissionRequestsRouteImport } from './routes/app.admission-requests'
 import { Route as AppAdmissionsRouteImport } from './routes/app.admissions'
@@ -103,6 +104,11 @@ const MarksRoute = MarksRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAbsenceReportRoute = AppAbsenceReportRouteImport.update({
+  id: '/absence-report',
+  path: '/absence-report',
   getParentRoute: () => AppRoute,
 } as any)
 const AppActivitiesRoute = AppActivitiesRouteImport.update({
@@ -466,6 +472,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/marks': typeof MarksRoute
+  '/app/absence-report': typeof AppAbsenceReportRoute
   '/app/activities': typeof AppActivitiesRoute
   '/app/admission-requests': typeof AppAdmissionRequestsRoute
   '/app/admissions': typeof AppAdmissionsRoute
@@ -542,6 +549,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/marks': typeof MarksRoute
+  '/app/absence-report': typeof AppAbsenceReportRoute
   '/app/activities': typeof AppActivitiesRoute
   '/app/admission-requests': typeof AppAdmissionRequestsRoute
   '/app/admissions': typeof AppAdmissionsRoute
@@ -620,6 +628,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/marks': typeof MarksRoute
+  '/app/absence-report': typeof AppAbsenceReportRoute
   '/app/activities': typeof AppActivitiesRoute
   '/app/admission-requests': typeof AppAdmissionRequestsRoute
   '/app/admissions': typeof AppAdmissionsRoute
@@ -699,6 +708,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/marks'
+    | '/app/absence-report'
     | '/app/activities'
     | '/app/admission-requests'
     | '/app/admissions'
@@ -775,6 +785,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/marks'
+    | '/app/absence-report'
     | '/app/activities'
     | '/app/admission-requests'
     | '/app/admissions'
@@ -852,6 +863,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/marks'
+    | '/app/absence-report'
     | '/app/activities'
     | '/app/admission-requests'
     | '/app/admissions'
@@ -960,6 +972,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/absence-report': {
+      id: '/app/absence-report'
+      path: '/absence-report'
+      fullPath: '/app/absence-report'
+      preLoaderRoute: typeof AppAbsenceReportRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/activities': {
@@ -1463,6 +1482,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAbsenceReportRoute: typeof AppAbsenceReportRoute
   AppActivitiesRoute: typeof AppActivitiesRoute
   AppAdmissionRequestsRoute: typeof AppAdmissionRequestsRoute
   AppAdmissionsRoute: typeof AppAdmissionsRoute
@@ -1538,6 +1558,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAbsenceReportRoute: AppAbsenceReportRoute,
   AppActivitiesRoute: AppActivitiesRoute,
   AppAdmissionRequestsRoute: AppAdmissionRequestsRoute,
   AppAdmissionsRoute: AppAdmissionsRoute,

@@ -45,6 +45,7 @@ import {
   BookMarked,
   ClipboardList,
   UserPlus,
+  UserX,
   FileChartColumn,
   type LucideIcon,
 } from "lucide-react";
@@ -508,6 +509,17 @@ export const navItems: NavItem[] = [
     icon: ClipboardCheck,
     roles: ["admin", "secretary", "teacher"],
     group: "العلامات والتقييم",
+  },
+  {
+    // Who was absent on any day, with their guardians, and the patterns
+    // behind it. Each role sees its own reach (absence_report._scope).
+    label: "تقرير الغياب",
+    labelByRole: { student: "غيابي", parent: "غياب الأبناء" },
+    to: "/app/absence-report",
+    icon: UserX,
+    roles: ["admin", "secretary", "teacher", "student", "parent"],
+    group: "المتابعة اليومية",
+    groupByRole: { student: "دراستي", parent: "متابعة الأبناء" },
   },
   {
     // The vice principal's view over the teachers: marks entry, activity,
