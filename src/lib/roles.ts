@@ -59,7 +59,14 @@ const STAFF_PATHS: Partial<Record<StaffRole, string[]>> = {
     "/app/calendar",
     "/app/subjects",
   ],
-  nurse: [...ALWAYS, "/app/health", "/app/health-reports", "/app/forms/nursing", "/app/calendar"],
+  nurse: [
+    ...ALWAYS,
+    "/app/health",
+    "/app/health-reports",
+    "/app/forms/nursing",
+    "/app/absence-report",
+    "/app/calendar",
+  ],
 };
 const FINANCE_PATHS = ["/app/fees"];
 

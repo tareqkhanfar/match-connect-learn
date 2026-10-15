@@ -439,6 +439,7 @@ function Builder({
               count={draft.layout.blocks.length}
               cards={catalog.data?.cards ?? []}
               pageLabels={pageLabels}
+              audience={[...new Set([...draft.personas, ...draft.defaultRoles])]}
               onChange={(patch) => updateBlock(block.id, patch)}
               onMove={(by) => setBlocks((bs) => moveIn(bs, index, by))}
               onRemove={() => setBlocks((bs) => bs.filter((b) => b.id !== block.id))}
@@ -555,6 +556,7 @@ function BlockEditor({
   count,
   cards,
   pageLabels,
+  audience,
   onChange,
   onMove,
   onRemove,
@@ -568,6 +570,8 @@ function BlockEditor({
   count: number;
   cards: Array<{ key: string; label: string; personas: Role[] }>;
   pageLabels: Record<string, { title: string; icon: string }>;
+  /** The roles this workspace is given to — a button one of them cannot open is flagged. */
+  audience: SchoolRole[];
   onChange: (patch: Partial<WsBlock>) => void;
   onMove: (by: number) => void;
   onRemove: () => void;
@@ -658,6 +662,12 @@ function BlockEditor({
             {(block.items ?? []).map((item, i) => {
               const r = resolveItem(item, "admin", pageLabels);
               const Icon = r?.icon ?? wsIcon(item.icon);
+              // The workspace hides what a role cannot open; say so here, not
+              // only on the role's screen where the button silently is not.
+              const hiddenFor = audience.filter((role) => {
+                const v = viewOf(role);
+                return resolveItem(item, v.role, pageLabels, v.allows) === null;
+              });
               return (
                 <div
                   key={item.id}
@@ -681,6 +691,15 @@ function BlockEditor({
                         ? (pageLabels[item.target]?.title ?? item.target)
                         : item.target}
                     </span>
+                    {hiddenFor.length > 0 && (
+                      <span
+                        className="mt-0.5 block text-[10px] font-medium text-warm-foreground"
+                        title="مساحة العمل ترتّب الشاشات ولا تمنحها: الزر لا يظهر لدور لا يصل إلى هذه الشاشة."
+                      >
+                        لن يظهر لـ: {hiddenFor.map((role) => schoolRoleLabels[role]).join("، ")}{" "}
+                        (خارج صلاحيات الدور)
+                      </span>
+                    )}
                   </span>
                   <button
                     onClick={() => onMoveItem(i, -1)}
