@@ -8702,6 +8702,11 @@ export interface StaffMember {
   /** سكرتارية، نائب المدير، مشرف، ممرض. */
   role: StaffRoleKey;
   roleLabel: string;
+  /** What the login actually works as: a stronger role left on the account wins. */
+  effectiveRole?: string;
+  effectiveRoleLabel?: string;
+  /** The account works as something other than the file says. Saving the file fixes it. */
+  roleConflict?: boolean;
   /** A supervisor's grades (Program ids) and sections. */
   supervisedPrograms: string[];
   supervisedGroups: Array<{ id: string; label: string }>;

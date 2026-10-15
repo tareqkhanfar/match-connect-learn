@@ -168,10 +168,13 @@ function SecretariesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{s.fullName}</p>
                   <p className="truncate text-xs text-muted-foreground">{s.jobTitle || "—"}</p>
-                  <div className="mt-1">
+                  <div className="mt-1 flex flex-wrap gap-1">
                     <Pill tone={ROLE_TONE[s.role || "secretary"]}>
                       {s.roleLabel || ROLE_INFO[s.role || "secretary"].label}
                     </Pill>
+                    {s.roleConflict && (
+                      <Pill tone="danger">يعمل فعلياً كـ {s.effectiveRoleLabel}</Pill>
+                    )}
                   </div>
                 </div>
                 <Pill tone={s.status === "Active" ? "success" : "muted"}>
@@ -344,6 +347,12 @@ export function StaffDialog({
               </div>
               <p className="text-[11px] text-muted-foreground">{ROLE_INFO[staffRole].hint}</p>
             </div>
+            {staff?.roleConflict && (
+              <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs leading-relaxed text-destructive sm:col-span-2">
+                هذا الحساب يحمل دوراً أعلى ({staff.effectiveRoleLabel}) فيعمل به بدل «
+                {ROLE_INFO[staffRole].label}». الحفظ يُزيل عنه الأدوار الأعلى ليعمل بالدور المختار.
+              </p>
+            )}
             {staffRole === "supervisor" && (
               <div className="space-y-2 rounded-xl border border-warning/40 bg-warning/5 p-3 sm:col-span-2">
                 <p className="text-xs font-bold">يشرف على</p>
