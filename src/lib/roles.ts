@@ -31,6 +31,7 @@ const ALWAYS = [
   "/app/w",
   "/app/p",
   "/app/security",
+  "/app/profile",
   "/app/help",
   "/app/mail",
   "/app/community",

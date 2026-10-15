@@ -16,8 +16,10 @@ function initials(name: string) {
 }
 
 export function UserMenu() {
-  const { session, role, theme, toggleTheme, signOut, roleLabel } = useApp();
+  const { session, role, theme, toggleTheme, signOut, roleLabel, allows } = useApp();
   const navigate = useNavigate();
+  // The nurse and the supervisor have no messages screen; their help centre stands in.
+  const supportPath = allows("/app/communication") ? "/app/communication" : "/app/help";
   const displayName = session?.name || session?.email || "مستخدم";
 
   return (
@@ -90,7 +92,7 @@ export function UserMenu() {
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild className="gap-2">
-          <Link to="/app/communication">
+          <Link to={supportPath}>
             <LifeBuoy className="size-4" />
             المساعدة والدعم
           </Link>
