@@ -2,6 +2,9 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { AccessGuard } from "@/components/shared/access-guard";
+import { ForcePasswordChange } from "@/components/shared/force-password-change";
+import { TableToolsHost } from "@/components/shared/table-tools";
 import { useApp } from "@/lib/app-context";
 import { landOnDefault, useActiveWorkspace } from "@/lib/active-workspace";
 
@@ -23,6 +26,10 @@ function AppLayout() {
   const { session } = useApp();
   const workspace = useActiveWorkspace();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const search = useRouterState({ select: (s) => s.location.search as Record<string, unknown> });
+  // Screens a school works in for hours open in a tab of their own, with no
+  // sidebar or header around them: only these, and only when asked.
+  const bare = FULL_SCREEN.has(pathname) && Boolean(search["full"]);
   useEffect(() => {
     if (!session?.user || workspace.loading) return;
     const to = landOnDefault(session.user, workspace.defaultId, pathname);
@@ -42,9 +49,23 @@ function AppLayout() {
     );
   }
 
+  if (bare) {
+    return (
+      <div dir="rtl" className="min-h-screen bg-background px-3 py-3">
+        <AccessGuard>
+          <Outlet />
+        </AccessGuard>
+        <TableToolsHost />
+        <ForcePasswordChange />
+      </div>
+    );
+  }
+
   return (
     <AppShell>
       <Outlet />
     </AppShell>
   );
 }
+
+const FULL_SCREEN = new Set(["/app/timetable-school"]);

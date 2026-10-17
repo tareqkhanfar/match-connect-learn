@@ -1,5 +1,5 @@
 import { memo, useState, type ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Pencil } from "lucide-react";
 import type { SchoolSheet, SheetSlot } from "@/lib/api/school-timetable";
 import {
   cellId,
@@ -42,8 +42,11 @@ interface GridProps {
   focusKeys: Set<string>;
   selected: CellAddress | null;
   showTimes: boolean;
-  /** The page's header is folded away: the sheet takes the screen. */
-  tall?: boolean;
+  /** How much of the screen the sheet takes: more with the header folded, most in its own tab. */
+  size?: "normal" | "tall" | "full";
+  /** Teacher view: النصاب edited in its own column. */
+  quotaOf?: (teacher: string) => number;
+  onQuota?: (teacher: string, quota: number) => void;
   endLabel: string;
   footerLabel: string;
   footer: (day: string, period: number) => { value: number; title: string; tone?: "warn" | "ok" };
@@ -58,14 +61,18 @@ interface GridProps {
  * period — the paper timetable, with the checks drawn on it.
  */
 export function SheetGrid(props: GridProps) {
-  const { days, periods, rows, showTimes, tall, endLabel, footerLabel, footer } = props;
+  const { days, periods, rows, showTimes, size = "normal", endLabel, footerLabel, footer } = props;
   const [dragRow, setDragRow] = useState<string | null>(null);
 
   return (
     <div
       className={cn(
         "relative overflow-auto rounded-xl border border-border",
-        tall ? "max-h-[calc(100vh-205px)]" : "max-h-[72vh]",
+        size === "full"
+          ? "max-h-[calc(100vh-110px)]"
+          : size === "tall"
+            ? "max-h-[calc(100vh-205px)]"
+            : "max-h-[72vh]",
       )}
       dir="rtl"
     >
@@ -195,6 +202,8 @@ const GridRow = memo(function GridRow({
   onMove,
   dragRow,
   setDragRow,
+  quotaOf,
+  onQuota,
 }: GridProps & {
   row: Extract<SheetRow, { type: "row" }>;
   dragRow: string | null;
@@ -358,8 +367,78 @@ const GridRow = memo(function GridRow({
           row.endTone === "ok" && "text-success",
         )}
       >
-        {row.end}
+        {view === "teachers" && onQuota && quotaOf ? (
+          <QuotaCell
+            teacher={row.id}
+            placed={(index.teacherSlots.get(row.id) ?? []).length}
+            quota={quotaOf(row.id)}
+            onSave={onQuota}
+          />
+        ) : (
+          row.end
+        )}
       </td>
     </tr>
   );
 });
+
+/** النصاب, edited where it is read: click, type, Enter. */
+function QuotaCell({
+  teacher,
+  placed,
+  quota,
+  onSave,
+}: {
+  teacher: string;
+  placed: number;
+  quota: number;
+  onSave: (teacher: string, quota: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(quota || ""));
+  if (editing) {
+    const commit = () => {
+      setEditing(false);
+      const next = Math.max(0, Math.round(Number(value) || 0));
+      if (next !== quota) onSave(teacher, next);
+    };
+    return (
+      <span className="flex items-center justify-center gap-0.5">
+        <span className="text-muted-foreground">{placed}/</span>
+        <input
+          autoFocus
+          type="number"
+          min={0}
+          max={60}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setValue(String(quota || ""));
+              setEditing(false);
+            }
+          }}
+          className="num h-6 w-10 rounded border border-primary bg-background px-1 text-center text-[11px]"
+          aria-label="النصاب الأسبوعي"
+        />
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setValue(String(quota || ""));
+        setEditing(true);
+      }}
+      title={quota ? `النصاب ${quota} — انقر للتعديل` : "لا نصاب محدّد — انقر لتحديده"}
+      className="group/q inline-flex items-center gap-1 rounded px-1 py-0.5 hover:bg-secondary"
+    >
+      {quota ? `${placed}/${quota}` : placed}
+      <Pencil className="size-2.5 opacity-0 transition-opacity group-hover/q:opacity-60" />
+    </button>
+  );
+}

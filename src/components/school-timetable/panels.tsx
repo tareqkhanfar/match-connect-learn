@@ -358,10 +358,12 @@ export function LoadTables({
   sheet,
   index,
   onPick,
+  onQuota,
 }: {
   sheet: SchoolSheet;
   index: SheetIndex;
   onPick: (view: SheetView, row: string) => void;
+  onQuota: (teacher: string, quota: number) => void;
 }) {
   const [tab, setTab] = useState<"teachers" | "sections">("teachers");
   const teacherRows = useMemo(
@@ -452,7 +454,9 @@ export function LoadTables({
                   >
                     <td className="px-3 py-1.5 font-semibold">{t.name}</td>
                     <td className="num px-2 text-center font-black">{n}</td>
-                    <td className="num px-2 text-center">{t.quota || "—"}</td>
+                    <td className="px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                      <QuotaInput teacher={t.id} quota={t.quota} onSave={onQuota} />
+                    </td>
                     <td
                       className={cn(
                         "num px-2 text-center font-bold",
@@ -530,5 +534,38 @@ export function LoadTables({
         )}
       </div>
     </section>
+  );
+}
+
+/** A quota typed straight into the teachers' table; saved on Enter or leaving the field. */
+function QuotaInput({
+  teacher,
+  quota,
+  onSave,
+}: {
+  teacher: string;
+  quota: number;
+  onSave: (teacher: string, quota: number) => void;
+}) {
+  const [value, setValue] = useState(String(quota || ""));
+  const commit = () => {
+    const next = Math.max(0, Math.round(Number(value) || 0));
+    if (next !== quota) onSave(teacher, next);
+  };
+  return (
+    <input
+      type="number"
+      min={0}
+      max={60}
+      value={value}
+      placeholder="—"
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+      }}
+      className="num h-7 w-14 rounded-md border border-border bg-background px-1 text-center text-xs focus:border-primary"
+      aria-label="النصاب الأسبوعي"
+    />
   );
 }

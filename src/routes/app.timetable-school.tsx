@@ -1,4 +1,4 @@
-import { createFileRoute, useBlocker } from "@tanstack/react-router";
+import { createFileRoute, useBlocker, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -6,6 +6,9 @@ import {
   CalendarPlus,
   Clipboard,
   Eraser,
+  ExternalLink,
+  Expand,
+  Shrink,
   FileSpreadsheet,
   Loader2,
   PanelTopClose,
@@ -135,6 +138,33 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
     sort: "name",
   });
   const [showTimes, setShowTimes] = useState(false);
+  // Opened from «فتح في تاب جديد»: no sidebar or header around the page.
+  const full = useRouterState({
+    select: (s) => Boolean((s.location.search as Record<string, unknown>)["full"]),
+  });
+  const [screenFull, setScreenFull] = useState(false);
+  useEffect(() => {
+    const sync = () => setScreenFull(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  function toggleScreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else
+      void document.documentElement
+        .requestFullscreen?.()
+        .catch(() => toast.error("المتصفح لم يسمح بملء الشاشة"));
+  }
+  function openTab() {
+    if (
+      dirty &&
+      !window.confirm(
+        "التعديلات غير المحفوظة لا تنتقل إلى التاب الجديد — احفظها أولاً لتظهر فيه. فتح التاب على أي حال؟",
+      )
+    )
+      return;
+    window.open("/app/timetable-school?full=1", "_blank", "noopener");
+  }
   // The header — title, figures, filters — folds away so the sheet gets the
   // screen. Remembered per browser: whoever builds the week wants it the same
   // way next time.
@@ -477,7 +507,12 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
       return;
     }
     try {
-      const r = await save.mutateAsync({ slots, limits: limitEdits });
+      const present = new Set(slots.map((s) => s.id).filter(Boolean));
+      const r = await save.mutateAsync({
+        changes: slots.filter((s) => differs(s, original)),
+        deletes: [...original.keys()].filter((id) => !present.has(id)),
+        limits: limitEdits,
+      });
       const fresh = fromServer(r.slots);
       setSlots(fresh);
       setOriginal(new Map(fresh.map((s) => [s.id, s])));
@@ -828,6 +863,15 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
           icon={headerHidden ? PanelTopOpen : PanelTopClose}
           label={headerHidden ? "إظهار الهيدر" : "إخفاء الهيدر"}
         />
+        {full ? (
+          <ToolButton
+            onClick={toggleScreen}
+            icon={screenFull ? Shrink : Expand}
+            label={screenFull ? "إنهاء ملء الشاشة" : "ملء الشاشة"}
+          />
+        ) : (
+          <ToolButton onClick={openTab} icon={ExternalLink} label="فتح في تاب جديد" />
+        )}
         {headerHidden && (
           <>
             <span
@@ -1046,7 +1090,9 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
           focusKeys={focusKeys}
           selected={selected}
           showTimes={showTimes}
-          tall={headerHidden}
+          size={headerHidden ? (full ? "full" : "tall") : "normal"}
+          quotaOf={(t) => index.teachers.get(t)?.quota ?? 0}
+          onQuota={(t, q) => void saveQuota(t, q)}
           endLabel={view === "teachers" ? "النصاب" : "الحصص"}
           footerLabel={view === "teachers" ? "شعب بلا حصة" : "معلمون متاحون"}
           footer={footer}
@@ -1078,6 +1124,7 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
       <LoadTables
         sheet={sheet}
         index={index}
+        onQuota={(t, q) => void saveQuota(t, q)}
         onPick={(v, row) => {
           setView(v);
           setSelected({

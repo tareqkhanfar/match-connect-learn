@@ -119,9 +119,16 @@ export interface SaveResult {
 
 export function useSaveSheet() {
   return useMutation({
-    mutationFn: (vars: { slots: SheetSlot[]; limits?: Record<string, number> }) =>
+    // Only what changed: laid over the week as it stands on the server, so a
+    // second tab that loaded earlier cannot undo what another saved since.
+    mutationFn: (vars: {
+      changes: SheetSlot[];
+      deletes: string[];
+      limits?: Record<string, number>;
+    }) =>
       apiPost<SaveResult>("school_timetable.save", {
-        slots: JSON.stringify(vars.slots),
+        changes: JSON.stringify(vars.changes),
+        deletes: JSON.stringify(vars.deletes),
         limits: JSON.stringify(vars.limits ?? {}),
       }),
   });
