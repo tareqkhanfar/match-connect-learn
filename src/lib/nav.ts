@@ -39,6 +39,7 @@ import {
   Ticket,
   FileQuestion,
   CalendarCog,
+  Sheet,
   CalendarClock,
   FolderOpen,
   UserCheck,
@@ -381,6 +382,15 @@ export const navItems: NavItem[] = [
     label: "جدول اليوم والمناوبات",
     to: "/app/day-schedule",
     icon: CalendarClock,
+    roles: ["admin", "secretary"],
+    group: "الجداول والمواعيد",
+  },
+  {
+    // The whole school on one sheet, as it is drawn on paper: a row per
+    // teacher, a column per period. The two screens below edit the same week.
+    label: "بناء الجدول الدراسي للمدرسة",
+    to: "/app/timetable-school",
+    icon: Sheet,
     roles: ["admin", "secretary"],
     group: "الجداول والمواعيد",
   },

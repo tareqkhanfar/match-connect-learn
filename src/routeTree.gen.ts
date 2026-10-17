@@ -66,6 +66,7 @@ import { Route as AppTermRouteImport } from './routes/app.term'
 import { Route as AppTimetableRouteImport } from './routes/app.timetable'
 import { Route as AppTimetableBuilderRouteImport } from './routes/app.timetable-builder'
 import { Route as AppTimetableGridRouteImport } from './routes/app.timetable-grid'
+import { Route as AppTimetableSchoolRouteImport } from './routes/app.timetable-school'
 import { Route as AppTimetableTeacherRouteImport } from './routes/app.timetable-teacher'
 import { Route as AppTransfersRouteImport } from './routes/app.transfers'
 import { Route as AppTransportRouteImport } from './routes/app.transport'
@@ -371,6 +372,11 @@ const AppTimetableGridRoute = AppTimetableGridRouteImport.update({
   path: '/timetable-grid',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTimetableSchoolRoute = AppTimetableSchoolRouteImport.update({
+  id: '/timetable-school',
+  path: '/timetable-school',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTimetableTeacherRoute = AppTimetableTeacherRouteImport.update({
   id: '/timetable-teacher',
   path: '/timetable-teacher',
@@ -525,6 +531,7 @@ export interface FileRoutesByFullPath {
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
+  '/app/timetable-school': typeof AppTimetableSchoolRoute
   '/app/timetable-teacher': typeof AppTimetableTeacherRoute
   '/app/transfers': typeof AppTransfersRoute
   '/app/transport': typeof AppTransportRoute
@@ -602,6 +609,7 @@ export interface FileRoutesByTo {
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
+  '/app/timetable-school': typeof AppTimetableSchoolRoute
   '/app/timetable-teacher': typeof AppTimetableTeacherRoute
   '/app/transfers': typeof AppTransfersRoute
   '/app/transport': typeof AppTransportRoute
@@ -681,6 +689,7 @@ export interface FileRoutesById {
   '/app/timetable': typeof AppTimetableRoute
   '/app/timetable-builder': typeof AppTimetableBuilderRoute
   '/app/timetable-grid': typeof AppTimetableGridRoute
+  '/app/timetable-school': typeof AppTimetableSchoolRoute
   '/app/timetable-teacher': typeof AppTimetableTeacherRoute
   '/app/transfers': typeof AppTransfersRoute
   '/app/transport': typeof AppTransportRoute
@@ -761,6 +770,7 @@ export interface FileRouteTypes {
     | '/app/timetable'
     | '/app/timetable-builder'
     | '/app/timetable-grid'
+    | '/app/timetable-school'
     | '/app/timetable-teacher'
     | '/app/transfers'
     | '/app/transport'
@@ -838,6 +848,7 @@ export interface FileRouteTypes {
     | '/app/timetable'
     | '/app/timetable-builder'
     | '/app/timetable-grid'
+    | '/app/timetable-school'
     | '/app/timetable-teacher'
     | '/app/transfers'
     | '/app/transport'
@@ -916,6 +927,7 @@ export interface FileRouteTypes {
     | '/app/timetable'
     | '/app/timetable-builder'
     | '/app/timetable-grid'
+    | '/app/timetable-school'
     | '/app/timetable-teacher'
     | '/app/transfers'
     | '/app/transport'
@@ -1345,6 +1357,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTimetableGridRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/timetable-school': {
+      id: '/app/timetable-school'
+      path: '/timetable-school'
+      fullPath: '/app/timetable-school'
+      preLoaderRoute: typeof AppTimetableSchoolRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/timetable-teacher': {
       id: '/app/timetable-teacher'
       path: '/timetable-teacher'
@@ -1535,6 +1554,7 @@ interface AppRouteChildren {
   AppTimetableRoute: typeof AppTimetableRoute
   AppTimetableBuilderRoute: typeof AppTimetableBuilderRoute
   AppTimetableGridRoute: typeof AppTimetableGridRoute
+  AppTimetableSchoolRoute: typeof AppTimetableSchoolRoute
   AppTimetableTeacherRoute: typeof AppTimetableTeacherRoute
   AppTransfersRoute: typeof AppTransfersRoute
   AppTransportRoute: typeof AppTransportRoute
@@ -1611,6 +1631,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTimetableRoute: AppTimetableRoute,
   AppTimetableBuilderRoute: AppTimetableBuilderRoute,
   AppTimetableGridRoute: AppTimetableGridRoute,
+  AppTimetableSchoolRoute: AppTimetableSchoolRoute,
   AppTimetableTeacherRoute: AppTimetableTeacherRoute,
   AppTransfersRoute: AppTransfersRoute,
   AppTransportRoute: AppTransportRoute,
