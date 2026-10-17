@@ -42,6 +42,8 @@ interface GridProps {
   focusKeys: Set<string>;
   selected: CellAddress | null;
   showTimes: boolean;
+  /** The page's header is folded away: the sheet takes the screen. */
+  tall?: boolean;
   endLabel: string;
   footerLabel: string;
   footer: (day: string, period: number) => { value: number; title: string; tone?: "warn" | "ok" };
@@ -56,11 +58,17 @@ interface GridProps {
  * period — the paper timetable, with the checks drawn on it.
  */
 export function SheetGrid(props: GridProps) {
-  const { days, periods, rows, showTimes, endLabel, footerLabel, footer } = props;
+  const { days, periods, rows, showTimes, tall, endLabel, footerLabel, footer } = props;
   const [dragRow, setDragRow] = useState<string | null>(null);
 
   return (
-    <div className="relative max-h-[72vh] overflow-auto rounded-xl border border-border" dir="rtl">
+    <div
+      className={cn(
+        "relative overflow-auto rounded-xl border border-border",
+        tall ? "max-h-[calc(100vh-205px)]" : "max-h-[72vh]",
+      )}
+      dir="rtl"
+    >
       <table data-no-tools className="border-separate border-spacing-0 text-center text-xs">
         <thead className="sticky top-0 z-20">
           <tr>

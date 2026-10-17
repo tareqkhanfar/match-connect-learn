@@ -8,6 +8,8 @@ import {
   Eraser,
   FileSpreadsheet,
   Loader2,
+  PanelTopClose,
+  PanelTopOpen,
   Printer,
   RefreshCw,
   Redo2,
@@ -92,6 +94,7 @@ function SchoolTimetablePage() {
   );
 }
 
+const HEADER_KEY = "ms-timetable-school-header-hidden";
 let seq = 0;
 const newKey = () => `n${Date.now().toString(36)}${(seq++).toString(36)}`;
 const fromServer = (slots: SchoolSheet["slots"]): SheetSlot[] =>
@@ -132,6 +135,26 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
     sort: "name",
   });
   const [showTimes, setShowTimes] = useState(false);
+  // The header — title, figures, filters — folds away so the sheet gets the
+  // screen. Remembered per browser: whoever builds the week wants it the same
+  // way next time.
+  const [headerHidden, setHeaderHidden] = useState(() => {
+    try {
+      return localStorage.getItem(HEADER_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  function toggleHeader() {
+    setHeaderHidden((h) => {
+      try {
+        localStorage.setItem(HEADER_KEY, h ? "0" : "1");
+      } catch {
+        /* private window: the choice lasts this visit only */
+      }
+      return !h;
+    });
+  }
   const [selected, setSelected] = useState<CellAddress | null>(null);
   const [picker, setPicker] = useState<CellTarget | null>(null);
   const [hoverKeys, setHoverKeys] = useState<string[] | null>(null);
@@ -715,10 +738,12 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="بناء الجدول الدراسي للمدرسة"
-        subtitle="المدرسة كلها على ورقة واحدة — صف لكل معلم أو شعبة، وعمود لكل حصة. التعارضات تظهر بالأحمر لحظة حدوثها."
-      />
+      {!headerHidden && (
+        <PageHeader
+          title="بناء الجدول الدراسي للمدرسة"
+          subtitle="المدرسة كلها على ورقة واحدة — صف لكل معلم أو شعبة، وعمود لكل حصة. التعارضات تظهر بالأحمر لحظة حدوثها."
+        />
+      )}
 
       {running && jobState && (
         <div className="card-surface flex flex-wrap items-center gap-3 border-primary/30 p-3">
@@ -746,7 +771,12 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div
+        className={cn(
+          "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6",
+          headerHidden && "hidden",
+        )}
+      >
         <StatTile
           label="الحصص في الجدول"
           value={slots.length}
@@ -793,6 +823,35 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
 
       {/* Actions */}
       <div className="card-surface flex flex-wrap items-center gap-2 p-3">
+        <ToolButton
+          onClick={toggleHeader}
+          icon={headerHidden ? PanelTopOpen : PanelTopClose}
+          label={headerHidden ? "إظهار الهيدر" : "إخفاء الهيدر"}
+        />
+        {headerHidden && (
+          <>
+            <span
+              className={cn(
+                "num rounded-full px-2 py-0.5 text-[11px] font-bold",
+                check.errors
+                  ? "bg-destructive-soft text-destructive"
+                  : "bg-success-soft text-success",
+              )}
+            >
+              {check.errors ? `${check.errors} خطأ` : "بلا أخطاء"}
+            </span>
+            {anyFilter && (
+              <button
+                onClick={toggleHeader}
+                className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-bold text-primary"
+                title="الفلاتر في الهيدر — اضغط لإظهاره"
+              >
+                فلاتر مفعّلة
+              </button>
+            )}
+          </>
+        )}
+        <div className="mx-1 h-6 w-px bg-border" />
         <Segmented
           value={view}
           onChange={(v) => {
@@ -880,7 +939,12 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
       </div>
 
       {/* Filters */}
-      <div className="card-surface flex flex-wrap items-center gap-2 p-3">
+      <div
+        className={cn(
+          "card-surface flex flex-wrap items-center gap-2 p-3",
+          headerHidden && "hidden",
+        )}
+      >
         <div className="relative w-full sm:w-52">
           <Search className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -982,6 +1046,7 @@ function Builder({ sheet: loaded, reload }: { sheet: SchoolSheet; reload: () => 
           focusKeys={focusKeys}
           selected={selected}
           showTimes={showTimes}
+          tall={headerHidden}
           endLabel={view === "teachers" ? "النصاب" : "الحصص"}
           footerLabel={view === "teachers" ? "شعب بلا حصة" : "معلمون متاحون"}
           footer={footer}
