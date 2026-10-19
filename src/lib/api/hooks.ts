@@ -2092,6 +2092,10 @@ export interface SchemeComponent {
   /** The category this assessment sits under, from the assessment plan. */
   category?: string | null;
   quarter?: string | null;
+  /** Added from this class's sheet: the other sections do not have it. */
+  sectionOnly?: boolean;
+  /** This class's own maximum, changed from its sheet. */
+  sectionOverride?: boolean;
 }
 
 export interface GradeScheme {
@@ -2208,6 +2212,8 @@ export function useSetAggregation() {
       mode: "sum" | "average" | "best_n" | "worst_drop";
       n?: number;
       program?: string;
+      /** The class whose sheet this is — the rule is that class's own. */
+      student_group?: string;
     }) =>
       apiPost<{ component: string; mode: string; n: number; message_ar?: string }>(
         "gradebook.set_aggregation",
@@ -6293,6 +6299,17 @@ export function useAssessmentPlan(course?: string, academicTerm?: string) {
     quarters: PlanQuarter[];
     unassigned: PlanCategory[];
     orphans: PlanAssessment[];
+    /** What sections changed for themselves from their marks sheets. */
+    sectionChanges?: Array<{
+      id: string;
+      studentGroup: string;
+      section: string;
+      kind: "assessment" | "override";
+      component: string;
+      change: string;
+      setBy: string;
+      setOn: string;
+    }>;
     canEdit: boolean;
   }>({
     queryKey: ["assessment-plan", course, academicTerm ?? "current"],

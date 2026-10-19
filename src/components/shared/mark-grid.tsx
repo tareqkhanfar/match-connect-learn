@@ -1018,6 +1018,7 @@ export function MarkGrid({
       {aggFor && parentOf(aggFor) && (
         <AggregationDialog
           parent={parentOf(aggFor)!}
+          group={group}
           course={course}
           preview={(mode, n) => {
             // Shown on the first student with marks, so the choice is judged
@@ -1300,6 +1301,18 @@ export function MarkGrid({
                         <span className="num block text-[10px] text-muted-foreground">
                           / {c.max_score}
                           {c.weight ? ` · وزن ${c.weight}` : ""}
+                          {(c.sectionOnly || c.sectionOverride) && (
+                            <span
+                              className="ms-1 rounded bg-info-soft px-1 font-semibold text-info"
+                              title={
+                                c.sectionOnly
+                                  ? "امتحان أُضيف من ورقة هذه الشعبة — لا يظهر في الشعب الأخرى"
+                                  : "علامته العظمى عُدّلت لهذه الشعبة فقط"
+                              }
+                            >
+                              لهذه الشعبة
+                            </span>
+                          )}
                         </span>
                       </span>
                       {canEdit && (
@@ -2002,12 +2015,13 @@ function CalcDialog({
  * three, or the mean of their percentages when one is out of 20 and another
  * out of 5. The plan had no way to say which, so everything was summed.
  *
- * The choice is saved on the plan and applies to every class sitting it — a
- * teacher who counts the best three means it for the whole cohort. The preview
- * shows the effect on a real student before anything is written.
+ * The choice is this class's own: another section of the same subject keeps
+ * its own way of counting. The preview shows the effect on a real student
+ * before anything is written.
  */
 function AggregationDialog({
   parent,
+  group,
   course,
   preview,
   onClose,
@@ -2020,6 +2034,7 @@ function AggregationDialog({
     aggregation: "sum" | "average" | "best_n" | "worst_drop";
     aggregation_n: number;
   };
+  group: string;
   course: string;
   preview: (mode: string, n: number) => { name: string; earned: number; outOf: number } | null;
   onClose: () => void;
@@ -2036,6 +2051,7 @@ function AggregationDialog({
   async function apply() {
     try {
       const res = await setAggregation.mutateAsync({
+        student_group: group,
         course,
         component_name: parent.component_name,
         mode,
@@ -2194,9 +2210,7 @@ function AddAssessmentDialog({
         name: name.trim(),
         max_score: Number(max),
       });
-      toast.success(
-        `أُضيف «${name.trim()}» تحت «${parent.component_name}» — يظهر لكل شعب هذه المادة`,
-      );
+      toast.success(`أُضيف «${name.trim()}» تحت «${parent.component_name}» — لهذه الشعبة فقط`);
       onClose();
     } catch (err) {
       toast.error(errorMessage(err, "تعذّرت الإضافة"));
@@ -2211,8 +2225,8 @@ function AddAssessmentDialog({
         </DialogHeader>
         <div className="space-y-3 text-sm">
           <p className="rounded-xl bg-secondary/60 p-3 text-xs leading-6 text-muted-foreground">
-            وزن البند يبقى كما هو ({parent.weight}%) — يتوزّع على امتحاناته حسب علامة كل منها. يظهر
-            الامتحان الجديد لكل شعب هذه المادة التي تتبع الخطة نفسها.
+            وزن البند يبقى كما هو ({parent.weight}%) — يتوزّع على امتحاناته حسب علامة كل منها.
+            الامتحان الجديد يُضاف لهذه الشعبة فقط، ولا يظهر في شعب المادة الأخرى.
           </p>
           <div className="space-y-1.5">
             <Label>اسم الامتحان</Label>
@@ -2290,7 +2304,9 @@ function AssessmentMaxDialog({
         component_name: column.component_name,
         max_score: value,
       });
-      toast.success(`أصبح «${column.component_name}» من ${value} بدل ${column.max_score}`);
+      toast.success(
+        `أصبح «${column.component_name}» من ${value} بدل ${column.max_score} — لهذه الشعبة فقط`,
+      );
       onClose();
     } catch (err) {
       toast.error(errorMessage(err, "تعذّر التعديل"));
@@ -2309,6 +2325,7 @@ function AssessmentMaxDialog({
               وزن «{parent.component_name}» ثابت ({parent.weight}%) ولا يُعدَّل من هنا. تغيير علامة
               هذا الامتحان يغيّر حصته من البند: مجموع الامتحانات يصبح{" "}
               {parent.children_total - column.max_score + (value || 0)} بدل {parent.children_total}.
+              التعديل لهذه الشعبة فقط.
             </p>
           )}
           <div className="space-y-1.5">

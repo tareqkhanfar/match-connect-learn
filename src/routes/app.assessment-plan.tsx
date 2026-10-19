@@ -373,6 +373,31 @@ function AssessmentPlanPage() {
               />
               <PlanQuarters quarters={subjectQuarters} draft={draft} setDraft={setDraft} />
 
+              {(planQuery.data?.sectionChanges?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-info/30 bg-info-soft/60 p-4 text-sm">
+                  <p className="font-semibold text-info">
+                    تعديلات خاصة بالشعب ({planQuery.data!.sectionChanges!.length})
+                  </p>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    أجراها المعلمون من ورقة علامات شعبة — تسري على تلك الشعبة وحدها، وتبقى عند حفظ
+                    الخطة من هنا.
+                  </p>
+                  <ul className="space-y-1 text-xs">
+                    {planQuery.data!.sectionChanges!.map((c) => (
+                      <li key={c.id} className="flex flex-wrap gap-x-2">
+                        <span className="font-semibold">{c.section}</span>
+                        <span>
+                          «{c.component}»: {c.change}
+                        </span>
+                        <span className="text-muted-foreground">
+                          — {c.setBy} {c.setOn}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {planQuery.data?.orphans && planQuery.data.orphans.length > 0 && (
                 <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
                   <p className="font-semibold text-amber-800">
