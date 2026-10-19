@@ -84,7 +84,7 @@ export function AccessGuard({ children }: { children: ReactNode }) {
         <h1 className="mt-4 text-lg font-black">هذه الشاشة خارج صلاحيات {roleLabel}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {access.staffRole === "nurse"
-            ? "صلاحيات التمريض: الملفات الصحية وزيارات العيادة ونماذج التمريض وتقاريرها."
+            ? "صلاحيات التمريض: الملفات الصحية وزيارات العيادة ونماذج التمريض وتقاريرها، والحضور والغياب."
             : access.staffRole === "supervisor"
               ? "صلاحيات المشرف: الأمور الأكاديمية للشعب والصفوف التي يشرف عليها، للاطلاع فقط."
               : "الأمور المالية غير متاحة لدورك — يفعّلها المدير من إعدادات المدرسة."}

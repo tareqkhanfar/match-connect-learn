@@ -5514,6 +5514,9 @@ export type StudentDossier = {
     age: number | null;
     email: string | null;
     phone: string | null;
+    /** On the student's own file, alongside the guardians' accounts. */
+    fatherMobile?: string;
+    motherMobile?: string;
     joined: string;
     address: string;
     city: string | null;

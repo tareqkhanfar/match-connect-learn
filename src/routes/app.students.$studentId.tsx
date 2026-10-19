@@ -320,6 +320,14 @@ function StudentProfile() {
                   }
                 />
                 <Field
+                  label="جوال الأب"
+                  value={profile.fatherMobile ? <PhoneLink value={profile.fatherMobile} /> : null}
+                />
+                <Field
+                  label="جوال الأم"
+                  value={profile.motherMobile ? <PhoneLink value={profile.motherMobile} /> : null}
+                />
+                <Field
                   label="البريد"
                   value={
                     profile.email ? (
@@ -980,5 +988,15 @@ function StudentProfile() {
         />
       )}
     </>
+  );
+}
+
+/** A number to ring — or nothing, so the field shows its dash. */
+function PhoneLink({ value }: { value?: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <a href={`tel:${value}`} className="hover:text-primary" dir="ltr">
+      {value}
+    </a>
   );
 }

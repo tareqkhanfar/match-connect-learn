@@ -392,6 +392,8 @@ const BLANK_STUDENT = {
   gender: "",
   date_of_birth: "",
   phone: "",
+  father_mobile: "",
+  mother_mobile: "",
   email: "",
   address: "",
   // The rest of what an admission form collects, so a student created
@@ -543,6 +545,26 @@ function AddStudentDialog() {
               onChange={(e) => set("phone", e.target.value)}
               placeholder="0599123456"
               className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>رقم جوال الأب</Label>
+            <Input
+              value={form.father_mobile}
+              onChange={(e) => set("father_mobile", e.target.value)}
+              placeholder="0599123456"
+              dir="ltr"
+              className="rounded-xl text-right"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>رقم جوال الأم</Label>
+            <Input
+              value={form.mother_mobile}
+              onChange={(e) => set("mother_mobile", e.target.value)}
+              placeholder="0599123456"
+              dir="ltr"
+              className="rounded-xl text-right"
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
